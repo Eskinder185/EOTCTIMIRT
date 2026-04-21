@@ -1,0 +1,1406 @@
+[
+  {
+    "route": "home",
+    "path": "/",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\home-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 2432,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "+1 (321) 236-2079",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 1977.25
+        },
+        {
+          "text": "+1 (770) 330-9364",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 2049.25
+        }
+      ],
+      "smallTapTargetCount": 2,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "this-week",
+    "path": "/this-week",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\this-week-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 3409,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 13.390625,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2763.203125
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2839.203125
+        },
+        {
+          "text": "",
+          "width": 16.578125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2915.203125
+        },
+        {
+          "text": "",
+          "width": 16.3125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2981.203125
+        },
+        {
+          "text": "",
+          "width": 19.421875,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3172.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3233.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3289.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3345.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4050.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4106.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4162.203125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4218.203125
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "missed",
+    "path": "/missed",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\missed-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 3080,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 13.390625,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2112.296875
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2188.296875
+        },
+        {
+          "text": "",
+          "width": 16.578125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2264.296875
+        },
+        {
+          "text": "",
+          "width": 16.3125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2330.296875
+        },
+        {
+          "text": "",
+          "width": 19.421875,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2521.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2582.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2638.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2694.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3399.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3455.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3511.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3567.296875
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "mezmurs",
+    "path": "/mezmurs",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\mezmurs-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 2208,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "Open weekly Timirit",
+          "width": 294,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 597
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 294,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 822
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 294,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 1047
+        }
+      ],
+      "smallTapTargetCount": 3,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "past-classes",
+    "path": "/classes",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\past-classes-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 1729,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "contact",
+    "path": "/contact",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\contact-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 1652,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "class-sample",
+    "path": "/class/week-01",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\class-sample-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 800,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "admin-login",
+    "path": "/admin/login",
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\admin-login-360x800.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "clientWidth": 360,
+      "scrollHeight": 800,
+      "bodyScrollWidth": 360,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 453.5
+    }
+  },
+  {
+    "route": "home",
+    "path": "/",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\home-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 2369,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "+1 (321) 236-2079",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 1915
+        },
+        {
+          "text": "+1 (770) 330-9364",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 1987
+        }
+      ],
+      "smallTapTargetCount": 2,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "this-week",
+    "path": "/this-week",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\this-week-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 3289,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 15.203125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2689.328125
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2755.328125
+        },
+        {
+          "text": "",
+          "width": 18.8125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2821.328125
+        },
+        {
+          "text": "",
+          "width": 18.515625,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2887.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3073.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3129.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3185.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3241.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3922.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3978.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4034.328125
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 4090.328125
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "missed",
+    "path": "/missed",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\missed-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 2999,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 15.203125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2078.421875
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2144.421875
+        },
+        {
+          "text": "",
+          "width": 18.8125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2210.421875
+        },
+        {
+          "text": "",
+          "width": 18.515625,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2276.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2462.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2518.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2574.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2630.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3311.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3367.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3423.421875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3479.421875
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "mezmurs",
+    "path": "/mezmurs",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\mezmurs-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 2146,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "Open weekly Timirit",
+          "width": 324,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 597
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 324,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 822
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 324,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 1047
+        }
+      ],
+      "smallTapTargetCount": 3,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "past-classes",
+    "path": "/classes",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\past-classes-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 1673,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "contact",
+    "path": "/contact",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\contact-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 1629,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "class-sample",
+    "path": "/class/week-01",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\class-sample-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 844,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "admin-login",
+    "path": "/admin/login",
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\admin-login-390x844.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "scrollHeight": 844,
+      "bodyScrollWidth": 390,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 483.5
+    }
+  },
+  {
+    "route": "home",
+    "path": "/",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\home-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 2327,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "+1 (321) 236-2079",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 1872.75
+        },
+        {
+          "text": "+1 (770) 330-9364",
+          "width": 116.9375,
+          "height": 19,
+          "display": "inline",
+          "visible": true,
+          "top": 1944.75
+        }
+      ],
+      "smallTapTargetCount": 2,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "this-week",
+    "path": "/this-week",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\this-week-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 3231,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 16.53125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2627.671875
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2693.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2754.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2810.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2991.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3047.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3103.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3159.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3796.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3852.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3908.671875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3964.671875
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "missed",
+    "path": "/missed",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\missed-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 2926,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "",
+          "width": 16.53125,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2001.296875
+        },
+        {
+          "text": "",
+          "width": 13,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2067.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2128.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2184.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2365.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2421.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2477.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 2533.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3170.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3226.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3282.296875
+        },
+        {
+          "text": "",
+          "width": 20,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 3338.296875
+        }
+      ],
+      "smallTapTargetCount": 12,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "mezmurs",
+    "path": "/mezmurs",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\mezmurs-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 2127,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [
+        {
+          "text": "Open weekly Timirit",
+          "width": 346,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 597
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 346,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 822
+        },
+        {
+          "text": "Open weekly Timirit",
+          "width": 346,
+          "height": 20,
+          "display": "block",
+          "visible": true,
+          "top": 1047
+        }
+      ],
+      "smallTapTargetCount": 3,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "past-classes",
+    "path": "/classes",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\past-classes-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 1650,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "contact",
+    "path": "/contact",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\contact-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 1589,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "class-sample",
+    "path": "/class/week-01",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\class-sample-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 915,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 12
+    }
+  },
+  {
+    "route": "admin-login",
+    "path": "/admin/login",
+    "viewport": {
+      "name": "412x915",
+      "width": 412,
+      "height": 915
+    },
+    "screenshotPath": "C:\\Users\\eskew\\Projects\\EOTCTIMIRT\\qa-output\\admin-login-412x915.png",
+    "metrics": {
+      "title": "EOTC Timirt — Mekane Selam St. Michael",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "scrollWidth": 412,
+      "clientWidth": 412,
+      "scrollHeight": 915,
+      "bodyScrollWidth": 412,
+      "hasHorizontalScroll": false,
+      "smallTapTargets": [],
+      "smallTapTargetCount": 0,
+      "wideElements": [],
+      "clippedText": [],
+      "tallCards": [],
+      "embedMetrics": [],
+      "firstActionOffset": 529
+    }
+  }
+]
