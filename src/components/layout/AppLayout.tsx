@@ -54,8 +54,8 @@ export function AppLayout() {
             <Link className="inline-flex min-h-11 items-center text-accent-600 underline-offset-4 hover:underline" to="/contact">
               Contact
             </Link>
-            <Link className="inline-flex min-h-11 items-center text-accent-600 underline-offset-4 hover:underline" to="/admin/login">
-              Organizer login
+            <Link className="inline-flex min-h-11 items-center text-accent-600 underline-offset-4 hover:underline" to="/organizer">
+              Organizer preview
             </Link>
           </div>
         </div>

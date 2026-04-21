@@ -21,5 +21,18 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/components/admin/**/*",
+    "src/components/auth/**/*",
+    "src/pages/AdminDashboard.tsx",
+    "src/pages/AdminLoginPage.tsx",
+    "src/pages/AdminResponsesDashboard.tsx",
+    "src/pages/AdminWeeklyClassForm.tsx",
+    "src/pages/AdminWeeklyClasses.tsx",
+    "src/pages/OrganizerLoginPage.tsx",
+    "src/contexts/AuthContext.tsx",
+    "src/lib/supabase.ts",
+    "src/lib/supabaseData.ts"
+  ]
 }
