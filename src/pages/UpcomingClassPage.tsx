@@ -14,7 +14,11 @@ export function UpcomingClassPage() {
     () => [
       { label: t('mezmurPractice'), href: 'https://tewahedodaily.pages.dev/practice' },
       { label: t('calendar'), href: 'https://tewahedodaily.pages.dev/calendar' },
-      { label: 'Orthodox Resources', href: '/orthodox-resources' },
+      {
+        label: 'Orthodox Resources',
+        href: '/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf',
+        title: 'Opens the main Orthodox study PDF',
+      },
     ],
     [t],
   )
@@ -108,8 +112,9 @@ export function UpcomingClassPage() {
             <a
               key={link.href}
               href={link.href}
-              target={link.href.startsWith('http') ? '_blank' : undefined}
-              rel={link.href.startsWith('http') ? 'noreferrer' : undefined}
+              target={link.href.startsWith('http') || link.href.endsWith('.pdf') ? '_blank' : undefined}
+              rel={link.href.startsWith('http') || link.href.endsWith('.pdf') ? 'noreferrer' : undefined}
+              title={link.title}
               className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-sm font-semibold text-accent-600 hover:bg-brand-50"
             >
               {link.label}

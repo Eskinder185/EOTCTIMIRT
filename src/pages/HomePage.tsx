@@ -109,7 +109,10 @@ export function HomePage() {
           ☦️ {t('about')}
         </RouterLinkButton>
         <a
-          href="/orthodox-resources"
+          href="/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf"
+          target="_blank"
+          rel="noreferrer"
+          title="Opens the main Orthodox study PDF"
           className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-3 text-base font-medium text-brand-900 shadow-sm transition-all duration-200 hover:border-brand-300 hover:bg-brand-50"
         >
           ☦️ Orthodox Resources
