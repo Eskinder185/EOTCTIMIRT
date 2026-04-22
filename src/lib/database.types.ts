@@ -179,6 +179,7 @@ export type Database = {
           title: string
           transliteration: string | null
           upcoming_timirit_id: string
+          youtube_url: string | null
         }
         Insert: {
           created_at?: string
@@ -188,6 +189,7 @@ export type Database = {
           title: string
           transliteration?: string | null
           upcoming_timirit_id: string
+          youtube_url?: string | null
         }
         Update: {
           created_at?: string
@@ -197,6 +199,7 @@ export type Database = {
           title?: string
           transliteration?: string | null
           upcoming_timirit_id?: string
+          youtube_url?: string | null
         }
         Relationships: [
           {

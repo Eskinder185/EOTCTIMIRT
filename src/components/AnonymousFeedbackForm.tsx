@@ -4,6 +4,7 @@ import {
   submitAnonymousFeedback,
   type AnonymousFeedbackCategory,
 } from '../lib/anonymousFeedback'
+import { useUiText } from '../lib/uiText'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 
@@ -22,6 +23,7 @@ const initialState: FormState = {
 }
 
 export function AnonymousFeedbackForm() {
+  const t = useUiText()
   const [form, setForm] = useState<FormState>(initialState)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +67,7 @@ export function AnonymousFeedbackForm() {
   return (
     <Card>
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-        Anonymous Feedback & Topic Suggestions
+        {t('anonymousFeedback')}
       </p>
       <p className="mt-2 text-sm leading-relaxed text-brand-800">
         Share anonymous feedback about the website, the teaching, or future topics so that we can grow together in the faith.

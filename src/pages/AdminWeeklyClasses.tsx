@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getWeeklyClasses } from '../lib/supabaseData'
+import { deleteWeeklyClass, getCachedWeeklyClasses, getWeeklyClasses } from '../lib/supabaseData'
 import { Button } from '../components/ui/Button'
 import type { WeeklyClass } from '../data/types'
 
 export function AdminWeeklyClasses() {
-  const [classes, setClasses] = useState<WeeklyClass[]>([])
-  const [loading, setLoading] = useState(true)
+  const [classes, setClasses] = useState<WeeklyClass[]>(() => getCachedWeeklyClasses() ?? [])
+  const [loading, setLoading] = useState(classes.length === 0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -15,7 +17,11 @@ export function AdminWeeklyClasses() {
 
   const loadClasses = async () => {
     try {
-      setLoading(true)
+      if (classes.length === 0) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
       setError(null)
       const data = await getWeeklyClasses()
       setClasses(data)
@@ -24,6 +30,7 @@ export function AdminWeeklyClasses() {
       setError('Failed to load weekly classes. Please try again.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -33,6 +40,28 @@ export function AdminWeeklyClasses() {
       month: 'long',
       day: 'numeric'
     })
+  }
+
+  const handleDeleteClass = async (weeklyClass: WeeklyClass) => {
+    const confirmed = window.confirm(
+      `Delete class "${weeklyClass.topic}" (${formatDate(weeklyClass.date)})?\n\nThis will permanently remove the class, mezmurs, questions, and related responses.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeletingClassId(weeklyClass.id)
+      setError(null)
+      await deleteWeeklyClass(weeklyClass.id)
+      setClasses((current) => current.filter((item) => item.id !== weeklyClass.id))
+    } catch (err) {
+      console.error('Failed to delete weekly class:', err)
+      setError('Failed to delete class. Please try again.')
+    } finally {
+      setDeletingClassId(null)
+    }
   }
 
   if (loading) {
@@ -63,6 +92,7 @@ export function AdminWeeklyClasses() {
           <p className="text-gray-600 mt-1">
             Manage Timirit weekly session content
           </p>
+          {refreshing ? <p className="text-xs text-gray-500 mt-1">Refreshing...</p> : null}
         </div>
         <Link to="/admin/weekly-classes/new">
           <Button>➕ Create New Class</Button>
@@ -152,6 +182,13 @@ export function AdminWeeklyClasses() {
                     >
                       <Button variant="secondary">Preview</Button>
                     </Link>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleDeleteClass(weeklyClass)}
+                      disabled={deletingClassId === weeklyClass.id}
+                    >
+                      {deletingClassId === weeklyClass.id ? 'Deleting...' : 'Delete'}
+                    </Button>
                   </div>
                 </div>
               </div>

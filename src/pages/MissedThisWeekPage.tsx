@@ -11,12 +11,14 @@ import { Button } from '../components/ui/Button'
 import { getCurrentWeek } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import { formatClassDate } from '../lib/formatDate'
+import { useUiText } from '../lib/uiText'
 import { CURRENT_TOPIC } from '../site/constants'
 
 /**
  * Mobile-first gentle path for members who missed Timirit — no guilt, only mercy.
  */
 export function MissedThisWeekPage() {
+  const t = useUiText()
   const [week, setWeek] = useState<WeeklyClass | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -92,7 +94,7 @@ export function MissedThisWeekPage() {
             videoEl?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         >
-          🎥 Watch the Replay
+          🎥 {t('watchReplay')}
         </Button>
         <div className="grid grid-cols-2 gap-3">
           <Button 
@@ -187,7 +189,7 @@ export function MissedThisWeekPage() {
             📚 Full Timirit page
           </RouterLinkButton>
           <RouterLinkButton to="/mezmurs" variant="secondary" className="h-12 font-medium">
-            🎵 Weekly mezmurs
+            🎵 {t('upcomingMezmurs')}
           </RouterLinkButton>
         </div>
       </Card>

@@ -12,9 +12,36 @@ import type {
   Question,
   Mezmur,
   QuestionType,
-  AttendanceChoice
+  AttendanceChoice,
+  WeeklyQuestionStatsReport,
+  WeeklyQuestionStat,
 } from '../data/types'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
+
+const CACHE_DURATION_MS = 60 * 1000
+let weeklyClassesCache: WeeklyClass[] | null = null
+let weeklyClassesCacheTimestamp = 0
+let upcomingTimiritAdminCache: UpcomingTimirtEditorInput | null | undefined
+let upcomingTimiritAdminCacheTimestamp = 0
+
+function isFresh(timestamp: number) {
+  return Date.now() - timestamp < CACHE_DURATION_MS
+}
+
+function invalidateDataCaches() {
+  weeklyClassesCache = null
+  weeklyClassesCacheTimestamp = 0
+  upcomingTimiritAdminCache = undefined
+  upcomingTimiritAdminCacheTimestamp = 0
+}
+
+export function getCachedWeeklyClasses(): WeeklyClass[] | null {
+  if (!weeklyClassesCache || !isFresh(weeklyClassesCacheTimestamp)) {
+    return null
+  }
+
+  return weeklyClassesCache
+}
 
 export interface EditorMezmurInput {
   title: string
@@ -71,6 +98,10 @@ export interface UpcomingTimirtEditorInput {
  * Get all weekly classes, ordered by date (newest first)
  */
 export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
+  if (weeklyClassesCache && isFresh(weeklyClassesCacheTimestamp)) {
+    return weeklyClassesCache
+  }
+
   if (!supabase) {
     return []
   }
@@ -115,13 +146,23 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
   }
 
   // Transform database format to TypeScript types
-  return classes.map(transformWeeklyClass)
+  const transformed = classes.map(transformWeeklyClass)
+  weeklyClassesCache = transformed
+  weeklyClassesCacheTimestamp = Date.now()
+  return transformed
 }
 
 /**
  * Get a specific weekly class by ID
  */
 export async function getWeeklyClass(id: string): Promise<WeeklyClass | null> {
+  if (weeklyClassesCache && isFresh(weeklyClassesCacheTimestamp)) {
+    const cached = weeklyClassesCache.find((weeklyClass) => weeklyClass.id === id)
+    if (cached) {
+      return cached
+    }
+  }
+
   if (!supabase) {
     return null
   }
@@ -188,6 +229,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
         title,
         transliteration,
         lyrics,
+        youtube_url,
         order_index
       )
     `)
@@ -208,7 +250,8 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     .map(m => ({
       title: m.title,
       transliteration: m.transliteration || undefined,
-      lyrics: m.lyrics || undefined
+      lyrics: m.lyrics || undefined,
+      youtubeUrl: m.youtube_url || undefined,
     }))
 
   return {
@@ -387,6 +430,131 @@ export async function getRecapSuggestions(weekId: string): Promise<RecapSuggesti
   return suggestions
 }
 
+export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQuestionStatsReport | null> {
+  if (!supabase) {
+    return null
+  }
+
+  const { data: questions, error: questionsError } = await supabase
+    .from('questions')
+    .select(`
+      id,
+      prompt,
+      type,
+      correct_index,
+      multiple_choice_options (
+        option_text,
+        option_index
+      )
+    `)
+    .eq('weekly_class_id', weekId)
+    .eq('type', 'multiple-choice')
+
+  if (questionsError) {
+    console.error('Error loading question stats questions:', questionsError)
+    throw questionsError
+  }
+
+  const mcQuestions = (questions ?? []).filter((question) => question.correct_index !== null)
+
+  if (mcQuestions.length === 0) {
+    return {
+      weekId,
+      totalRespondents: 0,
+      totalAnswersSubmitted: 0,
+      averagePerformance: 0,
+      mostMissedQuestionId: null,
+      mostMissedQuestionPrompt: null,
+      mostMissedQuestionMissRate: 0,
+      questionStats: [],
+      commonWeakAreas: [],
+    }
+  }
+
+  const questionIds = mcQuestions.map((question) => question.id)
+  const { data: responses, error: responsesError } = await supabase
+    .from('user_responses')
+    .select('question_id, selected_option_index, user_fingerprint')
+    .eq('weekly_class_id', weekId)
+    .in('question_id', questionIds)
+    .not('selected_option_index', 'is', null)
+
+  if (responsesError) {
+    console.error('Error loading question stats responses:', responsesError)
+    throw responsesError
+  }
+
+  const normalizedResponses = responses ?? []
+  const respondentSet = new Set(
+    normalizedResponses
+      .map((response) => response.user_fingerprint)
+      .filter((fingerprint): fingerprint is string => typeof fingerprint === 'string' && fingerprint.length > 0),
+  )
+
+  const questionStats: WeeklyQuestionStat[] = mcQuestions.map((question) => {
+    const questionResponses = normalizedResponses.filter((response) => response.question_id === question.id)
+    const totalResponses = questionResponses.length
+    const correctOptionIndex = question.correct_index as number
+    const correctResponses = questionResponses.filter(
+      (response) => response.selected_option_index === correctOptionIndex,
+    ).length
+    const incorrectResponses = totalResponses - correctResponses
+    const percentCorrect = totalResponses > 0 ? Math.round((correctResponses / totalResponses) * 100) : 0
+    const percentIncorrect = totalResponses > 0 ? 100 - percentCorrect : 0
+    const options = (question.multiple_choice_options ?? [])
+      .sort((a, b) => a.option_index - b.option_index)
+    const correctOptionText =
+      options.find((option) => option.option_index === correctOptionIndex)?.option_text ?? 'Correct answer'
+
+    return {
+      questionId: question.id,
+      prompt: question.prompt,
+      totalResponses,
+      correctResponses,
+      incorrectResponses,
+      percentCorrect,
+      percentIncorrect,
+      correctOptionIndex,
+      correctOptionText,
+      optionDistribution: options.map((option) => {
+        const count = questionResponses.filter(
+          (response) => response.selected_option_index === option.option_index,
+        ).length
+        return {
+          optionIndex: option.option_index,
+          optionText: option.option_text,
+          responses: count,
+          percentage: totalResponses > 0 ? Math.round((count / totalResponses) * 100) : 0,
+        }
+      }),
+    }
+  })
+
+  const totalAnswersSubmitted = questionStats.reduce((sum, question) => sum + question.totalResponses, 0)
+  const totalCorrect = questionStats.reduce((sum, question) => sum + question.correctResponses, 0)
+  const averagePerformance = totalAnswersSubmitted > 0
+    ? Math.round((totalCorrect / totalAnswersSubmitted) * 100)
+    : 0
+  const mostMissed = [...questionStats]
+    .sort((a, b) => b.percentIncorrect - a.percentIncorrect)[0]
+
+  return {
+    weekId,
+    totalRespondents: respondentSet.size,
+    totalAnswersSubmitted,
+    averagePerformance,
+    mostMissedQuestionId: mostMissed?.questionId ?? null,
+    mostMissedQuestionPrompt: mostMissed?.prompt ?? null,
+    mostMissedQuestionMissRate: mostMissed?.percentIncorrect ?? 0,
+    questionStats,
+    commonWeakAreas: questionStats
+      .filter((question) => question.percentIncorrect >= 40 && question.totalResponses > 0)
+      .sort((a, b) => b.percentIncorrect - a.percentIncorrect)
+      .slice(0, 3)
+      .map((question) => question.prompt),
+  }
+}
+
 export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promise<string> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
@@ -552,10 +720,15 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     }
   }
 
+  invalidateDataCaches()
   return normalizedId
 }
 
 export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorInput | null> {
+  if (upcomingTimiritAdminCache !== undefined && isFresh(upcomingTimiritAdminCacheTimestamp)) {
+    return upcomingTimiritAdminCache
+  }
+
   if (!supabase) {
     return null
   }
@@ -568,6 +741,7 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
         title,
         transliteration,
         lyrics,
+        youtube_url,
         order_index
       )
     `)
@@ -589,10 +763,11 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
           title: mezmur.title,
           transliteration: mezmur.transliteration || undefined,
           lyrics: mezmur.lyrics || undefined,
+          youtubeUrl: mezmur.youtube_url || undefined,
         }))
     : []
 
-  return {
+  const result: UpcomingTimirtEditorInput = {
     id: data.id,
     scheduledDate: data.scheduled_date,
     topicPreview: data.topic_preview,
@@ -601,8 +776,12 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
     mezmurs: [
       sortedMezmurs[0] ?? { title: '' },
       sortedMezmurs[1] ?? { title: '' },
-    ],
+    ] as [EditorMezmurInput, EditorMezmurInput],
   }
+
+  upcomingTimiritAdminCache = result
+  upcomingTimiritAdminCacheTimestamp = Date.now()
+  return result
 }
 
 export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput): Promise<string> {
@@ -654,6 +833,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
         title: mezmur.title,
         transliteration: mezmur.transliteration || null,
         lyrics: mezmur.lyrics || null,
+        youtube_url: mezmur.youtubeUrl || null,
         order_index: index,
       })),
     )
@@ -662,6 +842,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     throw insertMezmursError
   }
 
+  invalidateDataCaches()
   return upcomingId
 }
 
@@ -700,6 +881,7 @@ export async function createWeeklyClass(
     throw error
   }
 
+  invalidateDataCaches()
   return result.id
 }
 
@@ -735,6 +917,8 @@ export async function updateWeeklyClass(
     console.error('Error updating weekly class:', error)
     throw error
   }
+
+  invalidateDataCaches()
 }
 
 /**
@@ -754,6 +938,8 @@ export async function deleteWeeklyClass(id: string): Promise<void> {
     console.error('Error deleting weekly class:', error)
     throw error
   }
+
+  invalidateDataCaches()
 }
 
 // ============================================================================

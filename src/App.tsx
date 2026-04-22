@@ -12,6 +12,8 @@ import { AdminUpcomingPage } from './pages/AdminUpcomingPage'
 import { AdminWeeklyClassForm } from './pages/AdminWeeklyClassForm'
 import { AdminWeeklyClasses } from './pages/AdminWeeklyClasses'
 import { MezmurPage } from './pages/MezmurPage'
+import { OrthodoxResourcesPage } from './pages/OrthodoxResourcesPage'
+import { UpcomingMezmursPage } from './pages/UpcomingMezmursPage'
 import { OrganizerLoginPage } from './pages/OrganizerLoginPage'
 import { PastClassesPage } from './pages/PastClassesPage'
 import { UpcomingClassPage } from './pages/UpcomingClassPage'
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/past-timirit" element={<PastClassesPage />} />
           <Route path="/class/:id" element={<ClassPage />} />
           <Route path="/mezmurs" element={<MezmurPage />} />
+          <Route path="/orthodox-resources" element={<OrthodoxResourcesPage />} />
+          <Route path="/resources" element={<Navigate to="/orthodox-resources" replace />} />
           <Route
             path="/organizer"
             element={
@@ -52,6 +56,7 @@ export default function App() {
           />
         </Route>
 
+        <Route path="/upcoming-mezmurs" element={<UpcomingMezmursPage />} />
         <Route path="/admin/login" element={<OrganizerLoginPage />} />
         <Route
           path="/admin"

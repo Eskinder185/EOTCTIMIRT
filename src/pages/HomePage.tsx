@@ -10,6 +10,7 @@ import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import { formatClassDate } from '../lib/formatDate'
+import { useUiText } from '../lib/uiText'
 
 function previewText(text: string, maxLength = 120) {
   const normalized = text.trim()
@@ -21,6 +22,7 @@ function previewText(text: string, maxLength = 120) {
 }
 
 export function HomePage() {
+  const t = useUiText()
   const [recentClasses, setRecentClasses] = useState<WeeklyClass[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingTimirtPreview | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,7 +81,7 @@ export function HomePage() {
           <div className="flex items-center gap-2">
             <span className="text-lg">📚</span>
             <span className="flex flex-col">
-              <span className="font-semibold">Next Week&apos;s Class</span>
+              <span className="font-semibold">{t('nextClass')}</span>
               <span className="text-xs text-brand-700">
                 {upcoming ? formatClassDate(upcoming.scheduledDate) : TIMIRT_SCHEDULE_LABEL}
               </span>
@@ -95,21 +97,19 @@ export function HomePage() {
 
       <div className="grid grid-cols-2 gap-3">
         <RouterLinkButton to="/upcoming" className="h-14 text-sm font-semibold sm:text-base">
-          📖 Next Week&apos;s Class
+          📖 {t('nextClass')}
         </RouterLinkButton>
         <RouterLinkButton to="/past-timirit" variant="secondary" className="h-14 text-sm font-semibold sm:text-base">
-          📚 Past Classes
+          📚 {t('pastClasses')}
         </RouterLinkButton>
         <RouterLinkButton to="/mezmurs" variant="secondary" className="h-14 text-sm font-semibold sm:text-base">
-          🎵 Weekly Mezmurs
+          🎵 {t('upcomingMezmurs')}
         </RouterLinkButton>
         <RouterLinkButton to="/about" variant="secondary" className="h-14 text-sm font-semibold sm:text-base">
-          ☦️ About
+          ☦️ {t('about')}
         </RouterLinkButton>
         <a
-          href="https://tewahedodaily.pages.dev/"
-          target="_blank"
-          rel="noreferrer"
+          href="/orthodox-resources"
           className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-3 text-base font-medium text-brand-900 shadow-sm transition-all duration-200 hover:border-brand-300 hover:bg-brand-50"
         >
           ☦️ Orthodox Resources
@@ -119,7 +119,7 @@ export function HomePage() {
       {upcoming ? (
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            Next Week&apos;s Class
+            {t('nextClass')}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-brand-900">{upcoming.topicPreview}</h2>
           <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
@@ -157,7 +157,7 @@ export function HomePage() {
                 {previewText(week.englishSummary)}
               </p>
               <RouterLinkButton to={`/class/${week.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
-                View Summary
+                {t('viewSummary')}
               </RouterLinkButton>
             </div>
           ))}

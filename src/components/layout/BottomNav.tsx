@@ -1,9 +1,12 @@
 import { NavLink } from 'react-router-dom'
+import { useUiText } from '../../lib/uiText'
 
 const tabClass =
   'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[0.7rem] font-semibold uppercase tracking-wide text-brand-800 sm:text-xs'
 
 export function BottomNav() {
+  const t = useUiText()
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 border-t border-brand-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(42,34,28,0.08)] sm:hidden"
@@ -18,7 +21,7 @@ export function BottomNav() {
           end
         >
           <span aria-hidden>⌂</span>
-          Home
+          {t('home')}
         </NavLink>
         <NavLink
           to="/upcoming"
@@ -27,7 +30,7 @@ export function BottomNav() {
           }
         >
           <span aria-hidden>▶</span>
-          Next Class
+          {t('nextClass')}
         </NavLink>
         <NavLink
           to="/mezmurs"
@@ -36,7 +39,7 @@ export function BottomNav() {
           }
         >
           <span aria-hidden>♪</span>
-          Mezmurs
+          {t('mezmurs')}
         </NavLink>
         <NavLink
           to="/about"
@@ -45,7 +48,7 @@ export function BottomNav() {
           }
         >
           <span aria-hidden>✉</span>
-          About
+          {t('about')}
         </NavLink>
       </div>
     </nav>

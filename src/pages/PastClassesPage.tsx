@@ -4,8 +4,10 @@ import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import { listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import { formatClassDate } from '../lib/formatDate'
+import { useUiText } from '../lib/uiText'
 
 export function PastClassesPage() {
+  const t = useUiText()
   const [weeks, setWeeks] = useState<WeeklyClass[]>([])
   const [query, setQuery] = useState('')
 
@@ -84,7 +86,7 @@ export function PastClassesPage() {
                   variant="secondary"
                   className="w-full sm:w-auto sm:self-center"
                 >
-                  View Summary
+                  {t('viewSummary')}
                 </RouterLinkButton>
               </div>
             </Card>

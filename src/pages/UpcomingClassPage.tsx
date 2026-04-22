@@ -1,28 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import { getUpcomingPreview } from '../data/weeksRepo'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import { formatClassDate } from '../lib/formatDate'
-
-const preparationLinks = [
-  {
-    label: 'Mezmur Practice',
-    href: 'https://tewahedodaily.pages.dev/practice',
-  },
-  {
-    label: 'Calendar',
-    href: 'https://tewahedodaily.pages.dev/calendar',
-  },
-  {
-    label: 'Orthodox Resources',
-    href: 'https://tewahedodaily.pages.dev/',
-  },
-]
+import { useUiText } from '../lib/uiText'
 
 export function UpcomingClassPage() {
+  const t = useUiText()
   const [upcoming, setUpcoming] = useState<UpcomingTimirtPreview | null>(null)
   const [loading, setLoading] = useState(true)
+  const preparationLinks = useMemo(
+    () => [
+      { label: t('mezmurPractice'), href: 'https://tewahedodaily.pages.dev/practice' },
+      { label: t('calendar'), href: 'https://tewahedodaily.pages.dev/calendar' },
+      { label: 'Orthodox Resources', href: '/orthodox-resources' },
+    ],
+    [t],
+  )
 
   useEffect(() => {
     const loadUpcoming = async () => {
@@ -57,7 +52,7 @@ export function UpcomingClassPage() {
       <div className="space-y-4">
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            Next class
+            {t('nextClass')}
           </p>
           <h1 className="mt-1 text-xl font-bold text-brand-900">Upcoming Timirit will appear here</h1>
           <p className="mt-2 text-sm leading-relaxed text-brand-700">
@@ -74,7 +69,7 @@ export function UpcomingClassPage() {
   return (
     <div className="space-y-4">
       <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Next class</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t('nextClass')}</p>
         <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{upcoming.topicPreview}</h1>
         <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
         <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
@@ -89,7 +84,7 @@ export function UpcomingClassPage() {
       </Card>
 
       <Card>
-        <h2 className="text-base font-semibold text-brand-900">Upcoming mezmurs</h2>
+        <h2 className="text-base font-semibold text-brand-900">{t('upcomingMezmurs')}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {upcoming.mezmurs.map((mezmur, index) => (
             <article key={`${mezmur.title}-${index}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
@@ -113,8 +108,8 @@ export function UpcomingClassPage() {
             <a
               key={link.href}
               href={link.href}
-              target="_blank"
-              rel="noreferrer"
+              target={link.href.startsWith('http') ? '_blank' : undefined}
+              rel={link.href.startsWith('http') ? 'noreferrer' : undefined}
               className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-sm font-semibold text-accent-600 hover:bg-brand-50"
             >
               {link.label}

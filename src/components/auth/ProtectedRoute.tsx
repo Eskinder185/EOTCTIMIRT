@@ -14,10 +14,10 @@ export function ProtectedRoute({
   children, 
   redirectTo = '/admin/login' 
 }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, initialized } = useAuth()
   const location = useLocation()
 
-  if (loading) {
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

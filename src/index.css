@@ -5,7 +5,8 @@
   Amharic + Latin both use Noto Sans (loaded in index.html) for predictable mobile rendering.
 */
 @theme {
-  --font-sans: 'Noto Sans', 'Noto Sans Ethiopic', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans Ethiopic', ui-sans-serif, system-ui, sans-serif;
+  --font-serif-ethiopic: 'Noto Serif Ethiopic', 'Noto Sans Ethiopic', serif;
   --color-brand-50: #faf7f2;
   --color-brand-100: #f3ebe0;
   --color-brand-200: #e6d5c4;
@@ -27,6 +28,31 @@ body {
   background-color: var(--color-brand-50);
   color: var(--color-brand-900);
   -webkit-font-smoothing: antialiased;
+}
+
+[data-theme='night'] {
+  --color-brand-50: #111827;
+  --color-brand-100: #1f2937;
+  --color-brand-200: #334155;
+  --color-brand-700: #d1d5db;
+  --color-brand-800: #e5e7eb;
+  --color-brand-900: #f8fafc;
+  --color-accent-500: #d4a63a;
+  --color-accent-600: #e2b247;
+}
+
+[data-theme='night'] body {
+  background-color: #111827;
+}
+
+[data-theme='night'] .bg-white {
+  background-color: #0f172a;
+}
+
+[data-theme='night'] .bg-white\/80,
+[data-theme='night'] .bg-white\/90,
+[data-theme='night'] .bg-white\/95 {
+  background-color: rgba(15, 23, 42, 0.92);
 }
 
 /* Respect reduced motion for collapsibles / transitions */

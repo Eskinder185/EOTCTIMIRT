@@ -1,6 +1,9 @@
 -- Data Migration Script: Populate Supabase with existing mock data
 -- Run this after the schema is set up
 
+ALTER TABLE upcoming_mezmurs
+ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+
 -- ============================================================================
 -- MIGRATE WEEKLY CLASSES
 -- ============================================================================
@@ -186,12 +189,13 @@ VALUES (
 );
 
 -- Get the ID of the upcoming timirit we just inserted
-INSERT INTO upcoming_mezmurs (upcoming_timirit_id, title, transliteration, lyrics, order_index)
+INSERT INTO upcoming_mezmurs (upcoming_timirit_id, title, transliteration, lyrics, youtube_url, order_index)
 SELECT 
   ut.id,
   'ወላዲተ አምላክ',
   'Waladite Amlak',
   'Lyrics to be confirmed with your mezmur leaders.',
+  'https://www.youtube.com/watch?v=placeholder-upcoming-1',
   0
 FROM upcoming_timirit ut WHERE ut.is_active = true
 UNION ALL
@@ -200,6 +204,7 @@ SELECT
   'ዘድንግል ማርያም',
   'Ze-Dengel Mariyam',
   'Lyrics to be confirmed with your mezmur leaders.',
+  NULL,
   1
 FROM upcoming_timirit ut WHERE ut.is_active = true;
 

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getOrganizerAnalytics, getAttendanceSummary, getRecapSuggestions } from '../lib/supabaseData'
+import { getOrganizerAnalytics, getAttendanceSummary, getRecapSuggestions, getWeeklyQuestionStats } from '../lib/supabaseData'
 import { Button } from '../components/ui/Button'
-import type { OrganizerSnapshot, AttendanceSlice, RecapSuggestion } from '../data/types'
+import type { OrganizerSnapshot, AttendanceSlice, RecapSuggestion, WeeklyQuestionStatsReport } from '../data/types'
 
 export function AdminResponsesDashboard() {
   const [analytics, setAnalytics] = useState<OrganizerSnapshot[]>([])
   const [attendanceData, setAttendanceData] = useState<AttendanceSlice[]>([])
   const [recapSuggestions, setRecapSuggestions] = useState<RecapSuggestion[]>([])
+  const [questionStats, setQuestionStats] = useState<WeeklyQuestionStatsReport | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -45,10 +46,11 @@ export function AdminResponsesDashboard() {
     try {
       const [attendance, suggestions] = await Promise.all([
         getAttendanceSummary(weekId),
-        getRecapSuggestions(weekId)
+        getRecapSuggestions(weekId),
       ])
       setAttendanceData(attendance)
       setRecapSuggestions(suggestions)
+      setQuestionStats(await getWeeklyQuestionStats(weekId))
     } catch (err) {
       console.error('Failed to load week-specific data:', err)
     }
@@ -140,12 +142,24 @@ export function AdminResponsesDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
-                <div className="text-3xl mr-3">📊</div>
+                <div className="text-3xl mr-3">👥</div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
-                    {selectedWeekData.totalResponses}
+                    {questionStats?.totalRespondents ?? selectedWeekData.totalResponses}
                   </div>
-                  <div className="text-sm text-gray-600">Total Responses</div>
+                  <div className="text-sm text-gray-600">Total Respondents</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="text-3xl mr-3">📝</div>
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {questionStats?.totalAnswersSubmitted ?? selectedWeekData.reviewedOrWatched}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Answers Submitted</div>
                 </div>
               </div>
             </div>
@@ -155,21 +169,9 @@ export function AdminResponsesDashboard() {
                 <div className="text-3xl mr-3">✅</div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
-                    {selectedWeekData.reviewedOrWatched}
+                    {questionStats?.averagePerformance ?? Math.max(0, 100 - selectedWeekData.missRatePercent)}%
                   </div>
-                  <div className="text-sm text-gray-600">Reviewed/Watched</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="text-3xl mr-3">❌</div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {selectedWeekData.missRatePercent}%
-                  </div>
-                  <div className="text-sm text-gray-600">Highest Miss Rate</div>
+                  <div className="text-sm text-gray-600">Average Performance</div>
                 </div>
               </div>
             </div>
@@ -279,6 +281,64 @@ export function AdminResponsesDashboard() {
             </div>
           )}
 
+          {/* Question-level statistics */}
+          {questionStats && questionStats.questionStats.length > 0 ? (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Question-Level Statistics
+              </h3>
+              <div className="space-y-5">
+                {questionStats.questionStats.map((question, index) => (
+                  <div key={question.questionId} className="rounded-lg border border-gray-200 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Question {index + 1}
+                    </p>
+                    <p className="mt-1 font-medium text-gray-900">{question.prompt}</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-4 text-sm">
+                      <div className="rounded-md bg-gray-50 px-3 py-2">
+                        <p className="text-gray-500">Responses</p>
+                        <p className="font-semibold text-gray-900">{question.totalResponses}</p>
+                      </div>
+                      <div className="rounded-md bg-emerald-50 px-3 py-2">
+                        <p className="text-emerald-700">Correct</p>
+                        <p className="font-semibold text-emerald-900">
+                          {question.correctResponses} ({question.percentCorrect}%)
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-amber-50 px-3 py-2">
+                        <p className="text-amber-700">Incorrect</p>
+                        <p className="font-semibold text-amber-900">
+                          {question.incorrectResponses} ({question.percentIncorrect}%)
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-blue-50 px-3 py-2">
+                        <p className="text-blue-700">Correct answer</p>
+                        <p className="font-semibold text-blue-900">{question.correctOptionText}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Answer distribution</p>
+                      {question.optionDistribution.map((option) => (
+                        <div key={`${question.questionId}-${option.optionIndex}`}>
+                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                            <span>{option.optionText}</span>
+                            <span>{option.responses} ({option.percentage}%)</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-gray-100">
+                            <div
+                              className="h-2 rounded-full bg-amber-500"
+                              style={{ width: `${option.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Recap Suggestions */}
           {recapSuggestions.length > 0 && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -299,6 +359,26 @@ export function AdminResponsesDashboard() {
               </div>
             </div>
           )}
+
+          {/* Recap support summary */}
+          {questionStats?.commonWeakAreas.length ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-amber-900 mb-2">
+                Recap support for next class
+              </h3>
+              <p className="text-sm text-amber-800 mb-3">
+                Most missed topic:
+                {' '}
+                <strong>{questionStats.mostMissedQuestionPrompt ?? 'Not enough data yet'}</strong>
+              </p>
+              <p className="text-sm text-amber-800 mb-2">Questions to review next class:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-amber-900">
+                {questionStats.commonWeakAreas.map((topic) => (
+                  <li key={topic}>{topic}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {/* All Weeks Overview */}
           <div className="bg-white rounded-lg shadow p-6">

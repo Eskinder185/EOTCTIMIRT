@@ -114,3 +114,35 @@ export interface RecapSuggestion {
   title: string
   detail: string
 }
+
+export interface QuestionOptionDistribution {
+  optionIndex: number
+  optionText: string
+  responses: number
+  percentage: number
+}
+
+export interface WeeklyQuestionStat {
+  questionId: string
+  prompt: string
+  totalResponses: number
+  correctResponses: number
+  incorrectResponses: number
+  percentCorrect: number
+  percentIncorrect: number
+  correctOptionIndex: number
+  correctOptionText: string
+  optionDistribution: QuestionOptionDistribution[]
+}
+
+export interface WeeklyQuestionStatsReport {
+  weekId: string
+  totalRespondents: number
+  totalAnswersSubmitted: number
+  averagePerformance: number
+  mostMissedQuestionId: string | null
+  mostMissedQuestionPrompt: string | null
+  mostMissedQuestionMissRate: number
+  questionStats: WeeklyQuestionStat[]
+  commonWeakAreas: string[]
+}

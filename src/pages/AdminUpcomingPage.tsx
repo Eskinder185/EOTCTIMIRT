@@ -19,8 +19,8 @@ function createEmptyForm(): FormState {
     note: '',
     isActive: true,
     mezmurs: [
-      { title: '', transliteration: '', lyrics: '' },
-      { title: '', transliteration: '', lyrics: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
     ],
   }
 }
@@ -177,6 +177,17 @@ export function AdminUpcomingPage() {
                   }}
                   className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
                   placeholder="Transliteration"
+                />
+                <input
+                  type="url"
+                  value={mezmur.youtubeUrl || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30 sm:col-span-2"
+                  placeholder="YouTube link (optional)"
                 />
               </div>
               <textarea

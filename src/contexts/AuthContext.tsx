@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, checkOrganizerAuth, signOutOrganizer, hasSupabaseConfig } from '../lib/supabase'
+import { supabase, signOutOrganizer, hasSupabaseConfig } from '../lib/supabase'
 import type { Database } from '../lib/database.types'
+import { getUpcomingTimirtForAdmin, getWeeklyClasses } from '../lib/supabaseData'
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row']
 
@@ -9,6 +10,7 @@ interface AuthContextType {
   user: User | null
   profile: UserProfile | null
   loading: boolean
+  initialized: boolean
   isAuthenticated: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -16,40 +18,72 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const PROFILE_STORAGE_KEY = 'eotc-auth-profile-cache'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [initialized, setInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Check authentication status and load profile
-  const checkAuth = async () => {
-    try {
-      setLoading(true)
-      const { isAuthenticated, user: authUser, profile: userProfile } = await checkOrganizerAuth()
-      
-      if (isAuthenticated && authUser && userProfile) {
-        setUser(authUser)
-        setProfile(userProfile)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-    } catch (err) {
-      console.error('Auth check failed:', err)
-      setUser(null)
-      setProfile(null)
-    } finally {
-      setLoading(false)
+  const cacheProfile = (nextProfile: UserProfile | null) => {
+    if (!nextProfile) {
+      window.localStorage.removeItem(PROFILE_STORAGE_KEY)
+      return
     }
+
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile))
+  }
+
+  const readCachedProfile = () => {
+    const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    try {
+      return JSON.parse(raw) as UserProfile
+    } catch {
+      window.localStorage.removeItem(PROFILE_STORAGE_KEY)
+      return null
+    }
+  }
+
+  const loadProfileForUser = async (targetUser: User): Promise<UserProfile | null> => {
+    if (!supabase) {
+      return null
+    }
+
+    const cachedProfile = readCachedProfile()
+    if (cachedProfile && cachedProfile.id === targetUser.id && cachedProfile.is_active) {
+      return cachedProfile
+    }
+
+    const { data: loadedProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', targetUser.id)
+      .eq('is_active', true)
+      .in('role', ['organizer', 'admin'])
+      .single()
+
+    if (profileError || !loadedProfile) {
+      return null
+    }
+
+    cacheProfile(loadedProfile)
+    return loadedProfile
+  }
+
+  const prefetchOrganizerData = () => {
+    void Promise.allSettled([getWeeklyClasses(), getUpcomingTimirtForAdmin()])
   }
 
   // Sign in function
   const signIn = async (email: string, password: string) => {
     try {
       setError(null)
-      setLoading(true)
 
       if (!supabase || !hasSupabaseConfig) {
         throw new Error('Organizer login is not configured yet. Add Supabase environment variables to enable the portal.')
@@ -65,22 +99,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        // Check if user has organizer profile
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .eq('is_active', true)
-          .in('role', ['organizer', 'admin'])
-          .single()
-
-        if (profileError || !profile) {
+        const loadedProfile = await loadProfileForUser(data.user)
+        if (!loadedProfile) {
           await supabase.auth.signOut()
           throw new Error('Access denied. You must be an authorized organizer to access this portal.')
         }
 
         setUser(data.user)
-        setProfile(profile)
+        setProfile(loadedProfile)
+        prefetchOrganizerData()
       }
     } catch (err) {
       const errorMessage = err instanceof Error 
@@ -88,8 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : 'An unexpected error occurred'
       setError(errorMessage)
       throw err
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -100,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOutOrganizer()
       setUser(null)
       setProfile(null)
+      cacheProfile(null)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign out'
       setError(errorMessage)
@@ -111,20 +137,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabase || !hasSupabaseConfig) {
       setLoading(false)
+      setInitialized(true)
       return
     }
+    const sb = supabase
 
-    // Get initial session
-    checkAuth()
+    const initializeAuth = async () => {
+      try {
+        setLoading(true)
+        const {
+          data: { session },
+        } = await sb.auth.getSession()
+
+        if (!session?.user) {
+          setUser(null)
+          setProfile(null)
+          return
+        }
+
+        setUser(session.user)
+        const loadedProfile = await loadProfileForUser(session.user)
+        if (!loadedProfile) {
+          await sb.auth.signOut()
+          setUser(null)
+          setProfile(null)
+          return
+        }
+
+        setProfile(loadedProfile)
+        prefetchOrganizerData()
+      } catch (err) {
+        console.error('Auth initialization failed:', err)
+        setUser(null)
+        setProfile(null)
+      } finally {
+        setLoading(false)
+        setInitialized(true)
+      }
+    }
+
+    void initializeAuth()
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
-        await checkAuth()
+        if (!session?.user) {
+          return
+        }
+
+        setUser(session.user)
+        const loadedProfile = await loadProfileForUser(session.user)
+
+        if (!loadedProfile) {
+          await sb.auth.signOut()
+          setUser(null)
+          setProfile(null)
+          return
+        }
+
+        setProfile(loadedProfile)
+        prefetchOrganizerData()
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
-        setLoading(false)
+        cacheProfile(null)
       }
     })
 
@@ -137,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     loading,
+    initialized,
     isAuthenticated: !!(user && profile),
     signIn,
     signOut,

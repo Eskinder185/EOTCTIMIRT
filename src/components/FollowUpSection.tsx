@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import type { Question, WeeklyClass } from '../data/types'
-import {
-  getSubmissionForWeek,
-  saveClassSubmission,
-} from '../lib/feedbackClient'
+import { getSubmissionForWeek, saveClassSubmission } from '../lib/feedbackClient'
+import { getUserFingerprint } from '../lib/anonymousIdentity'
+import { submitUserResponses } from '../lib/supabaseData'
 import { CURRENT_TOPIC } from '../site/constants'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
@@ -20,18 +19,67 @@ export function FollowUpSection({ week }: { week: WeeklyClass }) {
     return existing?.answers ?? {}
   })
   const [saved, setSaved] = useState(() => Boolean(getSubmissionForWeek(week.id)))
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const setAnswer = (id: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [id]: value }))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setSubmitError(null)
+
     saveClassSubmission({
       weekId: week.id,
       answers,
       submittedAt: new Date().toISOString(),
     })
-    setSaved(true)
+
+    const responsePayload = week.questions
+      .map((question) => {
+        const answer = answers[question.id]
+        if (!answer) {
+          return null
+        }
+
+        if (question.type === 'multiple-choice') {
+          const selectedOptionIndex = Number.parseInt(answer, 10)
+          if (Number.isNaN(selectedOptionIndex)) {
+            return null
+          }
+          return {
+            questionId: question.id,
+            selectedOptionIndex,
+          }
+        }
+
+        if (question.type === 'attendance') {
+          return {
+            questionId: question.id,
+            attendanceChoice: answer as 'in-person' | 'online' | 'maybe' | 'cannot-attend',
+          }
+        }
+
+        return {
+          questionId: question.id,
+          responseText: answer,
+        }
+      })
+      .filter((response): response is NonNullable<typeof response> => response !== null)
+
+    try {
+      if (responsePayload.length > 0) {
+        await submitUserResponses(week.id, responsePayload, getUserFingerprint())
+      }
+      setSaved(true)
+    } catch (error) {
+      console.error('Failed to save responses to Supabase:', error)
+      setSubmitError('Responses were saved locally, but syncing had a problem. Please try again soon.')
+      setSaved(true)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -70,14 +118,22 @@ export function FollowUpSection({ week }: { week: WeeklyClass }) {
           ))}
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button type="button" onClick={handleSubmit}>
-              {saved ? 'Update saved responses' : 'Save responses on this device'}
+            <Button type="button" onClick={handleSubmit} disabled={submitting}>
+              {submitting
+                ? 'Saving...'
+                : saved
+                  ? 'Update saved responses'
+                  : 'Save anonymous responses'}
             </Button>
             <p className="text-xs leading-relaxed text-brand-700">
-              Saved on this device for now. Replace <code className="font-mono">saveClassSubmission</code>{' '}
-              with a Supabase/Firebase write when the parish database is ready.
+              Anonymous responses help organizers review common weak areas for next class recap.
             </p>
           </div>
+          {submitError ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {submitError}
+            </p>
+          ) : null}
         </div>
       </details>
     </Card>
@@ -137,16 +193,32 @@ function QuestionField({
             )
           })}
         </div>
-        {showExplanation ? (
-          <div
-            className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-relaxed text-emerald-950"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="font-semibold">A little context</p>
-            <p className="mt-1">{question.explanation}</p>
-          </div>
-        ) : null}
+        {showExplanation ? (() => {
+          const isCorrect = selected === question.correctIndex
+          const correctAnswer = question.options[question.correctIndex]
+          return (
+            <div
+              className={`mt-3 rounded-xl border px-3 py-2 text-sm leading-relaxed ${
+                isCorrect
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                  : 'border-amber-200 bg-amber-50 text-amber-950'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <p className="font-semibold">{isCorrect ? 'Correct' : 'Not quite'}</p>
+              <p className="mt-1">
+                <span className="font-semibold">Correct answer:</span> {correctAnswer}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">Explanation:</span> {question.explanation}
+              </p>
+              {!isCorrect ? (
+                <p className="mt-1 font-medium">Review this point again before next class.</p>
+              ) : null}
+            </div>
+          )
+        })() : null}
       </fieldset>
     )
   }

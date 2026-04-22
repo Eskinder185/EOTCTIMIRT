@@ -114,6 +114,7 @@ CREATE TABLE upcoming_mezmurs (
   title TEXT NOT NULL,
   transliteration TEXT,
   lyrics TEXT,
+  youtube_url TEXT,
   order_index INTEGER NOT NULL CHECK (order_index IN (0, 1)),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   
