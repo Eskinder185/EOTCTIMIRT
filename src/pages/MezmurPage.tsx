@@ -132,7 +132,7 @@ export function MezmurPage() {
 
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Preparation links</p>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <a
             href="https://tewahedodaily.pages.dev/practice"
             target="_blank"
@@ -148,6 +148,15 @@ export function MezmurPage() {
             className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
           >
             {t('calendar')}
+          </a>
+          <a
+            href="/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf"
+            target="_blank"
+            rel="noreferrer"
+            title="Opens the main Orthodox study PDF"
+            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+          >
+            Orthodox Resources
           </a>
           <a
             href="https://tewahedodaily.pages.dev/prayers"

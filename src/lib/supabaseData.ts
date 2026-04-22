@@ -35,6 +35,15 @@ function invalidateDataCaches() {
   upcomingTimiritAdminCacheTimestamp = 0
 }
 
+function isMissingYoutubeUrlColumnError(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) {
+    return false
+  }
+
+  const message = error.message ?? ''
+  return error.code === 'PGRST204' || message.includes('youtube_url')
+}
+
 export function getCachedWeeklyClasses(): WeeklyClass[] | null {
   if (!weeklyClassesCache || !isFresh(weeklyClassesCacheTimestamp)) {
     return null
@@ -221,7 +230,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     return null
   }
 
-  const { data, error } = await supabase
+  const primary = await supabase
     .from('upcoming_timirit')
     .select(`
       *,
@@ -236,6 +245,27 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     .eq('is_active', true)
     .single()
 
+  let data: any = primary.data
+  let error: any = primary.error
+
+  if (isMissingYoutubeUrlColumnError(primary.error)) {
+    const fallback = await supabase
+      .from('upcoming_timirit')
+      .select(`
+        *,
+        upcoming_mezmurs (
+          title,
+          transliteration,
+          lyrics,
+          order_index
+        )
+      `)
+      .eq('is_active', true)
+      .single()
+    data = fallback.data
+    error = fallback.error
+  }
+
   if (error) {
     if (error.code === 'PGRST116') {
       return null // No active upcoming Timirit
@@ -246,8 +276,8 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
 
   // Sort mezmurs by order_index
   const sortedMezmurs = data.upcoming_mezmurs
-    .sort((a, b) => a.order_index - b.order_index)
-    .map(m => ({
+    .sort((a: any, b: any) => a.order_index - b.order_index)
+    .map((m: any) => ({
       title: m.title,
       transliteration: m.transliteration || undefined,
       lyrics: m.lyrics || undefined,
@@ -733,7 +763,7 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
     return null
   }
 
-  const { data, error } = await supabase
+  const primary = await supabase
     .from('upcoming_timirit')
     .select(`
       *,
@@ -748,6 +778,27 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
     .eq('is_active', true)
     .single()
 
+  let data: any = primary.data
+  let error: any = primary.error
+
+  if (isMissingYoutubeUrlColumnError(primary.error)) {
+    const fallback = await supabase
+      .from('upcoming_timirit')
+      .select(`
+        *,
+        upcoming_mezmurs (
+          title,
+          transliteration,
+          lyrics,
+          order_index
+        )
+      `)
+      .eq('is_active', true)
+      .single()
+    data = fallback.data
+    error = fallback.error
+  }
+
   if (error) {
     if (error.code === 'PGRST116') {
       return null
@@ -758,8 +809,8 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
 
   const sortedMezmurs = Array.isArray(data.upcoming_mezmurs)
     ? data.upcoming_mezmurs
-        .sort((a, b) => a.order_index - b.order_index)
-        .map((mezmur) => ({
+        .sort((a: any, b: any) => a.order_index - b.order_index)
+        .map((mezmur: any) => ({
           title: mezmur.title,
           transliteration: mezmur.transliteration || undefined,
           lyrics: mezmur.lyrics || undefined,
@@ -825,7 +876,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     throw deleteMezmursError
   }
 
-  const { error: insertMezmursError } = await supabase
+  let { error: insertMezmursError } = await supabase
     .from('upcoming_mezmurs')
     .insert(
       data.mezmurs.map((mezmur, index) => ({
@@ -837,6 +888,21 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
         order_index: index,
       })),
     )
+
+  if (isMissingYoutubeUrlColumnError(insertMezmursError)) {
+    const fallbackInsert = await supabase
+      .from('upcoming_mezmurs')
+      .insert(
+        data.mezmurs.map((mezmur, index) => ({
+          upcoming_timirit_id: upcomingId,
+          title: mezmur.title,
+          transliteration: mezmur.transliteration || null,
+          lyrics: mezmur.lyrics || null,
+          order_index: index,
+        })),
+      )
+    insertMezmursError = fallbackInsert.error
+  }
 
   if (insertMezmursError) {
     throw insertMezmursError

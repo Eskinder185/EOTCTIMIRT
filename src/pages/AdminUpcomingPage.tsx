@@ -49,7 +49,11 @@ export function AdminUpcomingPage() {
         }
       } catch (loadError) {
         console.error('Failed to load upcoming editor:', loadError)
-        setError('The upcoming Timirit form could not be loaded.')
+        setError(
+          loadError instanceof Error
+            ? `The upcoming Timirit form could not be loaded. ${loadError.message}`
+            : 'The upcoming Timirit form could not be loaded.',
+        )
       } finally {
         setLoading(false)
       }
