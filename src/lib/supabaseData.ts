@@ -912,6 +912,70 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
   return upcomingId
 }
 
+export async function deactivateUpcomingTimirt(id?: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  let query = supabase
+    .from('upcoming_timirit')
+    .update({ is_active: false })
+    .eq('is_active', true)
+
+  if (id) {
+    query = query.eq('id', id)
+  }
+
+  const { error } = await query
+  if (error) {
+    throw error
+  }
+
+  invalidateDataCaches()
+}
+
+export async function deleteUpcomingTimirt(id?: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  if (id) {
+    const { error } = await supabase
+      .from('upcoming_timirit')
+      .delete()
+      .eq('id', id)
+    if (error) {
+      throw error
+    }
+  } else {
+    const { data: activeRows, error: selectError } = await supabase
+      .from('upcoming_timirit')
+      .select('id')
+      .eq('is_active', true)
+      .limit(1)
+
+    if (selectError) {
+      throw selectError
+    }
+
+    const activeId = activeRows?.[0]?.id
+    if (!activeId) {
+      return
+    }
+
+    const { error: deleteError } = await supabase
+      .from('upcoming_timirit')
+      .delete()
+      .eq('id', activeId)
+
+    if (deleteError) {
+      throw deleteError
+    }
+  }
+
+  invalidateDataCaches()
+}
+
 // ============================================================================
 // ADMIN CONTENT MANAGEMENT FUNCTIONS (requires authentication)
 // ============================================================================

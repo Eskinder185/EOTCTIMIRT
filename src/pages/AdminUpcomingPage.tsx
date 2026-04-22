@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
-import { getUpcomingTimirtForAdmin, saveUpcomingTimirtEditor, type UpcomingTimirtEditorInput } from '../lib/supabaseData'
+import {
+  deactivateUpcomingTimirt,
+  deleteUpcomingTimirt,
+  getUpcomingTimirtForAdmin,
+  saveUpcomingTimirtEditor,
+  type UpcomingTimirtEditorInput,
+} from '../lib/supabaseData'
 
 type FormState = UpcomingTimirtEditorInput
 
@@ -30,6 +36,9 @@ export function AdminUpcomingPage() {
   const [form, setForm] = useState<FormState>(createEmptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -85,6 +94,48 @@ export function AdminUpcomingPage() {
       setError(publishError instanceof Error ? publishError.message : 'Could not publish the upcoming Timirit.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeactivate = async () => {
+    try {
+      setDeactivating(true)
+      setError(null)
+      setNotice(null)
+      await deactivateUpcomingTimirt(form.id)
+      setForm((current) => ({ ...current, isActive: false }))
+      setNotice('Upcoming preview was deactivated and is no longer public.')
+    } catch (deactivateError) {
+      console.error('Failed to deactivate upcoming Timirit:', deactivateError)
+      setError(
+        deactivateError instanceof Error
+          ? deactivateError.message
+          : 'Could not deactivate the upcoming preview.',
+      )
+    } finally {
+      setDeactivating(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+      setError(null)
+      setNotice(null)
+      await deleteUpcomingTimirt(form.id)
+      localStorage.removeItem(draftKey)
+      setForm(createEmptyForm())
+      setShowDeleteConfirm(false)
+      setNotice('Upcoming preview and linked mezmurs were deleted permanently.')
+    } catch (deleteError) {
+      console.error('Failed to delete upcoming Timirit:', deleteError)
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Could not delete the upcoming preview.',
+      )
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -223,7 +274,66 @@ export function AdminUpcomingPage() {
             {saving ? 'Publishing...' : 'Publish update'}
           </Button>
         </div>
+
+        <div className="mt-6 border-t border-brand-100 pt-4">
+          <p className="text-sm font-semibold text-brand-900">Preview visibility controls</p>
+          <p className="mt-1 text-sm text-brand-700">
+            Deactivate hides the preview from public pages without deleting it. Delete removes the preview and related upcoming mezmurs permanently.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleDeactivate}
+              disabled={deactivating || deleting || !form.id}
+            >
+              {deactivating ? 'Deactivating...' : 'Deactivate'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deactivating || deleting || !form.id}
+            >
+              Delete Upcoming Class
+            </Button>
+          </div>
+        </div>
       </section>
+
+      {showDeleteConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-brand-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-brand-900">Delete upcoming class preview?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-brand-700">
+              This will permanently remove the next class preview. Any linked upcoming mezmurs will also be removed.
+            </p>
+            <p className="mt-2 text-sm font-medium text-red-700">
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Confirm delete'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
