@@ -4,7 +4,10 @@ import {
   deactivateUpcomingTimirt,
   deleteUpcomingTimirt,
   getUpcomingTimirtForAdmin,
+  listUpcomingTimiritForAdmin,
   saveUpcomingTimirtEditor,
+  setUpcomingTimiritActive,
+  type UpcomingTimirtListItem,
   type UpcomingTimirtEditorInput,
 } from '../lib/supabaseData'
 
@@ -34,8 +37,11 @@ function createEmptyForm(): FormState {
 export function AdminUpcomingPage() {
   const draftKey = useMemo(() => 'admin-upcoming-draft', [])
   const [form, setForm] = useState<FormState>(createEmptyForm)
+  const [upcomingList, setUpcomingList] = useState<UpcomingTimirtListItem[]>([])
+  const [selectedUpcomingId, setSelectedUpcomingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [activating, setActivating] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -47,7 +53,12 @@ export function AdminUpcomingPage() {
 
     const loadUpcoming = async () => {
       try {
-        const upcoming = await getUpcomingTimirtForAdmin()
+        const allUpcoming = await listUpcomingTimiritForAdmin()
+        setUpcomingList(allUpcoming)
+
+        const defaultId = selectedUpcomingId ?? allUpcoming[0]?.id ?? null
+        const upcoming = defaultId ? await getUpcomingTimirtForAdmin(defaultId) : null
+        setSelectedUpcomingId(defaultId)
         if (savedDraft) {
           setForm(JSON.parse(savedDraft) as FormState)
           setNotice('A local upcoming draft was restored on this device.')
@@ -69,7 +80,7 @@ export function AdminUpcomingPage() {
     }
 
     loadUpcoming()
-  }, [draftKey])
+  }, [draftKey, selectedUpcomingId])
 
   const saveDraft = () => {
     localStorage.setItem(draftKey, JSON.stringify(form))
@@ -87,6 +98,8 @@ export function AdminUpcomingPage() {
       setError(null)
       setNotice(null)
       await saveUpcomingTimirtEditor(form)
+      setSelectedUpcomingId(form.id ?? null)
+      setUpcomingList(await listUpcomingTimiritForAdmin())
       localStorage.removeItem(draftKey)
       setNotice('Upcoming Timirit published successfully.')
     } catch (publishError) {
@@ -104,6 +117,7 @@ export function AdminUpcomingPage() {
       setNotice(null)
       await deactivateUpcomingTimirt(form.id)
       setForm((current) => ({ ...current, isActive: false }))
+      setUpcomingList(await listUpcomingTimiritForAdmin())
       setNotice('Upcoming preview was deactivated and is no longer public.')
     } catch (deactivateError) {
       console.error('Failed to deactivate upcoming Timirit:', deactivateError)
@@ -125,6 +139,8 @@ export function AdminUpcomingPage() {
       await deleteUpcomingTimirt(form.id)
       localStorage.removeItem(draftKey)
       setForm(createEmptyForm())
+      setSelectedUpcomingId(null)
+      setUpcomingList(await listUpcomingTimiritForAdmin())
       setShowDeleteConfirm(false)
       setNotice('Upcoming preview and linked mezmurs were deleted permanently.')
     } catch (deleteError) {
@@ -136,6 +152,50 @@ export function AdminUpcomingPage() {
       )
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleActivate = async () => {
+    if (!form.id) {
+      return
+    }
+    try {
+      setActivating(true)
+      setError(null)
+      setNotice(null)
+      await setUpcomingTimiritActive(form.id, true)
+      setForm((current) => ({ ...current, isActive: true }))
+      setUpcomingList(await listUpcomingTimiritForAdmin())
+      setNotice('Upcoming preview is now active on the public site.')
+    } catch (activateError) {
+      console.error('Failed to activate upcoming Timirit:', activateError)
+      setError(activateError instanceof Error ? activateError.message : 'Could not activate this upcoming preview.')
+    } finally {
+      setActivating(false)
+    }
+  }
+
+  const handleCreateNewUpcoming = () => {
+    setSelectedUpcomingId(null)
+    setForm(createEmptyForm())
+    setNotice('Creating a new upcoming class preview.')
+    setError(null)
+  }
+
+  const handleSelectUpcoming = async (id: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const selected = await getUpcomingTimirtForAdmin(id)
+      if (selected) {
+        setForm(selected)
+      }
+      setSelectedUpcomingId(id)
+    } catch (loadError) {
+      console.error('Failed to load selected upcoming preview:', loadError)
+      setError(loadError instanceof Error ? loadError.message : 'Could not load this upcoming preview.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -160,6 +220,38 @@ export function AdminUpcomingPage() {
 
       {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {notice ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
+
+      <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold text-brand-900">Upcoming classes</h2>
+          <Button type="button" variant="secondary" onClick={handleCreateNewUpcoming}>
+            Add new upcoming class
+          </Button>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {upcomingList.length === 0 ? (
+            <p className="text-sm text-brand-700">No upcoming classes yet.</p>
+          ) : (
+            upcomingList.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleSelectUpcoming(item.id)}
+                className={`rounded-xl border px-3 py-3 text-left ${
+                  form.id === item.id
+                    ? 'border-accent-600 bg-brand-50'
+                    : 'border-brand-200 bg-white hover:bg-brand-50'
+                }`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {item.scheduledDate} {item.isActive ? '· Active' : '· Inactive'}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-brand-900">{item.topicPreview}</p>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -281,6 +373,14 @@ export function AdminUpcomingPage() {
             Deactivate hides the preview from public pages without deleting it. Delete removes the preview and related upcoming mezmurs permanently.
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleActivate}
+              disabled={activating || deactivating || deleting || !form.id || form.isActive}
+            >
+              {activating ? 'Activating...' : 'Activate'}
+            </Button>
             <Button
               type="button"
               variant="secondary"

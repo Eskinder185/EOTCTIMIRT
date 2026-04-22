@@ -13,10 +13,58 @@ export interface AnonymousFeedbackInput {
   category: AnonymousFeedbackCategory
   subject?: string
   message: string
-  website?: string
 }
 
 const FEEDBACK_TIMEOUT_MS = 15000
+const FEEDBACK_FUNCTION_NAME = 'quick-function'
+const RETRY_DELAY_MS = 800
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function invokeAnonymousFeedback(input: AnonymousFeedbackInput) {
+  return supabase!.functions.invoke(FEEDBACK_FUNCTION_NAME, { body: input })
+}
+
+async function invokeAnonymousFeedbackFallback(input: AnonymousFeedbackInput) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase is not configured for anonymous feedback.')
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/${FEEDBACK_FUNCTION_NAME}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+    },
+    body: JSON.stringify(input),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const backendMessage =
+      payload && typeof payload === 'object' && 'error' in payload ? String(payload.error) : null
+    throw new Error(backendMessage || 'Unable to send anonymous feedback right now.')
+  }
+
+  return { data: payload, error: null }
+}
+
+function friendlySubmissionError(error: unknown): string {
+  const rawMessage = error instanceof Error ? error.message : ''
+  const normalized = rawMessage.toLowerCase()
+  if (normalized.includes('failed to send a request to the edge function')) {
+    return 'Cannot reach the feedback service right now. Please try again in a moment. If this continues, ask an organizer to confirm the Edge Function is deployed and project URL is correct.'
+  }
+  if (normalized.includes('request timed out')) {
+    return 'The request took too long. Please check your connection and try again.'
+  }
+  return rawMessage || 'Unable to send anonymous feedback right now.'
+}
 
 export async function submitAnonymousFeedback(input: AnonymousFeedbackInput): Promise<void> {
   if (!supabase) {
@@ -33,15 +81,37 @@ export async function submitAnonymousFeedback(input: AnonymousFeedbackInput): Pr
   let invokeResult: Awaited<ReturnType<typeof supabase.functions.invoke>>
   try {
     invokeResult = await Promise.race([
-      supabase.functions.invoke('anonymous-feedback', { body: input }),
+      invokeAnonymousFeedback(input),
       timeoutPromise,
     ])
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to send anonymous feedback right now.'
     if (import.meta.env.DEV) {
-      console.error('Anonymous feedback submission failed:', { error, inputCategory: input.category })
+      console.error('Anonymous feedback invoke failed, retrying with fallback fetch:', {
+        error,
+        functionName: FEEDBACK_FUNCTION_NAME,
+      })
     }
-    throw new Error(message)
+    try {
+      await wait(RETRY_DELAY_MS)
+      invokeResult = await Promise.race([
+        invokeAnonymousFeedbackFallback(input),
+        timeoutPromise,
+      ])
+    } catch (fallbackError) {
+      const message = friendlySubmissionError(fallbackError)
+      if (import.meta.env.DEV) {
+        console.error('Anonymous feedback submission failed:', {
+          primaryError: error,
+          fallbackError,
+          functionName: FEEDBACK_FUNCTION_NAME,
+          inputCategory: input.category,
+        })
+      }
+      throw new Error(message)
+    }
+    if (import.meta.env.DEV) {
+      console.info('Anonymous feedback fallback fetch succeeded.')
+    }
   } finally {
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId)
@@ -57,7 +127,7 @@ export async function submitAnonymousFeedback(input: AnonymousFeedbackInput): Pr
         details: error,
       })
     }
-    throw new Error(error.message || 'Unable to send anonymous feedback right now.')
+    throw new Error(friendlySubmissionError(error))
   }
 
   if (!data || (typeof data === 'object' && 'ok' in data && !data.ok)) {

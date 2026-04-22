@@ -49,7 +49,6 @@ export function AnonymousFeedbackForm() {
         category: form.category,
         subject: form.subject.trim() || undefined,
         message: form.message.trim(),
-        website: form.website,
       })
       setForm(initialState)
       setNotice('Your anonymous note was received. Thank you for helping the community grow together in the faith.')

@@ -99,6 +99,14 @@ export interface UpcomingTimirtEditorInput {
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
 }
 
+export interface UpcomingTimirtListItem {
+  id: string
+  scheduledDate: string
+  topicPreview: string
+  note: string
+  isActive: boolean
+}
+
 // ============================================================================
 // PUBLIC DATA FUNCTIONS (no authentication required)
 // ============================================================================
@@ -230,48 +238,12 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     return null
   }
 
-  const primary = await supabase
-    .from('upcoming_timirit')
-    .select(`
-      *,
-      upcoming_mezmurs (
-        title,
-        transliteration,
-        lyrics,
-        youtube_url,
-        order_index
-      )
-    `)
-    .eq('is_active', true)
-    .single()
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const data = await fetchUpcomingTimiritRecordForPublic({ fromDate: todayIso })
+    ?? await fetchUpcomingTimiritRecordForPublic({})
 
-  let data: any = primary.data
-  let error: any = primary.error
-
-  if (isMissingYoutubeUrlColumnError(primary.error)) {
-    const fallback = await supabase
-      .from('upcoming_timirit')
-      .select(`
-        *,
-        upcoming_mezmurs (
-          title,
-          transliteration,
-          lyrics,
-          order_index
-        )
-      `)
-      .eq('is_active', true)
-      .single()
-    data = fallback.data
-    error = fallback.error
-  }
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null // No active upcoming Timirit
-    }
-    console.error('Error fetching upcoming Timirit:', error)
-    throw error
+  if (!data) {
+    return null
   }
 
   // Sort mezmurs by order_index
@@ -290,6 +262,72 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     note: data.note,
     mezmurs: [sortedMezmurs[0], sortedMezmurs[1]] as [Mezmur, Mezmur]
   }
+}
+
+async function fetchUpcomingTimiritRecordForPublic({
+  fromDate,
+}: {
+  fromDate?: string
+}): Promise<any | null> {
+  if (!supabase) {
+    return null
+  }
+
+  let primaryQuery = supabase
+    .from('upcoming_timirit')
+    .select(`
+      *,
+      upcoming_mezmurs (
+        title,
+        transliteration,
+        lyrics,
+        youtube_url,
+        order_index
+      )
+    `)
+    .eq('is_active', true)
+    .order('scheduled_date', { ascending: true })
+    .limit(1)
+
+  if (fromDate) {
+    primaryQuery = primaryQuery.gte('scheduled_date', fromDate)
+  }
+
+  const primary = await primaryQuery
+  let rows: any[] | null = primary.data
+  let error: any = primary.error
+
+  if (isMissingYoutubeUrlColumnError(primary.error)) {
+    let fallbackQuery = supabase
+      .from('upcoming_timirit')
+      .select(`
+        *,
+        upcoming_mezmurs (
+          title,
+          transliteration,
+          lyrics,
+          order_index
+        )
+      `)
+      .eq('is_active', true)
+      .order('scheduled_date', { ascending: true })
+      .limit(1)
+
+    if (fromDate) {
+      fallbackQuery = fallbackQuery.gte('scheduled_date', fromDate)
+    }
+
+    const fallback = await fallbackQuery
+    rows = fallback.data
+    error = fallback.error
+  }
+
+  if (error) {
+    console.error('Error fetching upcoming Timirit:', error)
+    throw error
+  }
+
+  return rows?.[0] ?? null
 }
 
 /**
@@ -754,8 +792,8 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
   return normalizedId
 }
 
-export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorInput | null> {
-  if (upcomingTimiritAdminCache !== undefined && isFresh(upcomingTimiritAdminCacheTimestamp)) {
+export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTimirtEditorInput | null> {
+  if (!id && upcomingTimiritAdminCache !== undefined && isFresh(upcomingTimiritAdminCacheTimestamp)) {
     return upcomingTimiritAdminCache
   }
 
@@ -763,7 +801,7 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
     return null
   }
 
-  const primary = await supabase
+  let primaryQuery = supabase
     .from('upcoming_timirit')
     .select(`
       *,
@@ -775,14 +813,17 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
         order_index
       )
     `)
-    .eq('is_active', true)
-    .single()
+    .order('scheduled_date', { ascending: true })
+    .limit(1)
+
+  primaryQuery = id ? primaryQuery.eq('id', id) : primaryQuery.eq('is_active', true)
+  const primary = await primaryQuery
 
   let data: any = primary.data
   let error: any = primary.error
 
   if (isMissingYoutubeUrlColumnError(primary.error)) {
-    const fallback = await supabase
+    let fallbackQuery = supabase
       .from('upcoming_timirit')
       .select(`
         *,
@@ -793,22 +834,26 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
           order_index
         )
       `)
-      .eq('is_active', true)
-      .single()
+      .order('scheduled_date', { ascending: true })
+      .limit(1)
+    fallbackQuery = id ? fallbackQuery.eq('id', id) : fallbackQuery.eq('is_active', true)
+    const fallback = await fallbackQuery
     data = fallback.data
     error = fallback.error
   }
 
-  if (error) {
-    if (error.code === 'PGRST116') {
+  const row = Array.isArray(data) ? data[0] : data
+
+  if (error || !row) {
+    if (error?.code === 'PGRST116' || !row) {
       return null
     }
 
     throw error
   }
 
-  const sortedMezmurs = Array.isArray(data.upcoming_mezmurs)
-    ? data.upcoming_mezmurs
+  const sortedMezmurs = Array.isArray(row.upcoming_mezmurs)
+    ? row.upcoming_mezmurs
         .sort((a: any, b: any) => a.order_index - b.order_index)
         .map((mezmur: any) => ({
           title: mezmur.title,
@@ -819,34 +864,27 @@ export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorI
     : []
 
   const result: UpcomingTimirtEditorInput = {
-    id: data.id,
-    scheduledDate: data.scheduled_date,
-    topicPreview: data.topic_preview,
-    note: data.note,
-    isActive: data.is_active ?? true,
+    id: row.id,
+    scheduledDate: row.scheduled_date,
+    topicPreview: row.topic_preview,
+    note: row.note,
+    isActive: row.is_active ?? true,
     mezmurs: [
       sortedMezmurs[0] ?? { title: '' },
       sortedMezmurs[1] ?? { title: '' },
     ] as [EditorMezmurInput, EditorMezmurInput],
   }
 
-  upcomingTimiritAdminCache = result
-  upcomingTimiritAdminCacheTimestamp = Date.now()
+  if (!id) {
+    upcomingTimiritAdminCache = result
+    upcomingTimiritAdminCacheTimestamp = Date.now()
+  }
   return result
 }
 
 export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput): Promise<string> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
-  }
-
-  const { error: clearActiveError } = await supabase
-    .from('upcoming_timirit')
-    .update({ is_active: false })
-    .eq('is_active', true)
-
-  if (clearActiveError) {
-    throw clearActiveError
   }
 
   const { data: upcomingRecord, error: upcomingError } = await supabase
@@ -910,6 +948,70 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
 
   invalidateDataCaches()
   return upcomingId
+}
+
+export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListItem[]> {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('upcoming_timirit')
+    .select('id, scheduled_date, topic_preview, note, is_active')
+    .order('scheduled_date', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    scheduledDate: row.scheduled_date,
+    topicPreview: row.topic_preview,
+    note: row.note,
+    isActive: row.is_active ?? false,
+  }))
+}
+
+export async function listActiveUpcomingTimirit(): Promise<UpcomingTimirtListItem[]> {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('upcoming_timirit')
+    .select('id, scheduled_date, topic_preview, note, is_active')
+    .eq('is_active', true)
+    .order('scheduled_date', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    scheduledDate: row.scheduled_date,
+    topicPreview: row.topic_preview,
+    note: row.note,
+    isActive: row.is_active ?? false,
+  }))
+}
+
+export async function setUpcomingTimiritActive(id: string, isActive: boolean): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const { error } = await supabase
+    .from('upcoming_timirit')
+    .update({ is_active: isActive })
+    .eq('id', id)
+
+  if (error) {
+    throw error
+  }
+
+  invalidateDataCaches()
 }
 
 export async function deactivateUpcomingTimirt(id?: string): Promise<void> {

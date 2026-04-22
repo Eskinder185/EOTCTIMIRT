@@ -103,6 +103,12 @@ export function UpcomingClassPage() {
             </article>
           ))}
         </div>
+        <a
+          href="/mezmurs"
+          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+        >
+          Go to Mezmurs
+        </a>
       </Card>
 
       <Card>

@@ -16,6 +16,7 @@ import { OrthodoxResourcesPage } from './pages/OrthodoxResourcesPage'
 import { UpcomingMezmursPage } from './pages/UpcomingMezmursPage'
 import { OrganizerLoginPage } from './pages/OrganizerLoginPage'
 import { PastClassesPage } from './pages/PastClassesPage'
+import { UpcomingClassesPage } from './pages/UpcomingClassesPage'
 import { UpcomingClassPage } from './pages/UpcomingClassPage'
 
 const OrganizerDashboardPage = lazy(async () => {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/this-week" element={<Navigate to="/upcoming" replace />} />
           <Route path="/missed" element={<Navigate to="/past-timirit" replace />} />
           <Route path="/upcoming" element={<UpcomingClassPage />} />
+          <Route path="/upcoming-classes" element={<UpcomingClassesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<Navigate to="/about" replace />} />
           <Route path="/classes" element={<Navigate to="/past-timirit" replace />} />
