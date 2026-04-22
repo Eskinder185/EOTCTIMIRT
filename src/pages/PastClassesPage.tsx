@@ -39,10 +39,10 @@ export function PastClassesPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
           Archive
         </p>
-        <h1 className="text-2xl font-bold text-brand-900 sm:text-3xl">Past Timirit sessions</h1>
+        <h1 className="text-2xl font-bold text-brand-900 sm:text-3xl">Past Timirit classes</h1>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          Each card opens the full teaching, mezmurs, and follow-up for that Tuesday in
-          our Ethiopian Orthodox Tewahedo parish.
+          Browse recent classes in descending order and open each summary page to catch up
+          with the teaching, mezmurs, and quick review.
         </p>
       </div>
 
@@ -72,8 +72,11 @@ export function PastClassesPage() {
                     {formatClassDate(week.date)}
                   </p>
                   <h2 className="text-lg font-semibold text-brand-900">{week.topic}</h2>
+                  <p className="mt-1 text-sm text-brand-700">{week.speaker}</p>
                   <p className="mt-2 text-sm leading-relaxed text-brand-800">
-                    {week.englishSummary}
+                    {week.englishSummary.length > 160
+                      ? `${week.englishSummary.slice(0, 160).trimEnd()}...`
+                      : week.englishSummary}
                   </p>
                 </div>
                 <RouterLinkButton
@@ -81,7 +84,7 @@ export function PastClassesPage() {
                   variant="secondary"
                   className="w-full sm:w-auto sm:self-center"
                 >
-                  Open Timirit
+                  View Summary
                 </RouterLinkButton>
               </div>
             </Card>

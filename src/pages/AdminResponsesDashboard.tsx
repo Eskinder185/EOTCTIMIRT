@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrganizerAnalytics, getAttendanceSummary, getRecapSuggestions } from '../lib/supabaseData'
 import { Button } from '../components/ui/Button'
@@ -130,11 +130,9 @@ export function AdminResponsesDashboard() {
           <p className="text-gray-600 mb-4">
             Responses will appear here once participants start submitting answers to your weekly questions.
           </p>
-          <Button asChild>
-            <Link to="/admin/classes">
-              Create Your First Class
-            </Link>
-          </Button>
+          <Link to="/admin/weekly-classes">
+            <Button>Create Your First Class</Button>
+          </Link>
         </div>
       ) : selectedWeekData && (
         <>

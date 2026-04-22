@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getWeeklyClasses } from '../lib/supabaseData'
 import { Button } from '../components/ui/Button'
@@ -64,11 +64,9 @@ export function AdminWeeklyClasses() {
             Manage Timirit weekly session content
           </p>
         </div>
-        <Button asChild>
-          <Link to="/admin/classes/new">
-            ➕ Create New Class
-          </Link>
-        </Button>
+        <Link to="/admin/weekly-classes/new">
+          <Button>➕ Create New Class</Button>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -101,11 +99,9 @@ export function AdminWeeklyClasses() {
           <p className="text-gray-600 mb-4">
             Create your first weekly Timirit session to get started.
           </p>
-          <Button asChild>
-            <Link to="/admin/classes/new">
-              Create First Class
-            </Link>
-          </Button>
+          <Link to="/admin/weekly-classes/new">
+            <Button>Create First Class</Button>
+          </Link>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -146,28 +142,16 @@ export function AdminWeeklyClasses() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button 
-                      asChild 
-                      variant="outline" 
-                      size="sm"
+                    <Link to={`/admin/weekly-classes/${weeklyClass.id}`}>
+                      <Button variant="secondary">Edit</Button>
+                    </Link>
+                    <Link 
+                      to={`/class/${weeklyClass.id}`} 
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
-                      <Link to={`/admin/classes/${weeklyClass.id}`}>
-                        Edit
-                      </Link>
-                    </Button>
-                    <Button 
-                      asChild 
-                      variant="outline" 
-                      size="sm"
-                    >
-                      <Link 
-                        to={`/class/${weeklyClass.id}`} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Preview
-                      </Link>
-                    </Button>
+                      <Button variant="secondary">Preview</Button>
+                    </Link>
                   </div>
                 </div>
               </div>

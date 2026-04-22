@@ -6,7 +6,6 @@
 import { supabase } from './supabase'
 import type { 
   WeeklyClass, 
-  UpcomingTimirtPreview, 
   OrganizerSnapshot, 
   AttendanceSlice,
   RecapSuggestion,
@@ -15,6 +14,54 @@ import type {
   QuestionType,
   AttendanceChoice
 } from '../data/types'
+import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
+
+export interface EditorMezmurInput {
+  title: string
+  transliteration?: string
+  lyrics?: string
+  youtubeUrl?: string
+}
+
+export interface EditorQuestionInput {
+  id?: string
+  type: QuestionType
+  prompt: string
+  helperText?: string
+  placeholder?: string
+  correctIndex?: number
+  explanation?: string
+  options?: string[]
+  attendanceOptions?: Array<{
+    value: AttendanceChoice
+    label: string
+  }>
+}
+
+export interface WeeklyClassEditorInput {
+  id: string
+  date: string
+  topic: string
+  speaker: string
+  amharicSummary: string
+  englishSummary: string
+  keyPoints: string[]
+  verses: string[]
+  youtubeUrl?: string
+  mezmurs: [EditorMezmurInput, EditorMezmurInput]
+  questions: EditorQuestionInput[]
+  feedbackSummary?: string
+  attendanceSummary?: string
+}
+
+export interface UpcomingTimirtEditorInput {
+  id?: string
+  scheduledDate: string
+  topicPreview: string
+  note: string
+  isActive: boolean
+  mezmurs: [EditorMezmurInput, EditorMezmurInput]
+}
 
 // ============================================================================
 // PUBLIC DATA FUNCTIONS (no authentication required)
@@ -185,6 +232,10 @@ export async function submitUserResponses(
   }>,
   userFingerprint: string
 ): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
   const responseData = responses.map(response => ({
     weekly_class_id: weeklyClassId,
     question_id: response.questionId,
@@ -215,6 +266,10 @@ export async function submitUserResponses(
  * Get organizer analytics for all weeks
  */
 export async function getOrganizerAnalytics(): Promise<OrganizerSnapshot[]> {
+  if (!supabase) {
+    return []
+  }
+
   const classes = await getWeeklyClasses()
   const analytics: OrganizerSnapshot[] = []
 
@@ -234,7 +289,7 @@ export async function getOrganizerAnalytics(): Promise<OrganizerSnapshot[]> {
         
         // Extract unclear topics from the JSONB array
         const topUnclearTopics = Array.isArray(weekData.top_unclear_topics) 
-          ? weekData.top_unclear_topics.filter(topic => topic && typeof topic === 'string')
+          ? weekData.top_unclear_topics.filter((topic): topic is string => typeof topic === 'string')
           : []
 
         analytics.push({
@@ -261,6 +316,10 @@ export async function getOrganizerAnalytics(): Promise<OrganizerSnapshot[]> {
  * Get attendance breakdown for a specific week
  */
 export async function getAttendanceSummary(weekId: string): Promise<AttendanceSlice[]> {
+  if (!supabase) {
+    return []
+  }
+
   const { data, error } = await supabase.rpc('get_attendance_summary', {
     target_week_id: weekId
   })
@@ -328,6 +387,284 @@ export async function getRecapSuggestions(weekId: string): Promise<RecapSuggesti
   return suggestions
 }
 
+export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promise<string> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const normalizedId = data.id.trim() || data.date
+  const normalizedQuestions = data.questions.map((question, index) => ({
+    ...question,
+    id: question.id?.trim() || `${normalizedId}-q-${crypto.randomUUID()}`,
+    orderIndex: index,
+  }))
+
+  const existingQuestions = await supabase
+    .from('questions')
+    .select('id')
+    .eq('weekly_class_id', normalizedId)
+
+  if (existingQuestions.error) {
+    throw existingQuestions.error
+  }
+
+  const keptQuestionIds = new Set(normalizedQuestions.map((question) => question.id))
+  const removedQuestionIds = (existingQuestions.data ?? [])
+    .map((question) => question.id)
+    .filter((questionId) => !keptQuestionIds.has(questionId))
+
+  const { error: classError } = await supabase
+    .from('weekly_classes')
+    .upsert({
+      id: normalizedId,
+      date: data.date,
+      topic: data.topic,
+      speaker: data.speaker,
+      amharic_summary: data.amharicSummary,
+      english_summary: data.englishSummary,
+      key_points: data.keyPoints,
+      verses: data.verses,
+      youtube_url: data.youtubeUrl || null,
+      feedback_summary: data.feedbackSummary || null,
+      attendance_summary: data.attendanceSummary || null,
+    })
+
+  if (classError) {
+    throw classError
+  }
+
+  const { error: deleteMezmursError } = await supabase
+    .from('mezmurs')
+    .delete()
+    .eq('weekly_class_id', normalizedId)
+
+  if (deleteMezmursError) {
+    throw deleteMezmursError
+  }
+
+  const { error: mezmursError } = await supabase
+    .from('mezmurs')
+    .insert(
+      data.mezmurs.map((mezmur, index) => ({
+        weekly_class_id: normalizedId,
+        title: mezmur.title,
+        transliteration: mezmur.transliteration || null,
+        lyrics: mezmur.lyrics || null,
+        youtube_url: mezmur.youtubeUrl || null,
+        order_index: index,
+      })),
+    )
+
+  if (mezmursError) {
+    throw mezmursError
+  }
+
+  const { error: questionsError } = await supabase
+    .from('questions')
+    .upsert(
+      normalizedQuestions.map((question) => ({
+        id: question.id,
+        weekly_class_id: normalizedId,
+        type: question.type,
+        prompt: question.prompt,
+        helper_text: question.helperText || null,
+        placeholder: question.placeholder || null,
+        correct_index: question.type === 'multiple-choice' ? (question.correctIndex ?? 0) : null,
+        explanation: question.type === 'multiple-choice' ? (question.explanation || null) : null,
+        order_index: question.orderIndex,
+      })),
+    )
+
+  if (questionsError) {
+    throw questionsError
+  }
+
+  for (const question of normalizedQuestions) {
+    const questionId = question.id as string
+
+    const { error: deleteChoiceError } = await supabase
+      .from('multiple_choice_options')
+      .delete()
+      .eq('question_id', questionId)
+
+    if (deleteChoiceError) {
+      throw deleteChoiceError
+    }
+
+    const { error: deleteAttendanceError } = await supabase
+      .from('attendance_options')
+      .delete()
+      .eq('question_id', questionId)
+
+    if (deleteAttendanceError) {
+      throw deleteAttendanceError
+    }
+
+    if (question.type === 'multiple-choice' && question.options && question.options.length > 0) {
+      const { error: choiceError } = await supabase
+        .from('multiple_choice_options')
+        .insert(
+          question.options.map((optionText, optionIndex) => ({
+            question_id: questionId,
+            option_text: optionText,
+            option_index: optionIndex,
+          })),
+        )
+
+      if (choiceError) {
+        throw choiceError
+      }
+    }
+
+    if (question.type === 'attendance') {
+      const attendanceOptions = question.attendanceOptions ?? [
+        { value: 'in-person', label: 'In person' },
+        { value: 'online', label: 'Online' },
+        { value: 'maybe', label: 'Maybe' },
+        { value: 'cannot-attend', label: 'Cannot attend' },
+      ]
+
+      const { error: attendanceError } = await supabase
+        .from('attendance_options')
+        .insert(
+          attendanceOptions.map((option, optionIndex) => ({
+            question_id: questionId,
+            value: option.value,
+            label: option.label,
+            option_index: optionIndex,
+          })),
+        )
+
+      if (attendanceError) {
+        throw attendanceError
+      }
+    }
+  }
+
+  if (removedQuestionIds.length > 0) {
+    const { error: removeQuestionsError } = await supabase
+      .from('questions')
+      .delete()
+      .in('id', removedQuestionIds)
+
+    if (removeQuestionsError) {
+      throw removeQuestionsError
+    }
+  }
+
+  return normalizedId
+}
+
+export async function getUpcomingTimirtForAdmin(): Promise<UpcomingTimirtEditorInput | null> {
+  if (!supabase) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('upcoming_timirit')
+    .select(`
+      *,
+      upcoming_mezmurs (
+        title,
+        transliteration,
+        lyrics,
+        order_index
+      )
+    `)
+    .eq('is_active', true)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null
+    }
+
+    throw error
+  }
+
+  const sortedMezmurs = Array.isArray(data.upcoming_mezmurs)
+    ? data.upcoming_mezmurs
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((mezmur) => ({
+          title: mezmur.title,
+          transliteration: mezmur.transliteration || undefined,
+          lyrics: mezmur.lyrics || undefined,
+        }))
+    : []
+
+  return {
+    id: data.id,
+    scheduledDate: data.scheduled_date,
+    topicPreview: data.topic_preview,
+    note: data.note,
+    isActive: data.is_active ?? true,
+    mezmurs: [
+      sortedMezmurs[0] ?? { title: '' },
+      sortedMezmurs[1] ?? { title: '' },
+    ],
+  }
+}
+
+export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput): Promise<string> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const { error: clearActiveError } = await supabase
+    .from('upcoming_timirit')
+    .update({ is_active: false })
+    .eq('is_active', true)
+
+  if (clearActiveError) {
+    throw clearActiveError
+  }
+
+  const { data: upcomingRecord, error: upcomingError } = await supabase
+    .from('upcoming_timirit')
+    .upsert({
+      id: data.id,
+      scheduled_date: data.scheduledDate,
+      topic_preview: data.topicPreview,
+      note: data.note,
+      is_active: data.isActive,
+    })
+    .select('id')
+    .single()
+
+  if (upcomingError) {
+    throw upcomingError
+  }
+
+  const upcomingId = upcomingRecord.id
+
+  const { error: deleteMezmursError } = await supabase
+    .from('upcoming_mezmurs')
+    .delete()
+    .eq('upcoming_timirit_id', upcomingId)
+
+  if (deleteMezmursError) {
+    throw deleteMezmursError
+  }
+
+  const { error: insertMezmursError } = await supabase
+    .from('upcoming_mezmurs')
+    .insert(
+      data.mezmurs.map((mezmur, index) => ({
+        upcoming_timirit_id: upcomingId,
+        title: mezmur.title,
+        transliteration: mezmur.transliteration || null,
+        lyrics: mezmur.lyrics || null,
+        order_index: index,
+      })),
+    )
+
+  if (insertMezmursError) {
+    throw insertMezmursError
+  }
+
+  return upcomingId
+}
+
 // ============================================================================
 // ADMIN CONTENT MANAGEMENT FUNCTIONS (requires authentication)
 // ============================================================================
@@ -338,6 +675,10 @@ export async function getRecapSuggestions(weekId: string): Promise<RecapSuggesti
 export async function createWeeklyClass(
   data: Omit<WeeklyClass, 'questions' | 'mezmurs' | 'feedbackSummary' | 'attendanceSummary'>
 ): Promise<string> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
   const { data: result, error } = await supabase
     .from('weekly_classes')
     .insert({
@@ -369,6 +710,10 @@ export async function updateWeeklyClass(
   id: string,
   data: Partial<Omit<WeeklyClass, 'questions' | 'mezmurs' | 'id'>>
 ): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
   const updateData: any = {}
   
   if (data.topic !== undefined) updateData.topic = data.topic
@@ -396,6 +741,10 @@ export async function updateWeeklyClass(
  * Delete a weekly class and all associated data
  */
 export async function deleteWeeklyClass(id: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
   const { error } = await supabase
     .from('weekly_classes')
     .delete()
@@ -416,19 +765,28 @@ export async function deleteWeeklyClass(id: string): Promise<void> {
  */
 function transformWeeklyClass(data: any): WeeklyClass {
   // Sort mezmurs by order_index
-  const sortedMezmurs = data.mezmurs
-    .sort((a: any, b: any) => a.order_index - b.order_index)
-    .map((m: any) => ({
-      title: m.title,
-      transliteration: m.transliteration || undefined,
-      lyrics: m.lyrics || undefined,
-      youtubeUrl: m.youtube_url || undefined
-    }))
+  const sortedMezmurs = Array.isArray(data.mezmurs)
+    ? data.mezmurs
+        .sort((a: any, b: any) => a.order_index - b.order_index)
+        .map((m: any) => ({
+          title: m.title,
+          transliteration: m.transliteration || undefined,
+          lyrics: m.lyrics || undefined,
+          youtubeUrl: m.youtube_url || undefined
+        }))
+    : []
 
   // Sort questions by order_index and transform
-  const sortedQuestions = data.questions
-    .sort((a: any, b: any) => a.order_index - b.order_index)
-    .map(transformQuestion)
+  const sortedQuestions = Array.isArray(data.questions)
+    ? data.questions
+        .sort((a: any, b: any) => a.order_index - b.order_index)
+        .map(transformQuestion)
+    : []
+
+  const mezmurs: [Mezmur, Mezmur] = [
+    sortedMezmurs[0] ?? { title: 'Mezmur will be added soon' },
+    sortedMezmurs[1] ?? { title: 'Second mezmur will be added soon' }
+  ]
 
   return {
     id: data.id,
@@ -440,7 +798,7 @@ function transformWeeklyClass(data: any): WeeklyClass {
     keyPoints: Array.isArray(data.key_points) ? data.key_points : [],
     verses: Array.isArray(data.verses) ? data.verses : undefined,
     youtubeUrl: data.youtube_url || undefined,
-    mezmurs: [sortedMezmurs[0], sortedMezmurs[1]] as [Mezmur, Mezmur],
+    mezmurs,
     questions: sortedQuestions,
     feedbackSummary: data.feedback_summary || undefined,
     attendanceSummary: data.attendance_summary || undefined
@@ -460,9 +818,11 @@ function transformQuestion(data: any): Question {
 
   switch (data.type) {
     case 'multiple-choice':
-      const sortedOptions = data.multiple_choice_options
-        .sort((a: any, b: any) => a.option_index - b.option_index)
-        .map((opt: any) => opt.option_text)
+      const sortedOptions = Array.isArray(data.multiple_choice_options)
+        ? data.multiple_choice_options
+            .sort((a: any, b: any) => a.option_index - b.option_index)
+            .map((opt: any) => opt.option_text)
+        : []
       
       return {
         ...baseQuestion,
@@ -473,12 +833,14 @@ function transformQuestion(data: any): Question {
       }
 
     case 'attendance':
-      const sortedAttendanceOptions = data.attendance_options
-        .sort((a: any, b: any) => a.option_index - b.option_index)
-        .map((opt: any) => ({
-          value: opt.value as AttendanceChoice,
-          label: opt.label
-        }))
+      const sortedAttendanceOptions = Array.isArray(data.attendance_options)
+        ? data.attendance_options
+            .sort((a: any, b: any) => a.option_index - b.option_index)
+            .map((opt: any) => ({
+              value: opt.value as AttendanceChoice,
+              label: opt.label
+            }))
+        : []
       
       return {
         ...baseQuestion,

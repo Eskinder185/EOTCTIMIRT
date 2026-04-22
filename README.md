@@ -30,12 +30,11 @@ npm run preview
 | Path | Purpose |
 |------|---------|
 | `/` | Home — hero, weekly cards, Tewahedo Daily links, contact |
-| `/this-week` | Current Tuesday Timirit (stable URL for Telegram) |
-| `/missed` | Gentle catch-up for absent members |
-| `/classes` | Past sessions + search |
-| `/class/:id` | Any week’s full page |
+| `/upcoming` | Next class preview + preparation |
+| `/past-timirit` | Past sessions + search |
+| `/class/:id` | Past class summary / catch-up |
 | `/mezmurs` | Weekly hymn archive |
-| `/contact` | Organizer support (discreet) |
+| `/about` | Church, organizers, and anonymous feedback |
 | `/organizer` | Dashboard (mock data; add auth later) |
 
 ## Project structure
@@ -44,6 +43,23 @@ npm run preview
 - `src/data` — `types.ts`, `mockWeeks.ts`, `mockUpcoming.ts`, `mockOrganizer.ts`, `weeksRepo.ts`.
 - `src/components/timirt` — shared Timirit lesson layout (`TimirtWeekPageContent.tsx`).
 - `src/lib` — `feedbackClient.ts` (localStorage placeholder for future Supabase/Firebase).
+
+## Anonymous feedback
+
+The About page includes an anonymous feedback form backed by a Supabase Edge Function.
+
+Required Edge Function secrets:
+
+- `FEEDBACK_TO_EMAIL=eskewabe185@gmail.com`
+- `RESEND_API_KEY=<your resend api key>`
+- `FEEDBACK_FROM_EMAIL=<verified sender address>`
+
+Deploy the function after creating the feedback tables:
+
+```bash
+supabase functions deploy anonymous-feedback --no-verify-jwt
+supabase secrets set FEEDBACK_TO_EMAIL=eskewabe185@gmail.com RESEND_API_KEY=... FEEDBACK_FROM_EMAIL=...
+```
 
 ## Backend later
 

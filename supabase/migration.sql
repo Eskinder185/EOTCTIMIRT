@@ -251,3 +251,42 @@ VALUES
 -- Test analytics function:
 -- SELECT * FROM get_organizer_analytics('2026-04-01');
 -- SELECT * FROM get_attendance_summary('2026-04-01');
+
+-- ============================================================================
+-- OPTIONAL ANONYMOUS FEEDBACK TABLES
+-- ============================================================================
+
+-- These tables support the public anonymous feedback form. Create them before
+-- deploying the anonymous-feedback Edge Function.
+
+CREATE TABLE IF NOT EXISTS anonymous_feedback_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL CHECK (category IN (
+    'Website feedback',
+    'Teaching feedback',
+    'Future topic suggestion',
+    'General note'
+  )),
+  subject TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS anonymous_feedback_rate_limits (
+  identifier_hash TEXT PRIMARY KEY,
+  window_started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
+  submission_count INTEGER NOT NULL DEFAULT 0,
+  blocked_until TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE anonymous_feedback_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anonymous_feedback_rate_limits ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_anonymous_feedback_submissions_created_at
+  ON anonymous_feedback_submissions(created_at DESC);
+
+DROP POLICY IF EXISTS "Organizers can read anonymous feedback" ON anonymous_feedback_submissions;
+CREATE POLICY "Organizers can read anonymous feedback" ON anonymous_feedback_submissions FOR SELECT USING (
+  auth.role() = 'authenticated' AND
+  EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
+);

@@ -1,570 +1,467 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { getWeeklyClass, createWeeklyClass, updateWeeklyClass } from '../lib/supabaseData'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-import type { WeeklyClass, Question, Mezmur, QuestionType } from '../data/types'
+import { getWeeklyClass, saveWeeklyClassEditor, type EditorQuestionInput, type WeeklyClassEditorInput } from '../lib/supabaseData'
+import type { AttendanceChoice, QuestionType } from '../data/types'
 
-type FormQuestion = Omit<Question, 'id'> & { id?: string }
-type FormMezmur = Omit<Mezmur, 'youtubeUrl'> & { youtubeUrl?: string }
+type FormState = WeeklyClassEditorInput
 
-export function AdminWeeklyClassForm() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const isEditing = Boolean(id)
-  
-  const [loading, setLoading] = useState(isEditing)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  
-  // Form state
-  const [formData, setFormData] = useState({
+const defaultAttendanceOptions: Array<{ value: AttendanceChoice; label: string }> = [
+  { value: 'in-person', label: 'In person' },
+  { value: 'online', label: 'Online' },
+  { value: 'maybe', label: 'Maybe' },
+  { value: 'cannot-attend', label: 'Cannot attend' },
+]
+
+function getNextTuesday() {
+  const today = new Date()
+  const daysUntilTuesday = (2 - today.getDay() + 7) % 7
+  const nextTuesday = new Date(today)
+  nextTuesday.setDate(today.getDate() + (daysUntilTuesday === 0 ? 7 : daysUntilTuesday))
+  return nextTuesday.toISOString().split('T')[0]
+}
+
+function createEmptyQuestion(type: QuestionType): EditorQuestionInput {
+  if (type === 'multiple-choice') {
+    return {
+      type,
+      prompt: '',
+      helperText: '',
+      correctIndex: 0,
+      explanation: '',
+      options: ['', '', '', ''],
+    }
+  }
+
+  if (type === 'attendance') {
+    return {
+      type,
+      prompt: '',
+      helperText: '',
+      attendanceOptions: defaultAttendanceOptions,
+    }
+  }
+
+  return {
+    type,
+    prompt: '',
+    helperText: '',
+    placeholder: '',
+  }
+}
+
+function createEmptyForm(): FormState {
+  return {
     id: '',
-    date: '',
+    date: getNextTuesday(),
     topic: '',
     speaker: '',
     amharicSummary: '',
     englishSummary: '',
     keyPoints: ['', '', ''],
     verses: ['', ''],
-    youtubeUrl: ''
-  })
-  
-  const [mezmurs, setMezmurs] = useState<[FormMezmur, FormMezmur]>([
-    { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
-    { title: '', transliteration: '', lyrics: '', youtubeUrl: '' }
-  ])
-  
-  const [questions, setQuestions] = useState<FormQuestion[]>([])
+    youtubeUrl: '',
+    mezmurs: [
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
+    ],
+    questions: [],
+    feedbackSummary: '',
+    attendanceSummary: '',
+  }
+}
+
+export function AdminWeeklyClassForm() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const isEditing = Boolean(id)
+  const draftKey = useMemo(() => `admin-weekly-class-draft:${id ?? 'new'}`, [id])
+
+  const [form, setForm] = useState<FormState>(createEmptyForm)
+  const [loading, setLoading] = useState(isEditing)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isEditing && id) {
-      loadClass(id)
-    } else {
-      // Set default date to next Tuesday
-      const nextTuesday = getNextTuesday()
-      setFormData(prev => ({ ...prev, date: nextTuesday }))
-    }
-  }, [isEditing, id])
+    const savedDraft = localStorage.getItem(draftKey)
 
-  const getNextTuesday = () => {
-    const today = new Date()
-    const daysUntilTuesday = (2 - today.getDay() + 7) % 7
-    const nextTuesday = new Date(today)
-    nextTuesday.setDate(today.getDate() + (daysUntilTuesday === 0 ? 7 : daysUntilTuesday))
-    return nextTuesday.toISOString().split('T')[0]
+    if (!isEditing) {
+      if (savedDraft) {
+        setForm(JSON.parse(savedDraft) as FormState)
+        setNotice('A local draft was restored on this device.')
+      }
+      return
+    }
+
+    if (!id) {
+      return
+    }
+
+    const loadClass = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const weeklyClass = await getWeeklyClass(id)
+
+        if (!weeklyClass) {
+          setError('This weekly Timirit could not be found.')
+          return
+        }
+
+        const nextForm: FormState = {
+          id: weeklyClass.id,
+          date: weeklyClass.date,
+          topic: weeklyClass.topic,
+          speaker: weeklyClass.speaker,
+          amharicSummary: weeklyClass.amharicSummary,
+          englishSummary: weeklyClass.englishSummary,
+          keyPoints: [...weeklyClass.keyPoints, '', '', ''].slice(0, 3),
+          verses: [...(weeklyClass.verses ?? []), '', ''].slice(0, 2),
+          youtubeUrl: weeklyClass.youtubeUrl || '',
+          mezmurs: [
+            {
+              title: weeklyClass.mezmurs[0]?.title || '',
+              transliteration: weeklyClass.mezmurs[0]?.transliteration || '',
+              lyrics: weeklyClass.mezmurs[0]?.lyrics || '',
+              youtubeUrl: weeklyClass.mezmurs[0]?.youtubeUrl || '',
+            },
+            {
+              title: weeklyClass.mezmurs[1]?.title || '',
+              transliteration: weeklyClass.mezmurs[1]?.transliteration || '',
+              lyrics: weeklyClass.mezmurs[1]?.lyrics || '',
+              youtubeUrl: weeklyClass.mezmurs[1]?.youtubeUrl || '',
+            },
+          ],
+          questions: weeklyClass.questions.map((question) => {
+            if (question.type === 'multiple-choice') {
+              return {
+                id: question.id,
+                type: question.type,
+                prompt: question.prompt,
+                helperText: question.helperText || '',
+                correctIndex: question.correctIndex,
+                explanation: question.explanation,
+                options: [...question.options],
+              }
+            }
+
+            if (question.type === 'attendance') {
+              return {
+                id: question.id,
+                type: question.type,
+                prompt: question.prompt,
+                helperText: question.helperText || '',
+                attendanceOptions: [...question.options],
+              }
+            }
+
+            return {
+              id: question.id,
+              type: question.type,
+              prompt: question.prompt,
+              helperText: question.helperText || '',
+              placeholder: question.placeholder || '',
+            }
+          }),
+          feedbackSummary: weeklyClass.feedbackSummary || '',
+          attendanceSummary: weeklyClass.attendanceSummary || '',
+        }
+
+        if (savedDraft) {
+          setForm(JSON.parse(savedDraft) as FormState)
+          setNotice('A local draft override was restored for this week.')
+        } else {
+          setForm(nextForm)
+        }
+      } catch (loadError) {
+        console.error('Failed to load weekly class editor:', loadError)
+        setError('The weekly editor could not be loaded. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadClass()
+  }, [draftKey, id, isEditing])
+
+  const updateQuestion = (index: number, nextQuestion: EditorQuestionInput) => {
+    setForm((current) => {
+      const questions = [...current.questions]
+      questions[index] = nextQuestion
+      return { ...current, questions }
+    })
   }
 
-  const loadClass = async (classId: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const weeklyClass = await getWeeklyClass(classId)
-      
-      if (!weeklyClass) {
-        setError('Weekly class not found')
-        return
+  const moveQuestion = (index: number, direction: -1 | 1) => {
+    setForm((current) => {
+      const nextIndex = index + direction
+      if (nextIndex < 0 || nextIndex >= current.questions.length) {
+        return current
       }
 
-      setFormData({
-        id: weeklyClass.id,
-        date: weeklyClass.date,
-        topic: weeklyClass.topic,
-        speaker: weeklyClass.speaker,
-        amharicSummary: weeklyClass.amharicSummary,
-        englishSummary: weeklyClass.englishSummary,
-        keyPoints: [...weeklyClass.keyPoints, '', '', ''].slice(0, 3),
-        verses: weeklyClass.verses ? [...weeklyClass.verses, '', ''].slice(0, 2) : ['', ''],
-        youtubeUrl: weeklyClass.youtubeUrl || ''
-      })
-
-      setMezmurs([
-        {
-          title: weeklyClass.mezmurs[0]?.title || '',
-          transliteration: weeklyClass.mezmurs[0]?.transliteration || '',
-          lyrics: weeklyClass.mezmurs[0]?.lyrics || '',
-          youtubeUrl: weeklyClass.mezmurs[0]?.youtubeUrl || ''
-        },
-        {
-          title: weeklyClass.mezmurs[1]?.title || '',
-          transliteration: weeklyClass.mezmurs[1]?.transliteration || '',
-          lyrics: weeklyClass.mezmurs[1]?.lyrics || '',
-          youtubeUrl: weeklyClass.mezmurs[1]?.youtubeUrl || ''
-        }
-      ])
-
-      setQuestions(weeklyClass.questions.map(q => ({ ...q })))
-    } catch (err) {
-      console.error('Failed to load class:', err)
-      setError('Failed to load class data')
-    } finally {
-      setLoading(false)
-    }
+      const questions = [...current.questions]
+      const [question] = questions.splice(index, 1)
+      questions.splice(nextIndex, 0, question)
+      return { ...current, questions }
+    })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.topic || !formData.speaker || !formData.date) {
-      setError('Please fill in all required fields')
+  const saveDraft = () => {
+    localStorage.setItem(draftKey, JSON.stringify(form))
+    setNotice('Draft saved on this device. Publish when the text is ready for the parish site.')
+  }
+
+  const publishUpdate = async () => {
+    if (!form.date || !form.topic || !form.speaker || !form.amharicSummary || !form.englishSummary) {
+      setError('Please complete the date, topic, speaker, and both summaries before publishing.')
+      return
+    }
+
+    if (!form.mezmurs[0].title || !form.mezmurs[1].title) {
+      setError('Please enter both weekly mezmur titles before publishing.')
       return
     }
 
     try {
       setSaving(true)
       setError(null)
+      setNotice(null)
 
-      const classData = {
-        id: formData.id || formData.date,
-        date: formData.date,
-        topic: formData.topic,
-        speaker: formData.speaker,
-        amharicSummary: formData.amharicSummary,
-        englishSummary: formData.englishSummary,
-        keyPoints: formData.keyPoints.filter(point => point.trim() !== ''),
-        verses: formData.verses.filter(verse => verse.trim() !== ''),
-        youtubeUrl: formData.youtubeUrl || undefined
+      const normalized: WeeklyClassEditorInput = {
+        ...form,
+        id: form.id.trim() || form.date,
+        keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
+        verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
+        questions: form.questions
+          .map((question) => {
+            if (question.type === 'multiple-choice') {
+              return {
+                ...question,
+                options: (question.options ?? []).map((option) => option.trim()).filter(Boolean),
+                explanation: question.explanation?.trim() || '',
+              }
+            }
+
+            if (question.type === 'attendance') {
+              return {
+                ...question,
+                attendanceOptions: (question.attendanceOptions ?? defaultAttendanceOptions).map((option) => ({
+                  value: option.value,
+                  label: option.label.trim(),
+                })),
+              }
+            }
+
+            return {
+              ...question,
+              placeholder: question.placeholder?.trim() || '',
+            }
+          })
+          .filter((question) => question.prompt.trim()),
       }
 
-      if (isEditing && id) {
-        await updateWeeklyClass(id, classData)
-      } else {
-        await createWeeklyClass(classData)
-      }
-
-      navigate('/admin/classes')
-    } catch (err) {
-      console.error('Failed to save class:', err)
-      setError('Failed to save class. Please try again.')
+      const savedId = await saveWeeklyClassEditor(normalized)
+      localStorage.removeItem(draftKey)
+      navigate(`/admin/weekly-classes/${savedId}`)
+    } catch (publishError) {
+      console.error('Failed to publish weekly class:', publishError)
+      setError(
+        publishError instanceof Error
+          ? publishError.message
+          : 'The weekly content could not be published. Please try again.',
+      )
     } finally {
       setSaving(false)
     }
   }
 
-  const addQuestion = (type: QuestionType) => {
-    const newQuestion: FormQuestion = {
-      type,
-      prompt: '',
-      helperText: ''
-    }
-
-    if (type === 'multiple-choice') {
-      Object.assign(newQuestion, {
-        options: ['', '', '', ''],
-        correctIndex: 0,
-        explanation: ''
-      })
-    } else if (type === 'attendance') {
-      Object.assign(newQuestion, {
-        options: [
-          { value: 'in-person', label: 'In person' },
-          { value: 'online', label: 'Online' },
-          { value: 'maybe', label: 'Maybe' },
-          { value: 'cannot-attend', label: 'Cannot attend' }
-        ]
-      })
-    } else {
-      Object.assign(newQuestion, { placeholder: '' })
-    }
-
-    setQuestions([...questions, newQuestion])
-  }
-
-  const removeQuestion = (index: number) => {
-    setQuestions(questions.filter((_, i) => i !== index))
-  }
-
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading class data...</p>
+      <div className="rounded-2xl border border-brand-200 bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-accent-600"></div>
+        <p className="text-sm text-brand-700">Loading the weekly editor...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {isEditing ? 'Edit Weekly Class' : 'Create New Weekly Class'}
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Organizer editor</p>
+        <h1 className="text-2xl font-bold text-brand-900">
+          {isEditing ? 'Edit weekly Timirit' : 'Create weekly Timirit'}
         </h1>
-        <p className="text-gray-600 mt-1">
-          {isEditing ? 'Update the details for this Timirit session' : 'Add a new weekly Timirit session'}
+        <p className="text-sm leading-relaxed text-brand-700">
+          Prepare the parish teaching page, the two weekly mezmurs, and the follow-up questions in one place.
         </p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {notice ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
+
+      <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold text-brand-900">1. Weekly class form</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Class ID
+            <input type="text" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="2026-04-22" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Date
+            <input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Speaker
+            <input type="text" value={form.speaker} onChange={(event) => setForm({ ...form, speaker: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Dn. Daniel T., Memhir Kidan, Fr. Michael Z." />
+          </label>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Information */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-6">
-          <h2 className="text-lg font-medium text-gray-900">Basic Information</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date *
-              </label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Speaker *
-              </label>
-              <input
-                type="text"
-                value={formData.speaker}
-                onChange={(e) => setFormData({ ...formData, speaker: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="e.g., Dn. Daniel T., Memhir Kidan"
-                required
-              />
-            </div>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Topic
+          <input type="text" value={form.topic} onChange={(event) => setForm({ ...form, topic: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Theosis through liturgical life" />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link
+          <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary
+          <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">English summary
+          <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+        </label>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-brand-900">Key points</p>
+            {form.keyPoints.map((point, index) => (
+              <textarea key={`point-${index}`} value={point} onChange={(event) => { const keyPoints = [...form.keyPoints]; keyPoints[index] = event.target.value; setForm({ ...form, keyPoints }) }} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Key point ${index + 1}`} />
+            ))}
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Topic *
-            </label>
-            <input
-              type="text"
-              value={formData.topic}
-              onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="e.g., The Good Shepherd and care for the flock"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              YouTube URL
-            </label>
-            <input
-              type="url"
-              value={formData.youtubeUrl}
-              onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="https://www.youtube.com/watch?v=..."
-            />
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-brand-900">Bible verses</p>
+            {form.verses.map((verse, index) => (
+              <input key={`verse-${index}`} type="text" value={verse} onChange={(event) => { const verses = [...form.verses]; verses[index] = event.target.value; setForm({ ...form, verses }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Verse ${index + 1}`} />
+            ))}
           </div>
         </div>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Feedback summary
+          <textarea value={form.feedbackSummary || ''} onChange={(event) => setForm({ ...form, feedbackSummary: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Short organizer summary of unclear points or follow-up needs" />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Attendance summary
+          <textarea value={form.attendanceSummary || ''} onChange={(event) => setForm({ ...form, attendanceSummary: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Short organizer summary of attendance signals" />
+        </label>
+      </section>
 
-        {/* Summaries */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-6">
-          <h2 className="text-lg font-medium text-gray-900">Summaries</h2>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Amharic Summary *
-            </label>
-            <textarea
-              value={formData.amharicSummary}
-              onChange={(e) => setFormData({ ...formData, amharicSummary: e.target.value })}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              English Summary *
-            </label>
-            <textarea
-              value={formData.englishSummary}
-              onChange={(e) => setFormData({ ...formData, englishSummary: e.target.value })}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Key Points */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">Key Points</h2>
-          {formData.keyPoints.map((point, index) => (
-            <div key={index}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Key Point {index + 1}
-              </label>
-              <textarea
-                value={point}
-                onChange={(e) => {
-                  const newPoints = [...formData.keyPoints]
-                  newPoints[index] = e.target.value
-                  setFormData({ ...formData, keyPoints: newPoints })
-                }}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="Enter a key teaching point from this session"
-              />
+      <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold text-brand-900">2. Weekly mezmurs form</h2>
+        <div className="mt-4 space-y-4">
+          {form.mezmurs.map((mezmur, index) => (
+            <div key={`mezmur-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+              <h3 className="text-base font-semibold text-brand-900">Mezmur {index + 1}</h3>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <input type="text" value={mezmur.title} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, title: event.target.value }; setForm({ ...form, mezmurs }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur title" />
+                <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Transliteration" />
+              </div>
+              <input type="url" value={mezmur.youtubeUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="YouTube practice link" />
+              <textarea value={mezmur.lyrics || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, lyrics: event.target.value }; setForm({ ...form, mezmurs }) }} rows={4} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur lyrics" />
             </div>
           ))}
         </div>
+      </section>
 
-        {/* Verses */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">Scripture Verses</h2>
-          {formData.verses.map((verse, index) => (
-            <div key={index}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Verse {index + 1}
-              </label>
-              <input
-                type="text"
-                value={verse}
-                onChange={(e) => {
-                  const newVerses = [...formData.verses]
-                  newVerses[index] = e.target.value
-                  setFormData({ ...formData, verses: newVerses })
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="e.g., John 10:11-16, Psalm 23"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Mezmurs */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-6">
-          <h2 className="text-lg font-medium text-gray-900">Mezmurs</h2>
-          {mezmurs.map((mezmur, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
-              <h3 className="font-medium text-gray-900">Mezmur {index + 1}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={mezmur.title}
-                    onChange={(e) => {
-                      const newMezmurs = [...mezmurs] as [FormMezmur, FormMezmur]
-                      newMezmurs[index].title = e.target.value
-                      setMezmurs(newMezmurs)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    placeholder="e.g., የጎረስ መዝሙር"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transliteration
-                  </label>
-                  <input
-                    type="text"
-                    value={mezmur.transliteration || ''}
-                    onChange={(e) => {
-                      const newMezmurs = [...mezmurs] as [FormMezmur, FormMezmur]
-                      newMezmurs[index].transliteration = e.target.value
-                      setMezmurs(newMezmurs)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    placeholder="e.g., Ye-Goros Mezmur"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  YouTube URL
-                </label>
-                <input
-                  type="url"
-                  value={mezmur.youtubeUrl || ''}
-                  onChange={(e) => {
-                    const newMezmurs = [...mezmurs] as [FormMezmur, FormMezmur]
-                    newMezmurs[index].youtubeUrl = e.target.value
-                    setMezmurs(newMezmurs)
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lyrics
-                </label>
-                <textarea
-                  value={mezmur.lyrics || ''}
-                  onChange={(e) => {
-                    const newMezmurs = [...mezmurs] as [FormMezmur, FormMezmur]
-                    newMezmurs[index].lyrics = e.target.value
-                    setMezmurs(newMezmurs)
-                  }}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="Enter the mezmur lyrics here..."
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Questions */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900">Questions</h2>
-            <div className="space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addQuestion('multiple-choice')}
-              >
-                + Multiple Choice
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addQuestion('short-answer')}
-              >
-                + Short Answer
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addQuestion('reflection')}
-              >
-                + Reflection
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addQuestion('feedback-open')}
-              >
-                + Feedback
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addQuestion('attendance')}
-              >
-                + Attendance
-              </Button>
-            </div>
+      <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-brand-900">3. Weekly questions form</h2>
+            <p className="text-sm text-brand-700">Add, arrange, and refine the follow-up questions for the parish.</p>
           </div>
-
-          {questions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No questions added yet. Click the buttons above to add questions.
-            </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {(['multiple-choice', 'short-answer', 'reflection', 'feedback-open', 'attendance'] as QuestionType[]).map((type) => (
+              <button key={type} type="button" onClick={() => setForm({ ...form, questions: [...form.questions, createEmptyQuestion(type)] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900 shadow-sm">Add {type}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 space-y-4">
+          {form.questions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-4 py-6 text-sm text-brand-700">No questions yet. Add the ones needed for recap, reflection, attendance, or clarification.</div>
           ) : (
-            <div className="space-y-4">
-              {questions.map((question, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-600">
-                        Question {index + 1}
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs font-medium text-gray-600">
-                        {question.type}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeQuestion(index)}
-                      className="text-red-600 hover:bg-red-50"
-                    >
-                      Remove
-                    </Button>
+            form.questions.map((question, index) => (
+              <div key={question.id ?? `question-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Question {index + 1}</p>
+                    <p className="text-sm font-medium text-brand-900">{question.type}</p>
                   </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Question Prompt *
-                      </label>
-                      <textarea
-                        value={question.prompt}
-                        onChange={(e) => {
-                          const newQuestions = [...questions]
-                          newQuestions[index].prompt = e.target.value
-                          setQuestions(newQuestions)
-                        }}
-                        rows={2}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        placeholder="Enter your question here..."
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Helper Text
-                      </label>
-                      <input
-                        type="text"
-                        value={question.helperText || ''}
-                        onChange={(e) => {
-                          const newQuestions = [...questions]
-                          newQuestions[index].helperText = e.target.value
-                          setQuestions(newQuestions)
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        placeholder="Optional guidance for the question..."
-                      />
-                    </div>
-
-                    {/* Question type specific fields will be added here in a future update */}
-                    {question.type === 'multiple-choice' && (
-                      <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md">
-                        Multiple choice options editing will be available in the next update.
-                      </div>
-                    )}
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => moveQuestion(index, -1)} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Up</button>
+                    <button type="button" onClick={() => moveQuestion(index, 1)} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Down</button>
+                    <button type="button" onClick={() => setForm({ ...form, questions: form.questions.filter((_, questionIndex) => questionIndex !== index) })} className="min-h-11 rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-brand-900">Question ID
+                    <input type="text" value={question.id || ''} onChange={(event) => updateQuestion(index, { ...question, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`${form.id || form.date}-q-1`} />
+                  </label>
+                  <label className="text-sm font-medium text-brand-900">Question type
+                    <select value={question.type} onChange={(event) => updateQuestion(index, createEmptyQuestion(event.target.value as QuestionType))} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30">
+                      <option value="multiple-choice">multiple-choice</option>
+                      <option value="short-answer">short-answer</option>
+                      <option value="reflection">reflection</option>
+                      <option value="feedback-open">feedback-open</option>
+                      <option value="attendance">attendance</option>
+                    </select>
+                  </label>
+                </div>
+
+                <textarea value={question.prompt} onChange={(event) => updateQuestion(index, { ...question, prompt: event.target.value })} rows={2} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Question prompt" />
+                <input type="text" value={question.helperText || ''} onChange={(event) => updateQuestion(index, { ...question, helperText: event.target.value })} className="mt-3 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Helper text for parish readers" />
+
+                {question.type === 'multiple-choice' ? (
+                  <div className="mt-4 space-y-3">
+                    {(question.options ?? []).map((option, optionIndex) => (
+                      <div key={`option-${optionIndex}`} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input type="text" value={option} onChange={(event) => { const options = [...(question.options ?? [])]; options[optionIndex] = event.target.value; updateQuestion(index, { ...question, options }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Answer choice ${optionIndex + 1}`} />
+                        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-brand-200 px-3 text-sm text-brand-800">
+                          <input type="radio" name={`correct-${index}`} checked={(question.correctIndex ?? 0) === optionIndex} onChange={() => updateQuestion(index, { ...question, correctIndex: optionIndex })} />
+                          Correct
+                        </label>
+                      </div>
+                    ))}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => updateQuestion(index, { ...question, options: [...(question.options ?? []), ''] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Add choice</button>
+                      {(question.options?.length ?? 0) > 2 ? (
+                        <button type="button" onClick={() => updateQuestion(index, { ...question, options: (question.options ?? []).slice(0, -1) })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Remove last choice</button>
+                      ) : null}
+                    </div>
+                    <textarea value={question.explanation || ''} onChange={(event) => updateQuestion(index, { ...question, explanation: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Explanation shown in recap analytics" />
+                  </div>
+                ) : null}
+
+                {question.type === 'attendance' ? (
+                  <div className="mt-4 space-y-3">
+                    {(question.attendanceOptions ?? defaultAttendanceOptions).map((option, optionIndex) => (
+                      <div key={option.value} className="grid gap-2 sm:grid-cols-2">
+                        <input type="text" value={option.value} readOnly className="min-h-12 w-full rounded-xl border border-brand-200 bg-brand-50 px-3 text-base text-brand-700 outline-none" />
+                        <input type="text" value={option.label} onChange={(event) => { const attendanceOptions = [...(question.attendanceOptions ?? defaultAttendanceOptions)]; attendanceOptions[optionIndex] = { ...option, label: event.target.value }; updateQuestion(index, { ...question, attendanceOptions }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {question.type !== 'multiple-choice' && question.type !== 'attendance' ? (
+                  <input type="text" value={question.placeholder || ''} onChange={(event) => updateQuestion(index, { ...question, placeholder: event.target.value })} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Optional response placeholder" />
+                ) : null}
+              </div>
+            ))
           )}
         </div>
+      </section>
 
-        {/* Submit Buttons */}
-        <div className="flex justify-end space-x-3 pt-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/admin/classes')}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving}
-          >
-            {saving ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {isEditing ? 'Updating...' : 'Creating...'}
-              </div>
-            ) : (
-              isEditing ? 'Update Class' : 'Create Class'
-            )}
-          </Button>
+      <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold text-brand-900">5. Publish / save flow</h2>
+        <p className="mt-2 text-sm leading-relaxed text-brand-700">Drafts are saved on this device for working sessions. Publishing writes the weekly content to Supabase for the organizer portal and public site.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" onClick={saveDraft} disabled={saving}>Save as draft</Button>
+          <Link to="/admin/weekly-classes" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-base font-semibold text-brand-900 shadow-sm">Back to previous weeks</Link>
+          <Button type="button" onClick={publishUpdate} disabled={saving}>{saving ? 'Publishing...' : isEditing ? 'Publish update' : 'Publish weekly class'}</Button>
         </div>
-      </form>
+      </section>
     </div>
   )
 }

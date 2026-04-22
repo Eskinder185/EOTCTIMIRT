@@ -21,13 +21,13 @@ export function BottomNav() {
           Home
         </NavLink>
         <NavLink
-          to="/this-week"
+          to="/upcoming"
           className={({ isActive }) =>
             `${tabClass} ${isActive ? 'bg-brand-100 text-brand-900' : 'hover:bg-brand-50'}`
           }
         >
           <span aria-hidden>▶</span>
-          Timirit
+          Next Class
         </NavLink>
         <NavLink
           to="/mezmurs"
@@ -39,13 +39,13 @@ export function BottomNav() {
           Mezmurs
         </NavLink>
         <NavLink
-          to="/contact"
+          to="/about"
           className={({ isActive }) =>
             `${tabClass} ${isActive ? 'bg-brand-100 text-brand-900' : 'hover:bg-brand-50'}`
           }
         >
           <span aria-hidden>✉</span>
-          Contact
+          About
         </NavLink>
       </div>
     </nav>

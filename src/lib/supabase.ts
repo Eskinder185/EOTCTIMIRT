@@ -1,13 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 
-// Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey)
 
-// Create Supabase client with TypeScript types
 export const supabase = hasSupabaseConfig
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -23,7 +21,35 @@ export const supabase = hasSupabaseConfig
     })
   : null
 
-// Helper function to check if user is authenticated organizer
+export async function testWeeklyClassesQuery() {
+  if (!supabase) {
+    return {
+      ok: false,
+      rowCount: 0,
+      error: 'Supabase environment variables are missing.'
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('weekly_classes')
+    .select('id', { count: 'exact' })
+    .limit(1)
+
+  if (error) {
+    return {
+      ok: false,
+      rowCount: 0,
+      error: error.message
+    }
+  }
+
+  return {
+    ok: true,
+    rowCount: data?.length ?? 0,
+    error: null
+  }
+}
+
 export async function checkOrganizerAuth() {
   if (!supabase) {
     return { isAuthenticated: false, user: null, profile: null }
@@ -41,6 +67,7 @@ export async function checkOrganizerAuth() {
     .select('*')
     .eq('id', user.id)
     .eq('is_active', true)
+    .in('role', ['organizer', 'admin'])
     .single()
   
   return {
@@ -60,7 +87,6 @@ export async function getOrganizerSession() {
   return session
 }
 
-// Sign out organizer
 export async function signOutOrganizer() {
   if (!supabase) {
     return

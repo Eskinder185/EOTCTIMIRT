@@ -1,8 +1,7 @@
 -- Supabase Database Schema for EOTC Timirit Organizer Portal
 -- This schema supports the existing TypeScript types and enables admin content management
 
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+-- Do not manage JWT secrets in checked-in SQL schema files.
 
 -- Create custom types
 CREATE TYPE question_type AS ENUM (
@@ -154,6 +153,28 @@ CREATE TABLE user_profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Anonymous feedback and topic suggestions
+CREATE TABLE anonymous_feedback_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL CHECK (category IN (
+    'Website feedback',
+    'Teaching feedback',
+    'Future topic suggestion',
+    'General note'
+  )),
+  subject TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Hashed rate-limit ledger for the anonymous feedback form
+CREATE TABLE anonymous_feedback_rate_limits (
+  identifier_hash TEXT PRIMARY KEY,
+  window_started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
+  submission_count INTEGER NOT NULL DEFAULT 0,
+  blocked_until TIMESTAMP WITH TIME ZONE
+);
+
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
@@ -169,6 +190,7 @@ CREATE INDEX idx_questions_weekly_class ON questions(weekly_class_id, order_inde
 CREATE INDEX idx_user_responses_weekly_class ON user_responses(weekly_class_id);
 CREATE INDEX idx_user_responses_question ON user_responses(question_id);
 CREATE INDEX idx_user_responses_submitted_at ON user_responses(submitted_at DESC);
+CREATE INDEX idx_anonymous_feedback_submissions_created_at ON anonymous_feedback_submissions(created_at DESC);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
@@ -184,6 +206,8 @@ ALTER TABLE upcoming_timirit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upcoming_mezmurs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anonymous_feedback_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anonymous_feedback_rate_limits ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for content tables (no authentication required)
 CREATE POLICY "Public can read weekly classes" ON weekly_classes FOR SELECT USING (true);
@@ -195,7 +219,7 @@ CREATE POLICY "Public can read upcoming timirit" ON upcoming_timirit FOR SELECT 
 CREATE POLICY "Public can read upcoming mezmurs" ON upcoming_mezmurs FOR SELECT USING (true);
 
 -- Public can submit responses
-CREATE POLICY "Public can insert responses" ON user_responses FOR INSERT USING (true);
+CREATE POLICY "Public can insert responses" ON user_responses FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public can read aggregated responses" ON user_responses FOR SELECT USING (true);
 
 -- Only authenticated organizers can modify content
@@ -239,6 +263,11 @@ CREATE POLICY "Users can read own profile" ON user_profiles FOR SELECT USING (au
 CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Authenticated users can read active profiles" ON user_profiles FOR SELECT USING (
   auth.role() = 'authenticated' AND is_active = true
+);
+
+CREATE POLICY "Organizers can read anonymous feedback" ON anonymous_feedback_submissions FOR SELECT USING (
+  auth.role() = 'authenticated' AND
+  EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
 );
 
 -- ============================================================================

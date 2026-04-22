@@ -12,26 +12,25 @@ export function MezmurCard({ mezmur, index }: { mezmur: Mezmur; index: number })
         <p className="mt-1 text-sm italic text-brand-700">{mezmur.transliteration}</p>
       ) : null}
       {mezmur.lyrics ? (
-        <p className="mt-3 whitespace-pre-line text-[0.95rem] leading-relaxed text-brand-900">
-          {mezmur.lyrics}
-        </p>
-      ) : null}
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm font-semibold text-accent-600">
+            View lyrics
+          </summary>
+          <p className="mt-2 whitespace-pre-line text-[0.95rem] leading-relaxed text-brand-900">
+            {mezmur.lyrics}
+          </p>
+        </details>
+      ) : (
+        <p className="mt-3 text-sm text-brand-700">To be announced</p>
+      )}
+      <div className="mt-3 grid gap-2">
         <a
           className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 px-3 text-sm font-semibold text-accent-600 underline-offset-4 hover:underline"
           href={TEWAHEDO_DAILY_MEZMURS_URL}
           target="_blank"
           rel="noreferrer"
         >
-          Extra practice help
-        </a>
-        <a
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 px-3 text-sm font-semibold text-accent-600 underline-offset-4 hover:underline"
-          href={TEWAHEDO_DAILY_MEZMURS_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Check lyrics reference
+          Mezmur Practice
         </a>
       </div>
       {mezmur.youtubeUrl ? (
@@ -50,7 +49,7 @@ export function MezmurCard({ mezmur, index }: { mezmur: Mezmur; index: number })
           target="_blank"
           rel="noreferrer"
         >
-          Open extra mezmur reference
+          Mezmur Practice
         </a>
       )}
     </article>

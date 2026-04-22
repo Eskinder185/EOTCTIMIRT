@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', data.user.id)
           .eq('is_active', true)
+          .in('role', ['organizer', 'admin'])
           .single()
 
         if (profileError || !profile) {
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth()
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_IN') {
         await checkAuth()
       } else if (event === 'SIGNED_OUT') {
