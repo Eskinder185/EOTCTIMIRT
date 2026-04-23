@@ -16,7 +16,9 @@ export interface WeeklyClassRecord {
   audioNote?: string
   lessonMediaEnabled?: boolean
   teachingNotes?: string
-  feedbackSummary?: string
+  keyVerse?: string
+  organizerNote?: string
+  status?: 'draft' | 'published'
 }
 
 export interface MezmurRecord {
@@ -46,12 +48,10 @@ export interface UpcomingTimiritRecord {
   scheduledDate: string
   topicPreview: string
   note: string
-  lessonYoutubeUrl?: string
-  lessonAudioUrl?: string
-  lessonAudioTitle?: string
-  lessonNote?: string
-  weeklyKnowledgeContent?: string
-  weeklyKnowledgeImageUrl?: string
+  classSummary?: string
+  youtubeUrl?: string
+  audioUrl?: string
+  audioTitle?: string
   keyVerse?: string
   organizerNote?: string
   status?: 'draft' | 'published'

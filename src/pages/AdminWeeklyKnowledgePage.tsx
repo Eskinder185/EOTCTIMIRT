@@ -61,9 +61,26 @@ export function AdminWeeklyKnowledgePage() {
   const [devDiagnostics, setDevDiagnostics] = useState<{
     action: string
     validationRule?: string
+    rawFormState?: unknown
     normalizedPayload?: unknown
     errorDetails?: unknown
   } | null>(null)
+
+  const formatDevSupabaseError = (error: unknown): string => {
+    const human = formatUnknownError(error)
+    if (!import.meta.env.DEV) return human
+    const supabaseDetails = (error as { supabase?: Record<string, unknown> } | null)?.supabase
+    if (!supabaseDetails) return human
+    const parts = [
+      human,
+      typeof supabaseDetails.table === 'string' ? `Table: ${supabaseDetails.table}` : null,
+      typeof supabaseDetails.operation === 'string' ? `Operation: ${supabaseDetails.operation}` : null,
+      typeof supabaseDetails.code === 'string' ? `Code: ${supabaseDetails.code}` : null,
+      typeof supabaseDetails.details === 'string' ? `Details: ${supabaseDetails.details}` : null,
+      typeof supabaseDetails.hint === 'string' ? `Hint: ${supabaseDetails.hint}` : null,
+    ]
+    return parts.filter(Boolean).join('\n')
+  }
 
   const loadItems = async () => {
     try {
@@ -124,7 +141,7 @@ export function AdminWeeklyKnowledgePage() {
         isActive: status === 'published' ? (forceActive ? true : form.isActive) : false,
       }
       if (import.meta.env.DEV) {
-        setDevDiagnostics({ action: `save_${status}`, normalizedPayload: structuredClone(payload) })
+        setDevDiagnostics({ action: `save_${status}`, rawFormState: structuredClone(form), normalizedPayload: structuredClone(payload) })
       }
       const id = await saveWeeklyKnowledgeEditor(payload)
       setForm((current) => ({
@@ -154,7 +171,7 @@ export function AdminWeeklyKnowledgePage() {
           errorDetails: extractErrorDebugDetails(saveError),
         }))
       }
-      setError(formatUnknownError(saveError))
+      setError(formatDevSupabaseError(saveError))
     } finally {
       setSaving(false)
     }
@@ -188,7 +205,7 @@ export function AdminWeeklyKnowledgePage() {
           errorDetails: extractErrorDebugDetails(statusError),
         })
       }
-      setError(formatUnknownError(statusError))
+      setError(formatDevSupabaseError(statusError))
     } finally {
       setSaving(false)
     }

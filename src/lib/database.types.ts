@@ -9,47 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      attendance_options: {
-        Row: {
-          created_at: string
-          id: string
-          label: string | null
-          label_am: string | null
-          label_en: string | null
-          option_index: number
-          question_id: string
-          value: Database["public"]["Enums"]["attendance_choice"]
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          label?: string | null
-          label_am?: string | null
-          label_en?: string | null
-          option_index: number
-          question_id: string
-          value: Database["public"]["Enums"]["attendance_choice"]
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          label?: string | null
-          label_am?: string | null
-          label_en?: string | null
-          option_index?: number
-          question_id?: string
-          value?: Database["public"]["Enums"]["attendance_choice"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "questions"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       mezmurs: {
         Row: {
           audio_url: string | null
@@ -293,95 +252,71 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          class_summary: string | null
+          class_summary_am: string | null
+          class_summary_en: string | null
+          audio_title: string | null
+          audio_url: string | null
           id: string
           is_active: boolean | null
           key_verse: string | null
-          lesson_audio_title: string | null
-          lesson_audio_title_am: string | null
-          lesson_audio_title_en: string | null
-          lesson_audio_url: string | null
-          lesson_note: string | null
-          lesson_note_am: string | null
-          lesson_note_en: string | null
-          lesson_youtube_url: string | null
           note: string | null
           note_am: string | null
           note_en: string | null
           organizer_note: string | null
-          organizer_note_am: string | null
-          organizer_note_en: string | null
           status: string | null
           scheduled_date: string
           topic_preview: string | null
           topic_preview_am: string | null
           topic_preview_en: string | null
           updated_at: string
-          weekly_knowledge_content: string | null
-          weekly_knowledge_content_am: string | null
-          weekly_knowledge_content_en: string | null
-          weekly_knowledge_image_url: string | null
+          youtube_url: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          class_summary?: string | null
+          class_summary_am?: string | null
+          class_summary_en?: string | null
+          audio_title?: string | null
+          audio_url?: string | null
           id?: string
           is_active?: boolean | null
           key_verse?: string | null
-          lesson_audio_title?: string | null
-          lesson_audio_title_am?: string | null
-          lesson_audio_title_en?: string | null
-          lesson_audio_url?: string | null
-          lesson_note?: string | null
-          lesson_note_am?: string | null
-          lesson_note_en?: string | null
-          lesson_youtube_url?: string | null
           note?: string | null
           note_am?: string | null
           note_en?: string | null
           organizer_note?: string | null
-          organizer_note_am?: string | null
-          organizer_note_en?: string | null
           status?: string | null
           scheduled_date: string
           topic_preview?: string | null
           topic_preview_am?: string | null
           topic_preview_en?: string | null
           updated_at?: string
-          weekly_knowledge_content?: string | null
-          weekly_knowledge_content_am?: string | null
-          weekly_knowledge_content_en?: string | null
-          weekly_knowledge_image_url?: string | null
+          youtube_url?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          class_summary?: string | null
+          class_summary_am?: string | null
+          class_summary_en?: string | null
+          audio_title?: string | null
+          audio_url?: string | null
           id?: string
           is_active?: boolean | null
           key_verse?: string | null
-          lesson_audio_title?: string | null
-          lesson_audio_title_am?: string | null
-          lesson_audio_title_en?: string | null
-          lesson_audio_url?: string | null
-          lesson_note?: string | null
-          lesson_note_am?: string | null
-          lesson_note_en?: string | null
-          lesson_youtube_url?: string | null
           note?: string | null
           note_am?: string | null
           note_en?: string | null
           organizer_note?: string | null
-          organizer_note_am?: string | null
-          organizer_note_en?: string | null
           status?: string | null
           scheduled_date?: string
           topic_preview?: string | null
           topic_preview_am?: string | null
           topic_preview_en?: string | null
           updated_at?: string
-          weekly_knowledge_content?: string | null
-          weekly_knowledge_content_am?: string | null
-          weekly_knowledge_content_en?: string | null
-          weekly_knowledge_image_url?: string | null
+          youtube_url?: string | null
         }
         Relationships: [
           {
@@ -488,11 +423,13 @@ export type Database = {
           created_by: string | null
           date: string
           english_summary: string
-          feedback_summary: string | null
           id: string
+          key_verse: string | null
           key_points: Json
           lesson_media_enabled: boolean | null
+          organizer_note: string | null
           speaker: string
+          status: string | null
           teaching_notes: string | null
           teaching_notes_am: string | null
           teaching_notes_en: string | null
@@ -515,11 +452,13 @@ export type Database = {
           created_by?: string | null
           date: string
           english_summary: string
-          feedback_summary?: string | null
           id: string
+          key_verse?: string | null
           key_points?: Json
           lesson_media_enabled?: boolean | null
+          organizer_note?: string | null
           speaker: string
+          status?: string | null
           teaching_notes?: string | null
           teaching_notes_am?: string | null
           teaching_notes_en?: string | null
@@ -542,11 +481,13 @@ export type Database = {
           created_by?: string | null
           date?: string
           english_summary?: string
-          feedback_summary?: string | null
           id?: string
+          key_verse?: string | null
           key_points?: Json
           lesson_media_enabled?: boolean | null
+          organizer_note?: string | null
           speaker?: string
+          status?: string | null
           teaching_notes?: string | null
           teaching_notes_am?: string | null
           teaching_notes_en?: string | null

@@ -206,12 +206,14 @@ function createEmptyForm(): FormState {
     teachingNotes: '',
     teachingNotesEn: '',
     teachingNotesAm: '',
+    keyVerse: '',
+    organizerNote: '',
+    status: 'draft',
     mezmurs: [
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
     ],
     questions: [],
-    feedbackSummary: '',
   }
 }
 
@@ -252,6 +254,7 @@ export function AdminWeeklyClassForm() {
   const [devDiagnostics, setDevDiagnostics] = useState<{
     action: string
     validationRule?: string
+    rawFormState?: unknown
     normalizedPayload?: unknown
     errorDetails?: unknown
   } | null>(null)
@@ -305,6 +308,9 @@ export function AdminWeeklyClassForm() {
           teachingNotes: weeklyClass.teachingNotes || '',
           teachingNotesEn: weeklyClass.teachingNotesEn || '',
           teachingNotesAm: weeklyClass.teachingNotesAm || '',
+          keyVerse: weeklyClass.keyVerse || '',
+          organizerNote: weeklyClass.organizerNote || '',
+          status: weeklyClass.status || 'draft',
           mezmurs: [
             {
               title: weeklyClass.mezmurs[0]?.title || '',
@@ -326,7 +332,6 @@ export function AdminWeeklyClassForm() {
             },
           ],
           questions: weeklyClass.questions.map(questionFromDomain),
-          feedbackSummary: weeklyClass.feedbackSummary || '',
         }
 
         if (savedDraft) {
@@ -370,9 +375,48 @@ export function AdminWeeklyClassForm() {
     })
   }
 
-  const saveDraft = () => {
-    localStorage.setItem(draftKey, JSON.stringify(form))
-    setNotice('Draft saved on this device. Publish when the text is ready for the parish site.')
+  const saveDraft = async () => {
+    const action = isEditing ? 'save_draft_update' : 'save_draft_create'
+    try {
+      setSaving(true)
+      setError(null)
+      setNotice(null)
+      const normalized: WeeklyClassEditorInput = {
+        ...form,
+        id: form.id.trim() || form.date || crypto.randomUUID(),
+        topic: form.topic?.trim() || form.topicEn?.trim() || form.topicAm?.trim() || '',
+        topicEn: form.topicEn?.trim() || undefined,
+        topicAm: form.topicAm?.trim() || undefined,
+        englishSummary: form.englishSummary?.trim() || '',
+        amharicSummary: form.amharicSummary?.trim() || '',
+        speaker: form.speaker?.trim() || '',
+        keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
+        verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
+        keyVerse: form.keyVerse?.trim() || undefined,
+        organizerNote: form.organizerNote?.trim() || undefined,
+        status: 'draft',
+        questions: form.questions,
+      }
+      if (import.meta.env.DEV) {
+        setDevDiagnostics({ action, rawFormState: structuredClone(form), normalizedPayload: structuredClone(normalized) })
+      }
+      const savedId = await saveWeeklyClassEditor(normalized)
+      setForm((current) => ({ ...current, id: savedId, status: 'draft' }))
+      localStorage.setItem(draftKey, JSON.stringify({ ...form, id: savedId, status: 'draft' }))
+      setNotice('Draft saved to backend and on this device.')
+    } catch (saveError) {
+      if (import.meta.env.DEV) {
+        setDevDiagnostics((current) => ({
+          action,
+          validationRule: current?.validationRule,
+          normalizedPayload: current?.normalizedPayload,
+          errorDetails: extractErrorDebugDetails(saveError),
+        }))
+      }
+      setError(formatUnknownError(saveError))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const publishUpdate = async () => {
@@ -402,7 +446,9 @@ export function AdminWeeklyClassForm() {
         teachingNotes: form.teachingNotes?.trim() || undefined,
         teachingNotesEn: form.teachingNotesEn?.trim() || undefined,
         teachingNotesAm: form.teachingNotesAm?.trim() || undefined,
-        feedbackSummary: form.feedbackSummary?.trim() || undefined,
+        keyVerse: form.keyVerse?.trim() || undefined,
+        organizerNote: form.organizerNote?.trim() || undefined,
+        status: 'published',
         questions: form.questions.map((question) => {
             if (question.type === 'multiple-choice') {
               const rawOptions = (question.options ?? []).map((opt) => ({
@@ -464,10 +510,11 @@ export function AdminWeeklyClassForm() {
 
       if (import.meta.env.DEV) {
         console.info('[AdminWeeklyClassForm] publish → saveWeeklyClassEditor', structuredClone(normalized))
-        setDevDiagnostics({ action, normalizedPayload: structuredClone(normalized) })
+        setDevDiagnostics({ action, rawFormState: structuredClone(form), normalizedPayload: structuredClone(normalized) })
       }
 
       const savedId = await saveWeeklyClassEditor(normalized)
+      setForm((current) => ({ ...current, id: savedId, status: 'published' }))
       localStorage.removeItem(draftKey)
       const warnings = buildSoftWarnings(form)
       if (warnings.length > 0) {
@@ -637,6 +684,17 @@ export function AdminWeeklyClassForm() {
         <label className="mt-4 block text-sm font-medium text-brand-900">English summary <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Key verse <span className="font-normal text-brand-500">(optional)</span>
+            <input type="text" value={form.keyVerse || ''} onChange={(event) => setForm({ ...form, keyVerse: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="John 3:16" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Status
+            <input type="text" value={form.status === 'published' ? 'published' : 'draft'} readOnly className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 bg-brand-50 px-3 text-base text-brand-700 outline-none" />
+          </label>
+        </div>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Organizer note <span className="font-normal text-brand-500">(optional)</span>
+          <textarea value={form.organizerNote || ''} onChange={(event) => setForm({ ...form, organizerNote: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+        </label>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
             <p className="text-sm font-medium text-brand-900">Key points</p>
@@ -651,9 +709,6 @@ export function AdminWeeklyClassForm() {
             ))}
           </div>
         </div>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Feedback summary
-          <textarea value={form.feedbackSummary || ''} onChange={(event) => setForm({ ...form, feedbackSummary: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Short organizer summary of unclear points or follow-up needs" />
-        </label>
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">

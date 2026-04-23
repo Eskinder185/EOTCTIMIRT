@@ -14,18 +14,16 @@ export interface UpcomingTimirtPreview {
   note: string
   noteEn?: string
   noteAm?: string
+  classSummary?: string
+  classSummaryEn?: string
+  classSummaryAm?: string
+  youtubeUrl?: string
+  audioUrl?: string
+  audioTitle?: string
   lessonYoutubeUrl?: string
   lessonAudioUrl?: string
   lessonAudioTitle?: string
-  lessonAudioTitleEn?: string
-  lessonAudioTitleAm?: string
   lessonNote?: string
-  lessonNoteEn?: string
-  lessonNoteAm?: string
-  weeklyKnowledgeContent?: string
-  weeklyKnowledgeContentEn?: string
-  weeklyKnowledgeContentAm?: string
-  weeklyKnowledgeImageUrl?: string
   keyVerse?: string
   organizerNote?: string
   organizerNoteEn?: string

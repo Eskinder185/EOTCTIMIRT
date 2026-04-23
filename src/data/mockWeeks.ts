@@ -20,8 +20,6 @@ export const MOCK_WEEKS: WeeklyClass[] = [
       'The Shepherd’s patience toward the sheep who arrive late reflects the mercy shown in the lives of the Holy Fathers and Mothers.',
       'The Divine Liturgy, Scripture, and patristic teaching together guard us from wandering alone outside the fold.',
     ],
-    feedbackSummary:
-      'Families asked for a slower walk through how the shepherd image applies inside the Divine Liturgy.',
     verses: ['John 10:11-16', 'Psalm 23'],
     youtubeUrl: '',
     mezmurs: [
@@ -108,8 +106,6 @@ export const MOCK_WEEKS: WeeklyClass[] = [
       'Guarding the heart from bitterness belongs to the same fasts and prostrations that soften the soul toward neighbors.',
       'Holy Confession in the Church is healing oil, not a courtroom sentence.',
     ],
-    feedbackSummary:
-      'Several notes asked how to forgive when trust is wounded — plan a short word on remembrance vs. hatred.',
     verses: ['Matthew 6:14-15', 'Colossians 3:12-13'],
     mezmurs: [
       {
@@ -191,8 +187,6 @@ export const MOCK_WEEKS: WeeklyClass[] = [
       'Ekebete Ement requires vigilance against confusion, but always with humility, obedience, and love.',
       'Prayer, Scripture, fasting, and the Holy Mysteries strengthen believers to remain firm in Orthodox faith.',
     ],
-    feedbackSummary:
-      'Several asked for another short explanation of how to defend the faith without falling into argument or pride.',
     verses: ['1 Timothy 6:20-21', '2 Timothy 1:13-14'],
     youtubeUrl: '',
     mezmurs: [

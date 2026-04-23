@@ -117,10 +117,11 @@ export interface WeeklyClass {
   teachingNotes?: string
   teachingNotesEn?: string
   teachingNotesAm?: string
+  keyVerse?: string
+  organizerNote?: string
+  status?: 'draft' | 'published'
   mezmurs: [Mezmur, Mezmur]
   questions: Question[]
-  /** Optional organizer-facing sentence distilled from open feedback (mock / future API). */
-  feedbackSummary?: string
 }
 
 /** Aggregated analytics for the organizer dashboard (mock for now). */

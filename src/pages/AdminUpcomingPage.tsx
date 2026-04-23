@@ -28,12 +28,10 @@ function createEmptyForm(): FormState {
     scheduledDate: getNextTuesday(),
     topicPreview: '',
     note: '',
-    lessonYoutubeUrl: '',
-    lessonAudioUrl: '',
-    lessonAudioTitle: '',
-    lessonNote: '',
-    weeklyKnowledgeContent: '',
-    weeklyKnowledgeImageUrl: '',
+    classSummary: '',
+    youtubeUrl: '',
+    audioUrl: '',
+    audioTitle: '',
     keyVerse: '',
     organizerNote: '',
     isActive: true,
@@ -61,8 +59,8 @@ function buildSoftWarnings(form: FormState): string[] {
   if (!form.note?.trim() && !form.noteEn?.trim() && !form.noteAm?.trim()) {
     warnings.push('Preview note is empty.')
   }
-  if (!form.weeklyKnowledgeContent?.trim()) {
-    warnings.push('Weekly knowledge is empty.')
+  if (!form.classSummary?.trim() && !form.classSummaryEn?.trim() && !form.classSummaryAm?.trim()) {
+    warnings.push('Class summary is empty.')
   }
   if (!form.mezmurs[0]?.title?.trim() && !form.mezmurs[0]?.titleEn?.trim() && !form.mezmurs[0]?.titleAm?.trim()) {
     warnings.push('First mezmur title is empty.')
@@ -70,10 +68,26 @@ function buildSoftWarnings(form: FormState): string[] {
   if (!form.mezmurs[1]?.title?.trim() && !form.mezmurs[1]?.titleEn?.trim() && !form.mezmurs[1]?.titleAm?.trim()) {
     warnings.push('Second mezmur not filled yet.')
   }
-  if (!form.lessonYoutubeUrl?.trim() && !form.lessonAudioUrl?.trim()) {
+  if (!form.youtubeUrl?.trim() && !form.audioUrl?.trim()) {
     warnings.push('No lesson media link added yet.')
   }
   return warnings
+}
+
+function formatDevSupabaseError(error: unknown): string {
+  const human = formatUnknownError(error)
+  if (!import.meta.env.DEV) return human
+  const supabaseDetails = (error as { supabase?: Record<string, unknown> } | null)?.supabase
+  if (!supabaseDetails) return human
+  const parts = [
+    human,
+    typeof supabaseDetails.table === 'string' ? `Table: ${supabaseDetails.table}` : null,
+    typeof supabaseDetails.operation === 'string' ? `Operation: ${supabaseDetails.operation}` : null,
+    typeof supabaseDetails.code === 'string' ? `Code: ${supabaseDetails.code}` : null,
+    typeof supabaseDetails.details === 'string' ? `Details: ${supabaseDetails.details}` : null,
+    typeof supabaseDetails.hint === 'string' ? `Hint: ${supabaseDetails.hint}` : null,
+  ]
+  return parts.filter(Boolean).join('\n')
 }
 
 export function AdminUpcomingPage() {
@@ -92,6 +106,7 @@ export function AdminUpcomingPage() {
   const [devDiagnostics, setDevDiagnostics] = useState<{
     action: string
     validationRule?: string
+    rawFormState?: unknown
     normalizedPayload?: unknown
     errorDetails?: unknown
   } | null>(null)
@@ -150,7 +165,7 @@ export function AdminUpcomingPage() {
       }
       if (import.meta.env.DEV) {
         console.info('[AdminUpcomingPage] saveDraft → saveUpcomingTimirtEditor', structuredClone(draftToSave))
-        setDevDiagnostics({ action, normalizedPayload: structuredClone(draftToSave) })
+        setDevDiagnostics({ action, rawFormState: structuredClone(form), normalizedPayload: structuredClone(draftToSave) })
       }
       const savedId = await saveUpcomingTimirtEditor(draftToSave)
       setForm((current) => ({
@@ -178,7 +193,7 @@ export function AdminUpcomingPage() {
           errorDetails: extractErrorDebugDetails(saveError),
         }))
       }
-      setError(formatUnknownError(saveError))
+      setError(formatDevSupabaseError(saveError))
     } finally {
       setSaving(false)
     }
@@ -198,7 +213,7 @@ export function AdminUpcomingPage() {
       }
       if (import.meta.env.DEV) {
         console.info('[AdminUpcomingPage] publishUpcoming → saveUpcomingTimirtEditor', structuredClone(payload))
-        setDevDiagnostics({ action, normalizedPayload: structuredClone(payload) })
+        setDevDiagnostics({ action, rawFormState: structuredClone(form), normalizedPayload: structuredClone(payload) })
       }
       const savedId = await saveUpcomingTimirtEditor(payload)
       setForm((current) => ({
@@ -226,7 +241,7 @@ export function AdminUpcomingPage() {
           errorDetails: extractErrorDebugDetails(publishError),
         }))
       }
-      setError(formatUnknownError(publishError))
+      setError(formatDevSupabaseError(publishError))
     } finally {
       setSaving(false)
     }
@@ -245,7 +260,7 @@ export function AdminUpcomingPage() {
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] deactivate failed', deactivateError)
       }
-      setError(formatUnknownError(deactivateError))
+      setError(formatDevSupabaseError(deactivateError))
     } finally {
       setDeactivating(false)
     }
@@ -267,7 +282,7 @@ export function AdminUpcomingPage() {
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] delete failed', deleteError)
       }
-      setError(formatUnknownError(deleteError))
+      setError(formatDevSupabaseError(deleteError))
     } finally {
       setDeleting(false)
     }
@@ -289,7 +304,7 @@ export function AdminUpcomingPage() {
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] activate failed', activateError)
       }
-      setError(formatUnknownError(activateError))
+      setError(formatDevSupabaseError(activateError))
     } finally {
       setActivating(false)
     }
@@ -430,21 +445,21 @@ export function AdminUpcomingPage() {
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">
-            YouTube lesson link
+            YouTube link
             <input
               type="url"
-              value={form.lessonYoutubeUrl || ''}
-              onChange={(event) => setForm({ ...form, lessonYoutubeUrl: event.target.value })}
+              value={form.youtubeUrl || ''}
+              onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
               placeholder="https://youtube.com/watch?v=..."
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Audio lesson link
+            Audio link
             <input
               type="url"
-              value={form.lessonAudioUrl || ''}
-              onChange={(event) => setForm({ ...form, lessonAudioUrl: event.target.value })}
+              value={form.audioUrl || ''}
+              onChange={(event) => setForm({ ...form, audioUrl: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
               placeholder="https://..."
             />
@@ -453,8 +468,8 @@ export function AdminUpcomingPage() {
             Audio title (optional)
             <input
               type="text"
-              value={form.lessonAudioTitle || ''}
-              onChange={(event) => setForm({ ...form, lessonAudioTitle: event.target.value })}
+              value={form.audioTitle || ''}
+              onChange={(event) => setForm({ ...form, audioTitle: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
               placeholder="Audio lesson title"
             />
@@ -472,35 +487,13 @@ export function AdminUpcomingPage() {
         </div>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
-          Lesson note (optional)
+          Class summary
           <textarea
-            value={form.lessonNote || ''}
-            onChange={(event) => setForm({ ...form, lessonNote: event.target.value })}
-            rows={3}
-            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Any note for the lesson links"
-          />
-        </label>
-
-        <label className="mt-4 block text-sm font-medium text-brand-900">
-          Weekly knowledge content
-          <textarea
-            value={form.weeklyKnowledgeContent || ''}
-            onChange={(event) => setForm({ ...form, weeklyKnowledgeContent: event.target.value })}
+            value={form.classSummary || ''}
+            onChange={(event) => setForm({ ...form, classSummary: event.target.value })}
             rows={4}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Share this week's knowledge content"
-          />
-        </label>
-
-        <label className="mt-4 block text-sm font-medium text-brand-900">
-          Knowledge image URL (optional)
-          <input
-            type="url"
-            value={form.weeklyKnowledgeImageUrl || ''}
-            onChange={(event) => setForm({ ...form, weeklyKnowledgeImageUrl: event.target.value })}
-            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="https://..."
+            placeholder="Share a summary for the upcoming class"
           />
         </label>
 

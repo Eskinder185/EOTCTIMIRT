@@ -173,7 +173,7 @@ test('weekly class form supports draft, publish, update, optional fields, biling
   await page.goto('/admin/weekly-classes/new')
 
   await page.getByRole('button', { name: 'Save as draft' }).click()
-  await expect(page.getByText('Draft saved on this device.')).toBeVisible()
+  await expect(page.getByText('Draft saved to backend and on this device.')).toBeVisible()
 
   await page.getByLabel(/Topic — English/).fill('Grace and discipleship')
   await page.getByLabel(/Title — English/).first().fill('Mezmur one')
