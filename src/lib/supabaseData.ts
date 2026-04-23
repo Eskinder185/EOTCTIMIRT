@@ -515,7 +515,18 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     console.info('[saveWeeklyClassEditor] upsert weekly_classes payload', { weeklyClassId: id, payload: structuredClone(row) })
   }
   const { error } = await supabase.from('weekly_classes').upsert(row)
-  assertNoError('upsert weekly_classes', error, { weeklyClassId: id, payload: row })
+  if (error) {
+    if (shouldRetryWithLegacySelect(error, 'weekly_classes', 'main_points')) {
+      const { main_points: _ignoredMainPoints, ...legacyRow } = row
+      const { error: legacyUpsertError } = await supabase.from('weekly_classes').upsert(legacyRow)
+      assertNoError('upsert weekly_classes (legacy schema)', legacyUpsertError, {
+        weeklyClassId: id,
+        payload: legacyRow,
+      })
+    } else {
+      assertNoError('upsert weekly_classes', error, { weeklyClassId: id, payload: row })
+    }
+  }
 
   const { data: existingQuestions, error: existingQuestionsError } = await supabase
     .from('questions')
@@ -675,8 +686,22 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     organizer_note: trim(data.organizerNote) ?? null,
     is_active: data.isActive, status: data.status,
   }
-  const { data: saved, error } = await supabase.from('upcoming_timirit').upsert(row).select('id').single()
-  throwSupabaseWriteError('upsert', 'upcoming_timirit', error, row)
+  let saved: { id: string } | null = null
+  {
+    const result = await supabase.from('upcoming_timirit').upsert(row).select('id').single()
+    if (result.error) {
+      if (shouldRetryWithLegacySelect(result.error, 'upcoming_timirit', 'main_points')) {
+        const { main_points: _ignoredMainPoints, ...legacyRow } = row
+        const legacyResult = await supabase.from('upcoming_timirit').upsert(legacyRow).select('id').single()
+        throwSupabaseWriteError('upsert (legacy schema)', 'upcoming_timirit', legacyResult.error, legacyRow)
+        saved = legacyResult.data
+      } else {
+        throwSupabaseWriteError('upsert', 'upcoming_timirit', result.error, row)
+      }
+    } else {
+      saved = result.data
+    }
+  }
   if (!saved?.id) throw new Error('Supabase did not return upcoming_timirit id after upsert.')
   const { error: deleteUpcomingMezmursError } = await supabase.from('upcoming_mezmurs').delete().eq('upcoming_timirit_id', saved.id)
   throwSupabaseWriteError('delete by upcoming_timirit_id', 'upcoming_mezmurs', deleteUpcomingMezmursError, { upcoming_timirit_id: saved.id })
