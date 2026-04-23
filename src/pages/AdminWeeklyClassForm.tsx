@@ -620,9 +620,6 @@ export function AdminWeeklyClassForm() {
             <input type="text" value={form.topicAm || ''} onChange={(event) => setForm({ ...form, topicAm: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
           </label>
         </div>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Topic — combined / legacy <span className="font-normal text-brand-500">(optional)</span>
-          <input type="text" value={form.topic} onChange={(event) => setForm({ ...form, topic: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Single-line display fallback" />
-        </label>
         <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link <span className="font-normal text-brand-500">(optional)</span>
           <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
         </label>
@@ -670,9 +667,6 @@ export function AdminWeeklyClassForm() {
                   <input type="text" value={mezmur.titleAm || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, titleAm: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
                 </label>
               </div>
-              <label className="mt-3 block text-sm font-medium text-brand-900">Title — legacy / display <span className="font-normal text-brand-500">(optional)</span>
-                <input type="text" value={mezmur.title} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, title: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur title" />
-              </label>
               <label className="mt-3 block text-sm font-medium text-brand-900">Transliteration <span className="font-normal text-brand-500">(optional)</span>
                 <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
               </label>
@@ -738,15 +732,11 @@ export function AdminWeeklyClassForm() {
                     <textarea value={question.promptAm || ''} onChange={(event) => updateQuestion(index, { ...question, promptAm: event.target.value })} rows={2} className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
                   </label>
                 </div>
-                <label className="mt-2 block text-sm font-medium text-brand-900">Prompt — legacy <span className="font-normal text-brand-500">(optional)</span>
-                  <textarea value={question.prompt} onChange={(event) => updateQuestion(index, { ...question, prompt: event.target.value })} rows={2} className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Single-line fallback" />
-                </label>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-600">Helper text <span className="font-normal text-brand-500">(optional)</span></p>
                 <div className="mt-1 grid gap-3 sm:grid-cols-2">
                   <textarea value={question.helperTextEn || ''} onChange={(event) => updateQuestion(index, { ...question, helperTextEn: event.target.value })} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
                   <textarea value={question.helperTextAm || ''} onChange={(event) => updateQuestion(index, { ...question, helperTextAm: event.target.value })} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
                 </div>
-                <textarea value={question.helperText || ''} onChange={(event) => updateQuestion(index, { ...question, helperText: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Helper — legacy (optional)" />
 
                 {question.type === 'multiple-choice' ? (
                   <div className="mt-4 space-y-4">
@@ -823,7 +813,6 @@ export function AdminWeeklyClassForm() {
                       <textarea value={question.explanationEn || ''} onChange={(event) => updateQuestion(index, { ...question, explanationEn: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
                       <textarea value={question.explanationAm || ''} onChange={(event) => updateQuestion(index, { ...question, explanationAm: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
                     </div>
-                    <textarea value={question.explanation || ''} onChange={(event) => updateQuestion(index, { ...question, explanation: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Explanation — legacy (optional)" />
                   </div>
                 ) : null}
 
@@ -845,7 +834,6 @@ export function AdminWeeklyClassForm() {
                       <input type="text" value={question.placeholderEn || ''} onChange={(event) => updateQuestion(index, { ...question, placeholderEn: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
                       <input type="text" value={question.placeholderAm || ''} onChange={(event) => updateQuestion(index, { ...question, placeholderAm: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
                     </div>
-                    <input type="text" value={question.placeholder || ''} onChange={(event) => updateQuestion(index, { ...question, placeholder: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Legacy placeholder (optional)" />
                   </div>
                 ) : null}
               </div>

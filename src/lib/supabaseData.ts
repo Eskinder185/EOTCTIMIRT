@@ -477,22 +477,23 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     assertNoError('insert mezmurs', mezInsertError, { weeklyClassId: id, payloadCount: mezRows.length })
   }
 
+  const resolvedQuestionIds = data.questions.map((q) => parseOptionalUuid(q.id) ?? crypto.randomUUID())
   const qRows = data.questions.map((q, i) => ({
-    id: trim(q.id) ?? `${id}-q-${i + 1}`,
+    id: resolvedQuestionIds[i],
     weekly_class_id: id,
     type: q.type,
     order_index: i,
-    prompt: trim(q.prompt) ?? null,
+    prompt: trim(q.prompt) ?? trim(q.promptEn) ?? trim(q.promptAm) ?? null,
     prompt_en: trim(q.promptEn) ?? null,
     prompt_am: trim(q.promptAm) ?? null,
-    helper_text: trim(q.helperText) ?? null,
+    helper_text: trim(q.helperText) ?? trim(q.helperTextEn) ?? trim(q.helperTextAm) ?? null,
     helper_text_en: trim(q.helperTextEn) ?? null,
     helper_text_am: trim(q.helperTextAm) ?? null,
-    placeholder: trim(q.placeholder) ?? null,
+    placeholder: trim(q.placeholder) ?? trim(q.placeholderEn) ?? trim(q.placeholderAm) ?? null,
     placeholder_en: trim(q.placeholderEn) ?? null,
     placeholder_am: trim(q.placeholderAm) ?? null,
     correct_index: q.type === 'multiple-choice' ? (q.correctIndex ?? 0) : null,
-    explanation: trim(q.explanation) ?? null,
+    explanation: trim(q.explanation) ?? trim(q.explanationEn) ?? trim(q.explanationAm) ?? null,
     explanation_en: trim(q.explanationEn) ?? null,
     explanation_am: trim(q.explanationAm) ?? null,
   }))
@@ -502,7 +503,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
   }
   for (const [i, q] of data.questions.entries()) {
     if (q.type !== 'multiple-choice') continue
-    const qid = trim(q.id) ?? `${id}-q-${i + 1}`
+    const qid = resolvedQuestionIds[i]
     const oRows = (q.options ?? []).map((o, oi) => ({ question_id: qid, option_index: oi, option_text: trim(o.en) ?? trim(o.am) ?? null, option_text_en: trim(o.en) ?? null, option_text_am: trim(o.am) ?? null }))
     if (oRows.length > 0) {
       const { error: optionsInsertError } = await supabase.from('multiple_choice_options').insert(oRows)
