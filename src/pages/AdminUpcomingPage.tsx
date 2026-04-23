@@ -15,6 +15,13 @@ import { parseOptionalUuid } from '../lib/uuid'
 
 type FormState = UpcomingTimirtEditorInput
 
+function toMainPointSlots(points?: Array<{ en?: string; am?: string }>) {
+  return Array.from({ length: 4 }, (_, index) => ({
+    en: points?.[index]?.en ?? '',
+    am: points?.[index]?.am ?? '',
+  }))
+}
+
 function getNextTuesday() {
   const today = new Date()
   const daysUntilTuesday = (2 - today.getDay() + 7) % 7
@@ -29,6 +36,7 @@ function createEmptyForm(): FormState {
     topicPreview: '',
     note: '',
     classSummary: '',
+    mainPoints: toMainPointSlots(),
     youtubeUrl: '',
     audioUrl: '',
     audioTitle: '',
@@ -60,7 +68,7 @@ function buildSoftWarnings(form: FormState): string[] {
     warnings.push('Preview note is empty.')
   }
   if (!form.classSummary?.trim() && !form.classSummaryEn?.trim() && !form.classSummaryAm?.trim()) {
-    warnings.push('Class summary is empty.')
+    warnings.push('Short summary is empty.')
   }
   if (!form.mezmurs[0]?.title?.trim() && !form.mezmurs[0]?.titleEn?.trim() && !form.mezmurs[0]?.titleAm?.trim()) {
     warnings.push('First mezmur title is empty.')
@@ -127,6 +135,7 @@ export function AdminUpcomingPage() {
           setForm({
             ...createEmptyForm(),
             ...parsed,
+            mainPoints: toMainPointSlots(parsed.mainPoints),
             mezmurs: [
               parsed.mezmurs?.[0] ?? createEmptyForm().mezmurs[0],
               parsed.mezmurs?.[1] ?? createEmptyForm().mezmurs[1],
@@ -136,7 +145,10 @@ export function AdminUpcomingPage() {
           return
         }
         if (upcoming) {
-          setForm(upcoming)
+          setForm({
+            ...upcoming,
+            mainPoints: toMainPointSlots(upcoming.mainPoints),
+          })
         }
       } catch (loadError) {
         if (import.meta.env.DEV) {
@@ -505,15 +517,56 @@ export function AdminUpcomingPage() {
         </div>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
-          Class summary
+          Short summary
           <textarea
             value={form.classSummary || ''}
             onChange={(event) => setForm({ ...form, classSummary: event.target.value })}
             rows={4}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Share a summary for the upcoming class"
+            placeholder="Share a short intro for the upcoming class (2-4 lines)"
           />
         </label>
+        <div className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
+          <h3 className="text-sm font-semibold text-brand-900">Main points (up to 4, optional)</h3>
+          <p className="mt-1 text-xs text-brand-700">
+            Add each point one by one. English and Amharic are both optional for every point.
+          </p>
+          <div className="mt-3 space-y-3">
+            {toMainPointSlots(form.mainPoints).map((point, index) => (
+              <div key={`upcoming-main-point-${index}`} className="rounded-xl border border-brand-100 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Main point {index + 1}</p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-brand-900">
+                    English
+                    <textarea
+                      value={point.en ?? ''}
+                      onChange={(event) => {
+                        const mainPoints = toMainPointSlots(form.mainPoints)
+                        mainPoints[index] = { ...mainPoints[index], en: event.target.value }
+                        setForm({ ...form, mainPoints })
+                      }}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    />
+                  </label>
+                  <label className="text-sm font-medium text-brand-900">
+                    Amharic
+                    <textarea
+                      value={point.am ?? ''}
+                      onChange={(event) => {
+                        const mainPoints = toMainPointSlots(form.mainPoints)
+                        mainPoints[index] = { ...mainPoints[index], am: event.target.value }
+                        setForm({ ...form, mainPoints })
+                      }}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
           Organizer note (optional)

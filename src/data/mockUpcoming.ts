@@ -1,4 +1,5 @@
 import type { Mezmur } from './types'
+import type { TeachingMainPoint } from './types'
 
 /**
  * Preview for the *next* Tuesday Timirit (mock).
@@ -17,6 +18,7 @@ export interface UpcomingTimirtPreview {
   classSummary?: string
   classSummaryEn?: string
   classSummaryAm?: string
+  mainPoints?: TeachingMainPoint[]
   youtubeUrl?: string
   audioUrl?: string
   audioTitle?: string

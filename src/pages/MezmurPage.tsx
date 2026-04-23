@@ -75,13 +75,15 @@ export function MezmurPage() {
           See the titles for the next class and last week, open YouTube when available, and use{' '}
           <span className="font-medium text-brand-900">Tewahedo Daily</span> for deeper practice.
         </p>
-        <p className="mt-3 text-xs text-brand-600">
-          <Link to="/upcoming-mezmurs?mode=present" className="font-semibold text-accent-700 underline-offset-2 hover:underline">
-            {t('presentationMode')}
+        <div className="mt-4">
+          <Link
+            to="/upcoming-mezmurs?mode=present"
+            className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-accent-600 px-6 py-3 text-base font-bold text-white shadow-md shadow-accent-700/30 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 sm:w-auto"
+          >
+            Open Presentation Mode
           </Link>
-          <span className="text-brand-500"> · </span>
-          projector-friendly lyrics with slide controls
-        </p>
+          <p className="mt-2 text-sm text-brand-600">Projector-friendly lyrics with slide controls.</p>
+        </div>
       </div>
 
       <Card>

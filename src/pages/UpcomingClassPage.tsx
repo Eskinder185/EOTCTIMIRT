@@ -35,7 +35,7 @@ export function UpcomingClassPage() {
         title: 'Opens the main Orthodox study PDF',
       },
       {
-        label: 'Browse upcoming mezmurs page',
+        label: 'Launch Projector Mode',
         href: '/upcoming-mezmurs?mode=present',
       },
     ],
@@ -110,6 +110,9 @@ export function UpcomingClassPage() {
     : undefined
   const hasPreviewAudio = isUsableHttpLink(upcoming.lessonAudioUrl)
   const hasPreviewVideo = Boolean(previewEmbedUrl)
+  const mainPoints = (upcoming.mainPoints ?? [])
+    .map((point) => point.am?.trim() || point.en?.trim())
+    .filter((point): point is string => Boolean(point))
   const visibleMezmurs = upcoming.mezmurs.filter(
     (mezmur) =>
       Boolean(
@@ -135,6 +138,16 @@ export function UpcomingClassPage() {
         ) : null}
         {upcoming.lessonNote ? (
           <p className="mt-3 text-sm leading-relaxed text-brand-700">{upcoming.lessonNote}</p>
+        ) : null}
+        {mainPoints.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+            <h2 className="text-sm font-semibold text-brand-900">Main points</h2>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
+              {mainPoints.map((point, index) => (
+                <li key={`${point}-${index}`}>{point}</li>
+              ))}
+            </ul>
+          </div>
         ) : null}
       </Card>
 
@@ -246,18 +259,25 @@ export function UpcomingClassPage() {
       <Card>
         <h2 className="text-base font-semibold text-brand-900">Related links</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {preparationLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              target={link.href.startsWith('http') || link.href.endsWith('.pdf') ? '_blank' : undefined}
-              rel={link.href.startsWith('http') || link.href.endsWith('.pdf') ? 'noreferrer' : undefined}
-              title={link.title}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-sm font-semibold text-accent-600 hover:bg-brand-50"
-            >
-              {link.label}
-            </a>
-          ))}
+          {preparationLinks.map((link) => {
+            const isPresentationLink = link.href.includes('mode=present')
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                target={link.href.startsWith('http') || link.href.endsWith('.pdf') ? '_blank' : undefined}
+                rel={link.href.startsWith('http') || link.href.endsWith('.pdf') ? 'noreferrer' : undefined}
+                title={link.title}
+                className={
+                  isPresentationLink
+                    ? 'inline-flex min-h-14 items-center justify-center rounded-2xl bg-accent-600 px-5 py-3 text-base font-bold text-white shadow-md shadow-accent-700/30 transition hover:-translate-y-0.5 hover:opacity-95 sm:col-span-2'
+                    : 'inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-sm font-semibold text-accent-600 hover:bg-brand-50'
+                }
+              >
+                {link.label}
+              </a>
+            )
+          })}
         </div>
       </Card>
 

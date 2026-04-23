@@ -235,6 +235,7 @@ export type Database = {
           audio_url: string | null
           id: string
           is_active: boolean | null
+          main_points: Json | null
           key_verse: string | null
           note: string | null
           note_am: string | null
@@ -258,6 +259,7 @@ export type Database = {
           audio_url?: string | null
           id?: string
           is_active?: boolean | null
+          main_points?: Json | null
           key_verse?: string | null
           note?: string | null
           note_am?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           audio_url?: string | null
           id?: string
           is_active?: boolean | null
+          main_points?: Json | null
           key_verse?: string | null
           note?: string | null
           note_am?: string | null
@@ -398,6 +401,7 @@ export type Database = {
           date: string
           english_summary: string
           id: string
+          main_points: Json | null
           key_verse: string | null
           organizer_note: string | null
           speaker: string
@@ -419,6 +423,7 @@ export type Database = {
           date: string
           english_summary: string
           id: string
+          main_points?: Json | null
           key_verse?: string | null
           organizer_note?: string | null
           speaker: string
@@ -440,6 +445,7 @@ export type Database = {
           date?: string
           english_summary?: string
           id?: string
+          main_points?: Json | null
           key_verse?: string | null
           organizer_note?: string | null
           speaker?: string

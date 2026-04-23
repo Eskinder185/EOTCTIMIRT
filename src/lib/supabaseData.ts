@@ -13,6 +13,7 @@ import type {
   WeeklyClass,
   WeeklyQuestionStat,
   WeeklyQuestionStatsReport,
+  TeachingMainPoint,
 } from '../data/types'
 import type { WeeklyKnowledgeEditorInput, WeeklyKnowledgeItem, WeeklyKnowledgeStatus } from '../data/weeklyKnowledge'
 
@@ -59,6 +60,7 @@ export interface WeeklyClassEditorInput {
   speaker: string
   amharicSummary: string
   englishSummary: string
+  mainPoints?: TeachingMainPoint[]
   youtubeUrl?: string
   audioUrl?: string
   audioTitle?: string
@@ -82,6 +84,7 @@ export interface UpcomingTimirtEditorInput {
   classSummary?: string
   classSummaryEn?: string
   classSummaryAm?: string
+  mainPoints?: TeachingMainPoint[]
   youtubeUrl?: string
   audioUrl?: string
   audioTitle?: string
@@ -118,6 +121,42 @@ const trim = (v?: string | null) => {
 }
 const pickLocalized = (en?: string | null, am?: string | null, base?: string | null) => trim(en) ?? trim(am) ?? trim(base)
 const isFresh = () => Date.now() - weeklyClassesCacheTimestamp < CACHE_MS
+
+function sanitizeMainPoints(points?: TeachingMainPoint[] | null): TeachingMainPoint[] {
+  if (!Array.isArray(points)) {
+    return []
+  }
+  return points
+    .slice(0, 4)
+    .map((point) => ({
+      en: trim(point?.en),
+      am: trim(point?.am),
+    }))
+    .filter((point) => Boolean(point.en || point.am))
+}
+
+function parseMainPoints(value: unknown): TeachingMainPoint[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return sanitizeMainPoints(
+    value.map((point) =>
+      point && typeof point === 'object'
+        ? {
+            en: (point as { en?: unknown }).en as string | undefined,
+            am: (point as { am?: unknown }).am as string | undefined,
+          }
+        : {},
+    ),
+  )
+}
+
+function toMainPointsJson(points?: TeachingMainPoint[] | null): Array<{ en: string | null; am: string | null }> {
+  return sanitizeMainPoints(points).map((point) => ({
+    en: point.en ?? null,
+    am: point.am ?? null,
+  }))
+}
 
 const defaultAttendanceOptions = () => [
   { value: 'in-person' as const, label: 'In person' },
@@ -219,6 +258,7 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     audioNote: trim(row.audio_note), lessonMediaEnabled: undefined,
     teachingNotes: undefined,
     teachingNotesEn: undefined, teachingNotesAm: undefined,
+    mainPoints: parseMainPoints(row.main_points),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
     status: row.status === 'published' ? 'published' : 'draft',
@@ -243,6 +283,7 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     'speaker',
     'amharic_summary',
     'english_summary',
+    'main_points',
     'key_verse',
     'youtube_url',
     'audio_url',
@@ -300,6 +341,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     note: pickLocalized(row.note_en, row.note_am, row.note) ?? '', noteEn: trim(row.note_en), noteAm: trim(row.note_am),
     classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
     classSummaryEn: trim(row.class_summary_en), classSummaryAm: trim(row.class_summary_am),
+    mainPoints: parseMainPoints(row.main_points),
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     lessonYoutubeUrl: trim(row.youtube_url),
     lessonAudioUrl: trim(row.audio_url),
@@ -415,6 +457,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     id, date: data.date, topic: trim(data.topic) ?? trim(data.topicEn) ?? trim(data.topicAm) ?? null,
     topic_en: trim(data.topicEn) ?? null, topic_am: trim(data.topicAm) ?? null,
     speaker: trim(data.speaker) ?? '', amharic_summary: trim(data.amharicSummary) ?? '', english_summary: trim(data.englishSummary) ?? '',
+    main_points: toMainPointsJson(data.mainPoints),
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null,
     audio_title: trim(data.audioTitle) ?? null,
     audio_note: trim(data.audioNote) ?? null,
@@ -541,6 +584,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '', topicPreviewEn: trim(row.topic_preview_en), topicPreviewAm: trim(row.topic_preview_am),
     note: pickLocalized(row.note_en, row.note_am, row.note) ?? '', noteEn: trim(row.note_en), noteAm: trim(row.note_am),
     classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary), classSummaryEn: trim(row.class_summary_en), classSummaryAm: trim(row.class_summary_am),
+    mainPoints: parseMainPoints(row.main_points),
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
@@ -559,6 +603,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     topic_preview: trim(data.topicPreview) ?? null, topic_preview_en: trim(data.topicPreviewEn) ?? null, topic_preview_am: trim(data.topicPreviewAm) ?? null,
     note: trim(data.note) ?? null, note_en: trim(data.noteEn) ?? null, note_am: trim(data.noteAm) ?? null,
     class_summary: trim(data.classSummary) ?? null, class_summary_en: trim(data.classSummaryEn) ?? null, class_summary_am: trim(data.classSummaryAm) ?? null,
+    main_points: toMainPointsJson(data.mainPoints),
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null, audio_title: trim(data.audioTitle) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,

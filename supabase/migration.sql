@@ -15,7 +15,8 @@ ADD COLUMN IF NOT EXISTS audio_url TEXT,
 ADD COLUMN IF NOT EXISTS audio_title TEXT,
 ADD COLUMN IF NOT EXISTS audio_note TEXT,
 ADD COLUMN IF NOT EXISTS lesson_media_enabled BOOLEAN DEFAULT true,
-ADD COLUMN IF NOT EXISTS teaching_notes TEXT;
+ADD COLUMN IF NOT EXISTS teaching_notes TEXT,
+ADD COLUMN IF NOT EXISTS main_points JSONB DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS weekly_knowledge (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -78,6 +79,7 @@ ADD COLUMN IF NOT EXISTS weekly_knowledge_image_url TEXT,
 ADD COLUMN IF NOT EXISTS key_verse TEXT,
 ADD COLUMN IF NOT EXISTS organizer_note TEXT,
 ADD COLUMN IF NOT EXISTS class_summary_content TEXT,
+ADD COLUMN IF NOT EXISTS main_points JSONB DEFAULT '[]'::jsonb,
 ADD COLUMN IF NOT EXISTS publication_status TEXT DEFAULT 'draft';
 
 UPDATE upcoming_timirit

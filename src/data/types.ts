@@ -16,6 +16,11 @@ export type LocalizedText = {
   am?: string
 }
 
+export interface TeachingMainPoint {
+  en?: string
+  am?: string
+}
+
 export interface Mezmur {
   title: string
   titleEn?: string
@@ -117,6 +122,7 @@ export interface WeeklyClass {
   teachingNotes?: string
   teachingNotesEn?: string
   teachingNotesAm?: string
+  mainPoints?: TeachingMainPoint[]
   keyVerse?: string
   organizerNote?: string
   status?: 'draft' | 'published'

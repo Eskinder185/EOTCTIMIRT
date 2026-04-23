@@ -33,6 +33,7 @@ CREATE TABLE weekly_classes (
   speaker TEXT NOT NULL,
   amharic_summary TEXT NOT NULL,
   english_summary TEXT NOT NULL,
+  main_points JSONB NOT NULL DEFAULT '[]',
   key_points JSONB NOT NULL DEFAULT '[]', -- Array of strings
   verses JSONB DEFAULT '[]', -- Array of strings
   youtube_url TEXT,
@@ -137,6 +138,7 @@ CREATE TABLE upcoming_timirit (
   note TEXT,
   note_en TEXT,
   note_am TEXT,
+  main_points JSONB NOT NULL DEFAULT '[]',
   lesson_youtube_url TEXT,
   lesson_audio_url TEXT,
   lesson_audio_title TEXT,

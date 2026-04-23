@@ -21,9 +21,17 @@ type SupabaseDebugError = {
   context?: unknown
 }
 
+function toMainPointSlots(points?: Array<{ en?: string; am?: string }>) {
+  return Array.from({ length: 4 }, (_, index) => ({
+    en: points?.[index]?.en ?? '',
+    am: points?.[index]?.am ?? '',
+  }))
+}
+
 function migrateWeeklyClassFormState(form: WeeklyClassEditorInput): WeeklyClassEditorInput {
   return {
     ...form,
+    mainPoints: toMainPointSlots(form.mainPoints),
     questions: form.questions.map((q) => {
       const baseCommon = {
         ...q,
@@ -192,6 +200,7 @@ function createEmptyForm(): FormState {
     speaker: '',
     amharicSummary: '',
     englishSummary: '',
+    mainPoints: toMainPointSlots(),
     youtubeUrl: '',
     audioUrl: '',
     audioTitle: '',
@@ -213,7 +222,7 @@ function buildSoftWarnings(form: FormState): string[] {
     warnings.push('No topic added yet.')
   }
   if (!form.englishSummary?.trim() && !form.amharicSummary?.trim()) {
-    warnings.push('Summaries are empty.')
+    warnings.push('Short summary is empty.')
   }
   if (!form.youtubeUrl?.trim() && !form.audioUrl?.trim()) {
     warnings.push('No lesson media link added yet.')
@@ -284,6 +293,7 @@ export function AdminWeeklyClassForm() {
           speaker: weeklyClass.speaker,
           amharicSummary: weeklyClass.amharicSummary,
           englishSummary: weeklyClass.englishSummary,
+          mainPoints: toMainPointSlots(weeklyClass.mainPoints),
           youtubeUrl: weeklyClass.youtubeUrl || '',
           audioUrl: weeklyClass.audioUrl || '',
           audioTitle: weeklyClass.audioTitle || '',
@@ -634,12 +644,53 @@ export function AdminWeeklyClassForm() {
         <label className="mt-3 block text-sm font-medium text-brand-900">Audio note <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Short summary (Amharic) <span className="font-normal text-brand-500">(optional, 2-4 lines)</span>
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">English summary <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Short summary (English) <span className="font-normal text-brand-500">(optional, 2-4 lines)</span>
           <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
+        <div className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
+          <h3 className="text-sm font-semibold text-brand-900">Main points (up to 4, optional)</h3>
+          <p className="mt-1 text-xs text-brand-700">
+            Add any mix of English and Amharic. Leave blanks for points you do not need this week.
+          </p>
+          <div className="mt-3 space-y-3">
+            {toMainPointSlots(form.mainPoints).map((point, index) => (
+              <div key={`weekly-main-point-${index}`} className="rounded-xl border border-brand-100 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Main point {index + 1}</p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-brand-900">
+                    English
+                    <textarea
+                      value={point.en ?? ''}
+                      onChange={(event) => {
+                        const mainPoints = toMainPointSlots(form.mainPoints)
+                        mainPoints[index] = { ...mainPoints[index], en: event.target.value }
+                        setForm({ ...form, mainPoints })
+                      }}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    />
+                  </label>
+                  <label className="text-sm font-medium text-brand-900">
+                    Amharic
+                    <textarea
+                      value={point.am ?? ''}
+                      onChange={(event) => {
+                        const mainPoints = toMainPointSlots(form.mainPoints)
+                        mainPoints[index] = { ...mainPoints[index], am: event.target.value }
+                        setForm({ ...form, mainPoints })
+                      }}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">Key verse <span className="font-normal text-brand-500">(optional)</span>
             <input type="text" value={form.keyVerse || ''} onChange={(event) => setForm({ ...form, keyVerse: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="John 3:16" />

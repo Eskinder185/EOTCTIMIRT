@@ -453,9 +453,14 @@ export function ClassPage() {
   const hasVideo = showMedia && Boolean(embedUrl)
   const hasAmharicSummary = Boolean(week.amharicSummary?.trim())
   const hasEnglishSummary = Boolean(week.englishSummary?.trim())
-  const hasKeyPoints = week.keyPoints.length > 0
+  const mainPoints = (week.mainPoints ?? [])
+    .map((point) => point.am?.trim() || point.en?.trim())
+    .filter((point): point is string => Boolean(point))
+  const fallbackKeyPoints = week.keyPoints.filter((point) => point.trim())
+  const visibleMainPoints = mainPoints.length > 0 ? mainPoints : fallbackKeyPoints
+  const hasMainPoints = visibleMainPoints.length > 0
   const hasVerses = Boolean(week.verses?.length)
-  const hasSummarySection = hasAmharicSummary || hasEnglishSummary || hasKeyPoints || hasVerses
+  const hasSummarySection = hasAmharicSummary || hasEnglishSummary || hasMainPoints || hasVerses
   const visibleMezmurs = week.mezmurs.filter(
     (mezmur) =>
       Boolean(
@@ -519,7 +524,7 @@ export function ClassPage() {
 
       {hasSummarySection ? (
       <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Summary</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teaching overview</p>
         <div className="mt-3 space-y-4">
           {hasAmharicSummary ? (
           <div>
@@ -537,14 +542,14 @@ export function ClassPage() {
             <p className="mt-2 text-sm leading-relaxed text-brand-800">{week.englishSummary}</p>
           </details>
           ) : null}
-          {hasKeyPoints ? (
+          {hasMainPoints ? (
           <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3" open>
             <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
-              Key points
+              Main points
             </summary>
             <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
-              {week.keyPoints.map((point) => (
-                <li key={point}>{point}</li>
+              {visibleMainPoints.map((point, index) => (
+                <li key={`${point}-${index}`}>{point}</li>
               ))}
             </ul>
           </details>
