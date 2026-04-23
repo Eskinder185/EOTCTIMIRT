@@ -192,20 +192,10 @@ function createEmptyForm(): FormState {
     speaker: '',
     amharicSummary: '',
     englishSummary: '',
-    keyPoints: ['', '', ''],
-    verses: ['', ''],
     youtubeUrl: '',
     audioUrl: '',
     audioTitle: '',
-    audioTitleEn: '',
-    audioTitleAm: '',
     audioNote: '',
-    audioNoteEn: '',
-    audioNoteAm: '',
-    lessonMediaEnabled: true,
-    teachingNotes: '',
-    teachingNotesEn: '',
-    teachingNotesAm: '',
     keyVerse: '',
     organizerNote: '',
     status: 'draft',
@@ -294,20 +284,10 @@ export function AdminWeeklyClassForm() {
           speaker: weeklyClass.speaker,
           amharicSummary: weeklyClass.amharicSummary,
           englishSummary: weeklyClass.englishSummary,
-          keyPoints: [...weeklyClass.keyPoints, '', '', ''].slice(0, 3),
-          verses: [...(weeklyClass.verses ?? []), '', ''].slice(0, 2),
           youtubeUrl: weeklyClass.youtubeUrl || '',
           audioUrl: weeklyClass.audioUrl || '',
           audioTitle: weeklyClass.audioTitle || '',
-          audioTitleEn: weeklyClass.audioTitleEn || '',
-          audioTitleAm: weeklyClass.audioTitleAm || '',
           audioNote: weeklyClass.audioNote || '',
-          audioNoteEn: weeklyClass.audioNoteEn || '',
-          audioNoteAm: weeklyClass.audioNoteAm || '',
-          lessonMediaEnabled: weeklyClass.lessonMediaEnabled ?? true,
-          teachingNotes: weeklyClass.teachingNotes || '',
-          teachingNotesEn: weeklyClass.teachingNotesEn || '',
-          teachingNotesAm: weeklyClass.teachingNotesAm || '',
           keyVerse: weeklyClass.keyVerse || '',
           organizerNote: weeklyClass.organizerNote || '',
           status: weeklyClass.status || 'draft',
@@ -390,8 +370,6 @@ export function AdminWeeklyClassForm() {
         englishSummary: form.englishSummary?.trim() || '',
         amharicSummary: form.amharicSummary?.trim() || '',
         speaker: form.speaker?.trim() || '',
-        keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
-        verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
         keyVerse: form.keyVerse?.trim() || undefined,
         organizerNote: form.organizerNote?.trim() || undefined,
         status: 'draft',
@@ -405,15 +383,40 @@ export function AdminWeeklyClassForm() {
       localStorage.setItem(draftKey, JSON.stringify({ ...form, id: savedId, status: 'draft' }))
       setNotice('Draft saved to backend and on this device.')
     } catch (saveError) {
+      const supabaseDebug = (
+        saveError as { supabase?: SupabaseDebugError; message?: string; details?: string; hint?: string; code?: string }
+      )?.supabase ?? {
+        message: (saveError as { message?: string })?.message,
+        details: (saveError as { details?: string })?.details,
+        hint: (saveError as { hint?: string })?.hint,
+        code: (saveError as { code?: string })?.code,
+      }
       if (import.meta.env.DEV) {
         setDevDiagnostics((current) => ({
           action,
           validationRule: current?.validationRule,
           normalizedPayload: current?.normalizedPayload,
-          errorDetails: extractErrorDebugDetails(saveError),
+          errorDetails: {
+            ...extractErrorDebugDetails(saveError),
+            supabase: supabaseDebug,
+          },
         }))
       }
-      setError(formatUnknownError(saveError))
+      const human = formatUnknownError(saveError)
+      setError(
+        import.meta.env.DEV
+          ? [
+              human,
+              supabaseDebug?.operation ? `Operation: ${supabaseDebug.operation}` : null,
+              supabaseDebug?.code ? `Code: ${supabaseDebug.code}` : null,
+              supabaseDebug?.message ? `Message: ${supabaseDebug.message}` : null,
+              supabaseDebug?.details ? `Details: ${supabaseDebug.details}` : null,
+              supabaseDebug?.hint ? `Hint: ${supabaseDebug.hint}` : null,
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : human,
+      )
     } finally {
       setSaving(false)
     }
@@ -435,17 +438,8 @@ export function AdminWeeklyClassForm() {
         englishSummary: form.englishSummary?.trim() || '',
         amharicSummary: form.amharicSummary?.trim() || '',
         speaker: form.speaker?.trim() || '',
-        keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
-        verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
         audioTitle: form.audioTitle?.trim() || undefined,
-        audioTitleEn: form.audioTitleEn?.trim() || undefined,
-        audioTitleAm: form.audioTitleAm?.trim() || undefined,
         audioNote: form.audioNote?.trim() || undefined,
-        audioNoteEn: form.audioNoteEn?.trim() || undefined,
-        audioNoteAm: form.audioNoteAm?.trim() || undefined,
-        teachingNotes: form.teachingNotes?.trim() || undefined,
-        teachingNotesEn: form.teachingNotesEn?.trim() || undefined,
-        teachingNotesAm: form.teachingNotesAm?.trim() || undefined,
         keyVerse: form.keyVerse?.trim() || undefined,
         organizerNote: form.organizerNote?.trim() || undefined,
         status: 'published',
@@ -632,51 +626,16 @@ export function AdminWeeklyClassForm() {
         <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link <span className="font-normal text-brand-500">(optional)</span>
           <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
         </label>
-        <label className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-brand-200 px-4 text-sm font-medium text-brand-900">
-          <input
-            type="checkbox"
-            checked={form.lessonMediaEnabled ?? true}
-            onChange={(event) => setForm({ ...form, lessonMediaEnabled: event.target.checked })}
-          />
-          Enable lesson media on the public lesson page
-        </label>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">Audio lesson link <span className="font-normal text-brand-500">(optional)</span>
             <input type="url" value={form.audioUrl || ''} onChange={(event) => setForm({ ...form, audioUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://example.com/lesson.mp3" />
           </label>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Audio title — English <span className="font-normal text-brand-500">(optional)</span>
-            <input type="text" value={form.audioTitleEn || ''} onChange={(event) => setForm({ ...form, audioTitleEn: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-          <label className="text-sm font-medium text-brand-900">Audio title — Amharic <span className="font-normal text-brand-500">(optional)</span>
-            <input type="text" value={form.audioTitleAm || ''} onChange={(event) => setForm({ ...form, audioTitleAm: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-        </div>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Audio title — legacy <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-3 block text-sm font-medium text-brand-900">Audio title <span className="font-normal text-brand-500">(optional)</span>
           <input type="text" value={form.audioTitle || ''} onChange={(event) => setForm({ ...form, audioTitle: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Week 12 audio lesson" />
         </label>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Audio note — English <span className="font-normal text-brand-500">(optional)</span>
-            <textarea value={form.audioNoteEn || ''} onChange={(event) => setForm({ ...form, audioNoteEn: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-          <label className="text-sm font-medium text-brand-900">Audio note — Amharic <span className="font-normal text-brand-500">(optional)</span>
-            <textarea value={form.audioNoteAm || ''} onChange={(event) => setForm({ ...form, audioNoteAm: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-        </div>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Audio note — legacy <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-3 block text-sm font-medium text-brand-900">Audio note <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-        </label>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Teaching notes — English <span className="font-normal text-brand-500">(optional)</span>
-            <textarea value={form.teachingNotesEn || ''} onChange={(event) => setForm({ ...form, teachingNotesEn: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-          <label className="text-sm font-medium text-brand-900">Teaching notes — Amharic <span className="font-normal text-brand-500">(optional)</span>
-            <textarea value={form.teachingNotesAm || ''} onChange={(event) => setForm({ ...form, teachingNotesAm: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
-          </label>
-        </div>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Teaching notes — legacy <span className="font-normal text-brand-500">(optional)</span>
-          <textarea value={form.teachingNotes || ''} onChange={(event) => setForm({ ...form, teachingNotes: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
         <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
@@ -695,20 +654,6 @@ export function AdminWeeklyClassForm() {
         <label className="mt-4 block text-sm font-medium text-brand-900">Organizer note <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.organizerNote || ''} onChange={(event) => setForm({ ...form, organizerNote: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-brand-900">Key points</p>
-            {form.keyPoints.map((point, index) => (
-              <textarea key={`point-${index}`} value={point} onChange={(event) => { const keyPoints = [...form.keyPoints]; keyPoints[index] = event.target.value; setForm({ ...form, keyPoints }) }} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Key point ${index + 1}`} />
-            ))}
-          </div>
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-brand-900">Bible verses</p>
-            {form.verses.map((verse, index) => (
-              <input key={`verse-${index}`} type="text" value={verse} onChange={(event) => { const verses = [...form.verses]; verses[index] = event.target.value; setForm({ ...form, verses }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Verse ${index + 1}`} />
-            ))}
-          </div>
-        </div>
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">

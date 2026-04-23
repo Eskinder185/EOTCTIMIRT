@@ -7,6 +7,7 @@ import type {
   WeeklyKnowledgeStatus,
 } from '../data/weeklyKnowledge'
 import {
+  deleteWeeklyKnowledge,
   getWeeklyKnowledgeForAdmin,
   listWeeklyKnowledgeForAdmin,
   saveWeeklyKnowledgeEditor,
@@ -56,6 +57,8 @@ export function AdminWeeklyKnowledgePage() {
   const [form, setForm] = useState<WeeklyKnowledgeEditorInput>(createEmptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [devDiagnostics, setDevDiagnostics] = useState<{
@@ -208,6 +211,43 @@ export function AdminWeeklyKnowledgePage() {
       setError(formatDevSupabaseError(statusError))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!form.id) return
+    try {
+      setDeleting(true)
+      setError(null)
+      setNotice(null)
+      if (import.meta.env.DEV) {
+        setDevDiagnostics({
+          action: 'delete_weekly_knowledge',
+          rawFormState: structuredClone(form),
+          normalizedPayload: { id: form.id },
+        })
+      }
+      await deleteWeeklyKnowledge(form.id)
+      setForm(createEmptyForm())
+      setShowDeleteConfirm(false)
+      await loadItems()
+      setNotice('Weekly knowledge entry deleted permanently.')
+    } catch (deleteError) {
+      const supabaseDetails = (deleteError as { supabase?: Record<string, unknown> } | null)?.supabase
+      if (import.meta.env.DEV) {
+        setDevDiagnostics((current) => ({
+          action: 'delete_weekly_knowledge',
+          validationRule: current?.validationRule,
+          normalizedPayload: { id: form.id },
+          errorDetails: {
+            ...extractErrorDebugDetails(deleteError),
+            supabase: supabaseDetails,
+          },
+        }))
+      }
+      setError(formatDevSupabaseError(deleteError))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -405,8 +445,48 @@ export function AdminWeeklyKnowledgePage() {
           >
             Archive
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={saving || deleting || !form.id}
+          >
+            Delete
+          </Button>
         </div>
       </section>
+
+      {showDeleteConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-brand-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-brand-900">Delete weekly knowledge entry?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-brand-700">
+              This permanently removes the selected weekly knowledge item from organizer and public views.
+            </p>
+            <p className="mt-2 text-sm font-medium text-red-700">This action cannot be undone.</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Confirm delete'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

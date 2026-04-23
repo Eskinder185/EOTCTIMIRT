@@ -206,6 +206,10 @@ test('upcoming timirit supports draft, publish, edit, deactivate, delete, option
   await page.getByRole('button', { name: 'Save as draft' }).click()
   await expect(page.getByText('Draft saved. It is private until you publish.')).toBeVisible()
 
+  await page.getByRole('button', { name: 'Delete Upcoming Class' }).click()
+  await page.getByRole('button', { name: 'Confirm delete' }).click()
+  await expect(page.getByText('deleted permanently')).toBeVisible()
+
   await page.getByLabel('Next topic').fill('')
   await page.getByLabel('Preview note').fill('')
   await page.getByRole('button', { name: 'Publish update' }).click()
@@ -231,9 +235,25 @@ test('weekly knowledge supports create draft publish unpublish archive with opti
   await page.getByRole('button', { name: 'Save Draft' }).click()
   await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
 
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirm delete' }).click()
+  await expect(page.getByText('Weekly knowledge entry deleted permanently.')).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Week of mercy')
+  await page.getByRole('button', { name: 'Save Draft' }).click()
+  await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   await expect(page.getByText('Weekly knowledge published')).toBeVisible()
 
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirm delete' }).click()
+  await expect(page.getByText('Weekly knowledge entry deleted permanently.')).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Week of mercy')
+  await page.getByRole('button', { name: 'Save Draft' }).click()
+  await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
+  await page.getByRole('button', { name: 'Publish', exact: true }).click()
+  await expect(page.getByText('Weekly knowledge published')).toBeVisible()
   await page.getByRole('button', { name: 'Unpublish' }).click()
   await expect(page.getByText('Entry moved back to draft.')).toBeVisible()
 

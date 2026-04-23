@@ -399,17 +399,14 @@ export type Database = {
           english_summary: string
           id: string
           key_verse: string | null
-          lesson_media_enabled: boolean | null
           organizer_note: string | null
           speaker: string
           status: string | null
-          teaching_notes: string | null
           topic: string | null
           topic_am: string | null
           topic_en: string | null
           updated_at: string
           updated_by: string | null
-          verses: Json | null
           youtube_url: string | null
         }
         Insert: {
@@ -423,17 +420,14 @@ export type Database = {
           english_summary: string
           id: string
           key_verse?: string | null
-          lesson_media_enabled?: boolean | null
           organizer_note?: string | null
           speaker: string
           status?: string | null
-          teaching_notes?: string | null
           topic?: string | null
           topic_am?: string | null
           topic_en?: string | null
           updated_at?: string
           updated_by?: string | null
-          verses?: Json | null
           youtube_url?: string | null
         }
         Update: {
@@ -447,17 +441,14 @@ export type Database = {
           english_summary?: string
           id?: string
           key_verse?: string | null
-          lesson_media_enabled?: boolean | null
           organizer_note?: string | null
           speaker?: string
           status?: string | null
-          teaching_notes?: string | null
           topic?: string | null
           topic_am?: string | null
           topic_en?: string | null
           updated_at?: string
           updated_by?: string | null
-          verses?: Json | null
           youtube_url?: string | null
         }
         Relationships: [

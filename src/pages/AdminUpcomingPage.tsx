@@ -267,10 +267,18 @@ export function AdminUpcomingPage() {
   }
 
   const handleDelete = async () => {
+    const action = 'delete_upcoming_timirit'
     try {
       setDeleting(true)
       setError(null)
       setNotice(null)
+      if (import.meta.env.DEV) {
+        setDevDiagnostics({
+          action,
+          rawFormState: structuredClone(form),
+          normalizedPayload: { id: form.id },
+        })
+      }
       await deleteUpcomingTimirt(form.id)
       localStorage.removeItem(draftKey)
       setForm(createEmptyForm())
@@ -279,8 +287,18 @@ export function AdminUpcomingPage() {
       setShowDeleteConfirm(false)
       setNotice('Upcoming preview and linked mezmurs were deleted permanently.')
     } catch (deleteError) {
+      const supabaseDetails = (deleteError as { supabase?: Record<string, unknown> } | null)?.supabase
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] delete failed', deleteError)
+        setDevDiagnostics((current) => ({
+          action,
+          validationRule: current?.validationRule,
+          normalizedPayload: { id: form.id },
+          errorDetails: {
+            ...extractErrorDebugDetails(deleteError),
+            supabase: supabaseDetails,
+          },
+        }))
       }
       setError(formatDevSupabaseError(deleteError))
     } finally {
