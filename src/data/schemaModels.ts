@@ -55,8 +55,7 @@ export interface UpcomingTimiritRecord {
   weeklyKnowledgeImageUrl?: string
   keyVerse?: string
   organizerNote?: string
-  classSummaryContent?: string
-  publicationStatus?: 'draft' | 'published'
+  status?: 'draft' | 'published'
   isActive: boolean
 }
 

@@ -7,14 +7,19 @@ import {
   coerceLocalizedText,
   compactLocalizedOptionsForSave,
   emptyLocalizedText,
-  hasAnyTrimmedText,
-  hasLocalizedText,
   normalizeLocalizedText,
 } from '../lib/localizedText'
-import { isNonEmptyInvalidHttpUrl } from '../lib/optionalUrl'
 import { getWeeklyClass, saveWeeklyClassEditor, type EditorQuestionInput, type WeeklyClassEditorInput } from '../lib/supabaseData'
 
 type FormState = WeeklyClassEditorInput
+type SupabaseDebugError = {
+  operation?: string
+  message?: string
+  details?: string | null
+  hint?: string | null
+  code?: string | null
+  context?: unknown
+}
 
 function migrateWeeklyClassFormState(form: WeeklyClassEditorInput): WeeklyClassEditorInput {
   return {
@@ -211,17 +216,27 @@ function createEmptyForm(): FormState {
   }
 }
 
-function editorQuestionShouldSave(q: EditorQuestionInput): boolean {
-  if (q.type === 'attendance') {
-    return true
+function buildSoftWarnings(form: FormState): string[] {
+  const warnings: string[] = []
+  if (!form.topic?.trim() && !form.topicEn?.trim() && !form.topicAm?.trim()) {
+    warnings.push('No topic added yet.')
   }
-  if (hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt)) {
-    return true
+  if (!form.englishSummary?.trim() && !form.amharicSummary?.trim()) {
+    warnings.push('Summaries are empty.')
   }
-  if (q.type === 'multiple-choice' && (q.options ?? []).some((opt) => hasLocalizedText({ ...emptyLocalizedText(), ...opt }))) {
-    return true
+  if (!form.youtubeUrl?.trim() && !form.audioUrl?.trim()) {
+    warnings.push('No lesson media link added yet.')
   }
-  return false
+  const hasSecondMezmur = Boolean(
+    form.mezmurs[1]?.title?.trim() || form.mezmurs[1]?.titleEn?.trim() || form.mezmurs[1]?.titleAm?.trim(),
+  )
+  if (!hasSecondMezmur) {
+    warnings.push('Second mezmur not filled yet.')
+  }
+  if (form.questions.length === 0) {
+    warnings.push('No questions added yet.')
+  }
+  return warnings
 }
 
 export function AdminWeeklyClassForm() {
@@ -364,58 +379,6 @@ export function AdminWeeklyClassForm() {
 
   const publishUpdate = async () => {
     const action = isEditing ? 'publish_update' : 'publish_create'
-    if (!form.date?.trim()) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.date_required' })
-      setError('Please set the class date.')
-      return
-    }
-    if (!hasAnyTrimmedText(form.topic, form.topicEn, form.topicAm)) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.topic_required_any_language' })
-      setError('Add a topic in English, Amharic, or the combined topic line (at least one).')
-      return
-    }
-    if (isNonEmptyInvalidHttpUrl(form.youtubeUrl) || isNonEmptyInvalidHttpUrl(form.audioUrl)) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.lesson_media_url_invalid' })
-      setError('Lesson YouTube or audio link is not valid. Clear the field or use a full https:// URL.')
-      return
-    }
-    if (
-      form.mezmurs.some(
-        (mezmur) => isNonEmptyInvalidHttpUrl(mezmur.youtubeUrl) || isNonEmptyInvalidHttpUrl(mezmur.audioUrl),
-      )
-    ) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.mezmur_media_url_invalid' })
-      setError('A mezmur YouTube or audio link is not valid. Clear the field or use a full https:// URL.')
-      return
-    }
-
-    const badMc = form.questions.find((q) => {
-      if (q.type !== 'multiple-choice') {
-        return false
-      }
-      if (!hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt)) {
-        return false
-      }
-      const rawOptions = (q.options ?? []).map((opt) => ({ ...emptyLocalizedText(), ...opt }))
-      return !rawOptions.some(hasLocalizedText)
-    })
-    if (badMc) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.multiple_choice_requires_options' })
-      setError(
-        'A multiple-choice question has a prompt but no answer choices. Add at least one choice in English or Amharic, or remove the prompt.',
-      )
-      return
-    }
-
-    const questionMissingPrompt = form.questions
-      .filter(editorQuestionShouldSave)
-      .find((q) => !hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt))
-    if (questionMissingPrompt) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.question_prompt_required_any_language' })
-      setError('Each included question needs a prompt in English, Amharic, or the base prompt field.')
-      return
-    }
-
     try {
       setSaving(true)
       setError(null)
@@ -423,13 +386,13 @@ export function AdminWeeklyClassForm() {
 
       const normalized: WeeklyClassEditorInput = {
         ...form,
-        id: form.id.trim() || form.date,
+        id: form.id.trim() || form.date || crypto.randomUUID(),
         topic: form.topic?.trim() || form.topicEn?.trim() || form.topicAm?.trim() || '',
         topicEn: form.topicEn?.trim() || undefined,
         topicAm: form.topicAm?.trim() || undefined,
-        englishSummary: form.englishSummary?.trim() || form.amharicSummary?.trim() || ' ',
-        amharicSummary: form.amharicSummary?.trim() || form.englishSummary?.trim() || ' ',
-        speaker: form.speaker?.trim() || ' ',
+        englishSummary: form.englishSummary?.trim() || '',
+        amharicSummary: form.amharicSummary?.trim() || '',
+        speaker: form.speaker?.trim() || '',
         keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
         verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
         audioTitle: form.audioTitle?.trim() || undefined,
@@ -443,9 +406,7 @@ export function AdminWeeklyClassForm() {
         teachingNotesAm: form.teachingNotesAm?.trim() || undefined,
         feedbackSummary: form.feedbackSummary?.trim() || undefined,
         attendanceSummary: form.attendanceSummary?.trim() || undefined,
-        questions: form.questions
-          .filter(editorQuestionShouldSave)
-          .map((question) => {
+        questions: form.questions.map((question) => {
             if (question.type === 'multiple-choice') {
               const rawOptions = (question.options ?? []).map((opt) => ({
                 ...emptyLocalizedText(),
@@ -511,18 +472,57 @@ export function AdminWeeklyClassForm() {
 
       const savedId = await saveWeeklyClassEditor(normalized)
       localStorage.removeItem(draftKey)
+      const warnings = buildSoftWarnings(form)
+      if (warnings.length > 0) {
+        setNotice(`Published with optional fields still empty: ${warnings.join(' ')}`)
+      }
       navigate(`/admin/weekly-classes/${savedId}`)
     } catch (publishError) {
+      const supabaseDebug = (
+        publishError as { supabase?: SupabaseDebugError; message?: string; details?: string; hint?: string; code?: string }
+      )?.supabase ?? {
+        message: (publishError as { message?: string })?.message,
+        details: (publishError as { details?: string })?.details,
+        hint: (publishError as { hint?: string })?.hint,
+        code: (publishError as { code?: string })?.code,
+      }
+
       if (import.meta.env.DEV) {
         console.error('[AdminWeeklyClassForm] publish failed', publishError)
+        console.error('[AdminWeeklyClassForm] Supabase publish debug', {
+          message: supabaseDebug?.message,
+          details: supabaseDebug?.details,
+          hint: supabaseDebug?.hint,
+          code: supabaseDebug?.code,
+          operation: supabaseDebug?.operation,
+          context: supabaseDebug?.context,
+          fullError: publishError,
+        })
         setDevDiagnostics((current) => ({
           action,
           validationRule: current?.validationRule,
           normalizedPayload: current?.normalizedPayload,
-          errorDetails: extractErrorDebugDetails(publishError),
+          errorDetails: {
+            ...extractErrorDebugDetails(publishError),
+            supabase: supabaseDebug,
+          },
         }))
       }
-      setError(formatUnknownError(publishError))
+      const human = formatUnknownError(publishError)
+      setError(
+        import.meta.env.DEV
+          ? [
+              human,
+              supabaseDebug?.operation ? `Operation: ${supabaseDebug.operation}` : null,
+              supabaseDebug?.code ? `Code: ${supabaseDebug.code}` : null,
+              supabaseDebug?.message ? `Message: ${supabaseDebug.message}` : null,
+              supabaseDebug?.details ? `Details: ${supabaseDebug.details}` : null,
+              supabaseDebug?.hint ? `Hint: ${supabaseDebug.hint}` : null,
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : human,
+      )
     } finally {
       setSaving(false)
     }
@@ -562,7 +562,7 @@ export function AdminWeeklyClassForm() {
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-brand-900">1. Weekly class form</h2>
-        <p className="mt-1 text-xs text-brand-600">Only date and topic (any language) are required to publish. Other fields are optional.</p>
+        <p className="mt-1 text-xs text-brand-600">All fields are optional. Fill only what is ready this week.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">Class ID
             <input type="text" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="2026-04-22" />
@@ -634,10 +634,10 @@ export function AdminWeeklyClassForm() {
         <label className="mt-3 block text-sm font-medium text-brand-900">Teaching notes — legacy <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.teachingNotes || ''} onChange={(event) => setForm({ ...form, teachingNotes: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary <span className="font-normal text-brand-500">(at least one summary required)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">English summary <span className="font-normal text-brand-500">(at least one summary required)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">English summary <span className="font-normal text-brand-500">(optional)</span>
           <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -757,7 +757,7 @@ export function AdminWeeklyClassForm() {
                 {question.type === 'multiple-choice' ? (
                   <div className="mt-4 space-y-4">
                     <p className="text-xs text-brand-600">
-                      Each choice can use English only, Amharic only, or both. At least one language must be filled somewhere on the list before publishing.
+                      Each choice can use English only, Amharic only, both, or stay empty while drafting.
                     </p>
                     {(question.options ?? []).map((option, optionIndex) => (
                       <div key={`option-${optionIndex}`} className="space-y-2 rounded-xl border border-brand-100 bg-white/80 p-3">
@@ -862,7 +862,7 @@ export function AdminWeeklyClassForm() {
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-brand-900">5. Publish / save flow</h2>
-        <p className="mt-2 text-sm leading-relaxed text-brand-700">Drafts are saved on this device for working sessions. Publishing writes the weekly content to Supabase for the organizer portal and public site.</p>
+        <p className="mt-2 text-sm leading-relaxed text-brand-700">Drafts are saved on this device for working sessions. Publishing updates the local organizer repository used by the public site.</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={saveDraft} disabled={saving}>Save as draft</Button>
           <Link to="/admin/weekly-classes" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-base font-semibold text-brand-900 shadow-sm">Back to previous weeks</Link>

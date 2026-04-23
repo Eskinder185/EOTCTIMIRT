@@ -291,9 +291,6 @@ export type Database = {
       }
       upcoming_timirit: {
         Row: {
-          class_summary_content: string | null
-          class_summary_content_am: string | null
-          class_summary_content_en: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -315,7 +312,7 @@ export type Database = {
           organizer_note: string | null
           organizer_note_am: string | null
           organizer_note_en: string | null
-          publication_status: string | null
+          status: string | null
           scheduled_date: string
           topic_preview: string | null
           topic_preview_am: string | null
@@ -327,9 +324,6 @@ export type Database = {
           weekly_knowledge_image_url: string | null
         }
         Insert: {
-          class_summary_content?: string | null
-          class_summary_content_am?: string | null
-          class_summary_content_en?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -351,7 +345,7 @@ export type Database = {
           organizer_note?: string | null
           organizer_note_am?: string | null
           organizer_note_en?: string | null
-          publication_status?: string | null
+          status?: string | null
           scheduled_date: string
           topic_preview?: string | null
           topic_preview_am?: string | null
@@ -363,9 +357,6 @@ export type Database = {
           weekly_knowledge_image_url?: string | null
         }
         Update: {
-          class_summary_content?: string | null
-          class_summary_content_am?: string | null
-          class_summary_content_en?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -387,7 +378,7 @@ export type Database = {
           organizer_note?: string | null
           organizer_note_am?: string | null
           organizer_note_en?: string | null
-          publication_status?: string | null
+          status?: string | null
           scheduled_date?: string
           topic_preview?: string | null
           topic_preview_am?: string | null
@@ -495,8 +486,6 @@ export type Database = {
         Row: {
           amharic_summary: string
           audio_note: string | null
-          audio_note_am: string | null
-          audio_note_en: string | null
           audio_title: string | null
           audio_title_am: string | null
           audio_title_en: string | null
@@ -525,8 +514,6 @@ export type Database = {
         Insert: {
           amharic_summary: string
           audio_note?: string | null
-          audio_note_am?: string | null
-          audio_note_en?: string | null
           audio_title?: string | null
           audio_title_am?: string | null
           audio_title_en?: string | null
@@ -555,8 +542,6 @@ export type Database = {
         Update: {
           amharic_summary?: string
           audio_note?: string | null
-          audio_note_am?: string | null
-          audio_note_en?: string | null
           audio_title?: string | null
           audio_title_am?: string | null
           audio_title_en?: string | null
@@ -603,85 +588,55 @@ export type Database = {
         Row: {
           button_link: string | null
           button_text: string | null
-          button_text_am: string | null
-          button_text_en: string | null
           content: string | null
-          content_am: string | null
-          content_en: string | null
           content_type: string
           created_at: string
           created_by: string | null
           end_date: string | null
           extra_note: string | null
-          extra_note_am: string | null
-          extra_note_en: string | null
           id: string
           image_url: string | null
           is_active: boolean
           start_date: string | null
           status: string
           subtitle: string | null
-          subtitle_am: string | null
-          subtitle_en: string | null
           title: string | null
-          title_am: string | null
-          title_en: string | null
           updated_at: string
         }
         Insert: {
           button_link?: string | null
           button_text?: string | null
-          button_text_am?: string | null
-          button_text_en?: string | null
           content?: string | null
-          content_am?: string | null
-          content_en?: string | null
           content_type?: string
           created_at?: string
           created_by?: string | null
           end_date?: string | null
           extra_note?: string | null
-          extra_note_am?: string | null
-          extra_note_en?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           start_date?: string | null
           status?: string
           subtitle?: string | null
-          subtitle_am?: string | null
-          subtitle_en?: string | null
           title?: string | null
-          title_am?: string | null
-          title_en?: string | null
           updated_at?: string
         }
         Update: {
           button_link?: string | null
           button_text?: string | null
-          button_text_am?: string | null
-          button_text_en?: string | null
           content?: string | null
-          content_am?: string | null
-          content_en?: string | null
           content_type?: string
           created_at?: string
           created_by?: string | null
           end_date?: string | null
           extra_note?: string | null
-          extra_note_am?: string | null
-          extra_note_en?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           start_date?: string | null
           status?: string
           subtitle?: string | null
-          subtitle_am?: string | null
-          subtitle_en?: string | null
           title?: string | null
-          title_am?: string | null
-          title_en?: string | null
           updated_at?: string
         }
         Relationships: [

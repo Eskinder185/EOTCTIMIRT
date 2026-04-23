@@ -6,8 +6,18 @@ interface WeeklyKnowledgeCardProps {
 }
 
 export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
-  const hasButton = Boolean(item.buttonText?.trim() && item.buttonLink?.trim())
+  const isUsableHttpLink = (value?: string) => {
+    if (!value?.trim()) return false
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+  const hasButton = Boolean(item.buttonText?.trim() && isUsableHttpLink(item.buttonLink))
   const isExternalButton = Boolean(item.buttonLink?.trim()?.startsWith('http'))
+  const hasUsableImage = isUsableHttpLink(item.imageUrl)
 
   return (
     <Card>
@@ -24,7 +34,7 @@ export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
           {item.extraNote}
         </p>
       ) : null}
-      {item.imageUrl ? (
+      {hasUsableImage ? (
         <img
           src={item.imageUrl}
           alt={item.title}

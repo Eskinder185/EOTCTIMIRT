@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, signOutOrganizer, hasSupabaseConfig } from '../lib/supabase'
+import { hasSupabaseConfig, signOutOrganizer, supabase } from '../lib/supabase'
 import type { Database } from '../lib/database.types'
 import { getUpcomingTimirtForAdmin, getWeeklyClasses } from '../lib/supabaseData'
 
@@ -32,16 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.removeItem(PROFILE_STORAGE_KEY)
       return
     }
-
     window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile))
   }
 
   const readCachedProfile = () => {
     const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY)
-    if (!raw) {
-      return null
-    }
-
+    if (!raw) return null
     try {
       return JSON.parse(raw) as UserProfile
     } catch {
@@ -51,9 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loadProfileForUser = async (targetUser: User): Promise<UserProfile | null> => {
-    if (!supabase) {
-      return null
-    }
+    if (!supabase) return null
 
     const cachedProfile = readCachedProfile()
     if (cachedProfile && cachedProfile.id === targetUser.id && cachedProfile.is_active) {
@@ -80,45 +74,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void Promise.allSettled([getWeeklyClasses(), getUpcomingTimirtForAdmin()])
   }
 
-  // Sign in function
   const signIn = async (email: string, password: string) => {
     try {
       setError(null)
-
       if (!supabase || !hasSupabaseConfig) {
-        throw new Error('Organizer login is not configured yet. Add Supabase environment variables to enable the portal.')
+        throw new Error('Supabase is not configured. Add the new project environment variables.')
       }
-
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (signInError) {
-        throw signInError
-      }
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) throw signInError
 
       if (data.user) {
         const loadedProfile = await loadProfileForUser(data.user)
         if (!loadedProfile) {
           await supabase.auth.signOut()
-          throw new Error('Access denied. You must be an authorized organizer to access this portal.')
+          throw new Error('Access denied. You must be an authorized organizer.')
         }
-
         setUser(data.user)
         setProfile(loadedProfile)
         prefetchOrganizerData()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'An unexpected error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
       setError(errorMessage)
       throw err
     }
   }
 
-  // Sign out function
   const signOut = async () => {
     try {
       setError(null)
@@ -133,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Listen for auth state changes
   useEffect(() => {
     if (!supabase || !hasSupabaseConfig) {
       setLoading(false)
@@ -178,23 +158,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void initializeAuth()
 
-    // Listen for changes
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
-        if (!session?.user) {
-          return
-        }
-
+        if (!session?.user) return
         setUser(session.user)
         const loadedProfile = await loadProfileForUser(session.user)
-
         if (!loadedProfile) {
           await sb.auth.signOut()
           setUser(null)
           setProfile(null)
           return
         }
-
         setProfile(loadedProfile)
         prefetchOrganizerData()
       } else if (event === 'SIGNED_OUT') {
@@ -217,14 +193,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!(user && profile),
     signIn,
     signOut,
-    error
+    error,
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

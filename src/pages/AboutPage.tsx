@@ -13,13 +13,7 @@ import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import { useUiText } from '../lib/uiText'
 
-const organizerCards = [
-  { name: 'Sinte', role: 'Organizer' },
-  { name: 'Tsebaot', role: 'Organizer' },
-  { name: 'Teddy', role: 'Organizer' },
-  { name: 'Eskinder Kassahun', role: 'Organizer' },
-  { name: 'Mariamawit', role: 'Organizer' },
-] as const
+const organizerNames = ['Sinte', 'Tsebaot', 'Teddy', 'Eskinder Kassahun', 'Mariamawit'] as const
 
 export function AboutPage() {
   const t = useUiText()
@@ -98,13 +92,9 @@ export function AboutPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Organizer support</p>
         <h2 className="mt-1 text-lg font-semibold text-brand-900">Timirt organizing team</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {organizerCards.map((organizer) => (
-            <div key={organizer.name} className="rounded-xl border border-brand-100 bg-brand-50/30 p-3">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-brand-700">
-                {'role' in organizer ? organizer.role : 'Organizer'}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-brand-900">{organizer.name}</p>
-              <p className="mt-2 text-sm text-brand-700">Serving this week&apos;s Timirt together.</p>
+          {organizerNames.map((name) => (
+            <div key={name} className="rounded-xl border border-brand-100 bg-brand-50/30 p-3">
+              <p className="mt-1 text-sm font-semibold text-brand-900">{name}</p>
             </div>
           ))}
         </div>

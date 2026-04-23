@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
-import { hasAnyTrimmedText } from '../lib/localizedText'
-import { isNonEmptyInvalidHttpUrl } from '../lib/optionalUrl'
 import {
   deactivateUpcomingTimirt,
   deleteUpcomingTimirt,
@@ -38,9 +36,8 @@ function createEmptyForm(): FormState {
     weeklyKnowledgeImageUrl: '',
     keyVerse: '',
     organizerNote: '',
-    classSummaryContent: '',
     isActive: true,
-    publicationStatus: 'draft',
+    status: 'draft',
     mezmurs: [
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
@@ -54,6 +51,29 @@ function normalizeDraftFromStorage(parsed: Partial<FormState>): Partial<FormStat
     delete copy.id
   }
   return copy
+}
+
+function buildSoftWarnings(form: FormState): string[] {
+  const warnings: string[] = []
+  if (!form.topicPreview?.trim() && !form.topicPreviewEn?.trim() && !form.topicPreviewAm?.trim()) {
+    warnings.push('No topic added yet.')
+  }
+  if (!form.note?.trim() && !form.noteEn?.trim() && !form.noteAm?.trim()) {
+    warnings.push('Preview note is empty.')
+  }
+  if (!form.weeklyKnowledgeContent?.trim()) {
+    warnings.push('Weekly knowledge is empty.')
+  }
+  if (!form.mezmurs[0]?.title?.trim() && !form.mezmurs[0]?.titleEn?.trim() && !form.mezmurs[0]?.titleAm?.trim()) {
+    warnings.push('First mezmur title is empty.')
+  }
+  if (!form.mezmurs[1]?.title?.trim() && !form.mezmurs[1]?.titleEn?.trim() && !form.mezmurs[1]?.titleAm?.trim()) {
+    warnings.push('Second mezmur not filled yet.')
+  }
+  if (!form.lessonYoutubeUrl?.trim() && !form.lessonAudioUrl?.trim()) {
+    warnings.push('No lesson media link added yet.')
+  }
+  return warnings
 }
 
 export function AdminUpcomingPage() {
@@ -118,16 +138,6 @@ export function AdminUpcomingPage() {
 
   const saveDraft = async () => {
     const action = 'save_draft'
-    if ((form.lessonAudioTitle || '').trim().length > 120) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.lesson_audio_title_max_120' })
-      setError('Audio title should be 120 characters or fewer.')
-      return
-    }
-    if ((form.keyVerse || '').trim().length > 180) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.key_verse_max_180' })
-      setError('Key verse should be 180 characters or fewer.')
-      return
-    }
     try {
       setSaving(true)
       setError(null)
@@ -136,7 +146,7 @@ export function AdminUpcomingPage() {
         ...form,
         id: parseOptionalUuid(form.id),
         isActive: false,
-        publicationStatus: 'draft',
+        status: 'draft',
       }
       if (import.meta.env.DEV) {
         console.info('[AdminUpcomingPage] saveDraft → saveUpcomingTimirtEditor', structuredClone(draftToSave))
@@ -147,12 +157,17 @@ export function AdminUpcomingPage() {
         ...current,
         id: savedId,
         isActive: false,
-        publicationStatus: 'draft',
+        status: 'draft',
       }))
       setSelectedUpcomingId(savedId)
       setUpcomingList(await listUpcomingTimiritForAdmin())
       localStorage.removeItem(draftKey)
-      setNotice('Draft saved. It is private until you publish.')
+      const warnings = buildSoftWarnings(form)
+      setNotice(
+        warnings.length > 0
+          ? `Draft saved. It is private until you publish. ${warnings.join(' ')}`
+          : 'Draft saved. It is private until you publish.',
+      )
     } catch (saveError) {
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] saveDraft failed', saveError)
@@ -171,36 +186,6 @@ export function AdminUpcomingPage() {
 
   const publishUpcoming = async () => {
     const action = 'publish'
-    if (!form.scheduledDate?.trim()) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.scheduled_date_required' })
-      setError('Please set the session date before publishing.')
-      return
-    }
-    if (!hasAnyTrimmedText(form.topicPreview, form.topicPreviewEn, form.topicPreviewAm)) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.topic_required_any_language' })
-      setError('Add a topic preview in English, Amharic, or the combined topic line (at least one).')
-      return
-    }
-    if (
-      isNonEmptyInvalidHttpUrl(form.lessonYoutubeUrl) ||
-      isNonEmptyInvalidHttpUrl(form.lessonAudioUrl) ||
-      isNonEmptyInvalidHttpUrl(form.weeklyKnowledgeImageUrl)
-    ) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.media_or_image_url_invalid' })
-      setError(
-        'One of the media or image links is not a valid https address. Leave optional links blank or fix the URL.',
-      )
-      return
-    }
-    const badMezmurMedia = form.mezmurs.some(
-      (mezmur) => isNonEmptyInvalidHttpUrl(mezmur.youtubeUrl) || isNonEmptyInvalidHttpUrl(mezmur.audioUrl),
-    )
-    if (badMezmurMedia) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.mezmur_media_url_invalid' })
-      setError('A mezmur YouTube or audio link is not valid. Clear the field or paste a full https:// URL.')
-      return
-    }
-
     try {
       setSaving(true)
       setError(null)
@@ -209,7 +194,7 @@ export function AdminUpcomingPage() {
         ...form,
         id: parseOptionalUuid(form.id),
         isActive: true,
-        publicationStatus: 'published',
+        status: 'published',
       }
       if (import.meta.env.DEV) {
         console.info('[AdminUpcomingPage] publishUpcoming → saveUpcomingTimirtEditor', structuredClone(payload))
@@ -220,12 +205,17 @@ export function AdminUpcomingPage() {
         ...current,
         id: savedId,
         isActive: true,
-        publicationStatus: 'published',
+        status: 'published',
       }))
       setSelectedUpcomingId(savedId)
       setUpcomingList(await listUpcomingTimiritForAdmin())
       localStorage.removeItem(draftKey)
-      setNotice('Upcoming Timirit published successfully and is now live.')
+      const warnings = buildSoftWarnings(form)
+      setNotice(
+        warnings.length > 0
+          ? `Upcoming Timirit published and now live. ${warnings.join(' ')}`
+          : 'Upcoming Timirit published and now live.',
+      )
     } catch (publishError) {
       if (import.meta.env.DEV) {
         console.error('[AdminUpcomingPage] publishUpcoming failed', publishError)
@@ -384,7 +374,7 @@ export function AdminUpcomingPage() {
                 }`}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                  {item.scheduledDate} {item.publicationStatus === 'published' ? '· Published' : '· Draft'}
+                  {item.scheduledDate} {item.status === 'published' ? '· Published' : '· Draft'}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-brand-900">{item.topicPreview}</p>
               </button>
@@ -425,7 +415,7 @@ export function AdminUpcomingPage() {
           Mark this preview as active on the public site
         </label>
         <p className="mt-2 text-xs text-brand-700">
-          Status: <span className="font-semibold">{form.publicationStatus === 'published' ? 'Published' : 'Draft'}</span>
+          Status: <span className="font-semibold">{form.status === 'published' ? 'Published' : 'Draft'}</span>
         </p>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
@@ -525,16 +515,7 @@ export function AdminUpcomingPage() {
           />
         </label>
 
-        <label className="mt-4 block text-sm font-medium text-brand-900">
-          Class summary content
-          <textarea
-            value={form.classSummaryContent || ''}
-            onChange={(event) => setForm({ ...form, classSummaryContent: event.target.value })}
-            rows={4}
-            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Summary content shown on public upcoming pages"
-          />
-        </label>
+        
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">

@@ -43,6 +43,12 @@ ALTER TABLE weekly_knowledge
 ADD CONSTRAINT weekly_knowledge_status_check
 CHECK (status IN ('Draft', 'Published', 'Hidden'));
 
+ALTER TABLE weekly_knowledge
+ALTER COLUMN title DROP NOT NULL;
+
+ALTER TABLE weekly_knowledge
+ALTER COLUMN content DROP NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_weekly_knowledge_status_active
   ON weekly_knowledge(status, is_active, updated_at DESC);
 

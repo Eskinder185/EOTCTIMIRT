@@ -51,16 +51,15 @@ function createEmptyForm(): WeeklyKnowledgeEditorInput {
   }
 }
 
-function isValidUrl(value: string | undefined) {
-  if (!value?.trim()) {
-    return true
+function buildSoftWarnings(form: WeeklyKnowledgeEditorInput) {
+  const warnings: string[] = []
+  if (!form.title?.trim() && !form.content?.trim()) warnings.push('Title and content are both empty.')
+  if (!form.imageUrl?.trim()) warnings.push('No image link added yet.')
+  if (!form.buttonLink?.trim()) warnings.push('No button link added yet.')
+  if (form.startDate && form.endDate && form.startDate > form.endDate) {
+    warnings.push('Date range looks reversed (saved anyway).')
   }
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
+  return warnings
 }
 
 export function AdminWeeklyKnowledgePage() {
@@ -126,35 +125,7 @@ export function AdminWeeklyKnowledgePage() {
     }
   }
 
-  const validate = (status: WeeklyKnowledgeStatus) => {
-    const isPublishing = status === 'published'
-    if (isPublishing && !form.title.trim() && !form.content.trim()) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.title_or_content_required_for_publish' })
-      setError('Add at least a title or main content before publishing.')
-      return false
-    }
-    if (!isValidUrl(form.imageUrl) || !isValidUrl(form.buttonLink)) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.optional_url_invalid' })
-      setError('Please enter valid image/button links or leave them empty.')
-      return false
-    }
-    if (form.buttonLink?.trim() && !form.buttonText?.trim()) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.button_text_required_when_link_present' })
-      setError('Please add button text when using a button link.')
-      return false
-    }
-    if (form.startDate && form.endDate && form.startDate > form.endDate) {
-      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge_date_range_invalid' })
-      setError('End date should be on or after the start date.')
-      return false
-    }
-    return true
-  }
-
   const saveAs = async (status: WeeklyKnowledgeStatus, forceActive = false) => {
-    if (!validate(status)) {
-      return
-    }
     try {
       setSaving(true)
       setError(null)
@@ -175,10 +146,15 @@ export function AdminWeeklyKnowledgePage() {
         isActive: status === 'published' ? (forceActive ? true : current.isActive) : false,
       }))
       await loadItems()
+      const warnings = buildSoftWarnings(form)
       setNotice(
         status === 'published'
-          ? 'Weekly knowledge published successfully.'
-          : 'Weekly knowledge draft saved.',
+          ? warnings.length > 0
+            ? `Weekly knowledge published. ${warnings.join(' ')}`
+            : 'Weekly knowledge published successfully.'
+          : warnings.length > 0
+            ? `Weekly knowledge draft saved. ${warnings.join(' ')}`
+            : 'Weekly knowledge draft saved.',
       )
     } catch (saveError) {
       console.error('Failed to save weekly knowledge:', saveError)
@@ -198,7 +174,7 @@ export function AdminWeeklyKnowledgePage() {
 
   const changeStatus = async (status: WeeklyKnowledgeStatus) => {
     if (!form.id) {
-      setError('Save this entry first before changing its status.')
+      await saveAs(status, status === 'published')
       return
     }
     try {

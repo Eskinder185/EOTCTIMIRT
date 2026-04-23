@@ -436,19 +436,44 @@ export function ClassPage() {
     )
   }
 
+  const isUsableHttpLink = (value?: string) => {
+    if (!value?.trim()) return false
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
   const showMedia = week.lessonMediaEnabled !== false
   const embedUrl = showMedia ? toYouTubeEmbedUrl(week.youtubeUrl) : undefined
-  const hasAudio = showMedia && Boolean(week.audioUrl?.trim())
+  const hasAudio = showMedia && isUsableHttpLink(week.audioUrl)
   const hasVideo = showMedia && Boolean(embedUrl)
+  const hasAmharicSummary = Boolean(week.amharicSummary?.trim())
+  const hasEnglishSummary = Boolean(week.englishSummary?.trim())
+  const hasKeyPoints = week.keyPoints.length > 0
+  const hasVerses = Boolean(week.verses?.length)
+  const hasSummarySection = hasAmharicSummary || hasEnglishSummary || hasKeyPoints || hasVerses
+  const visibleMezmurs = week.mezmurs.filter(
+    (mezmur) =>
+      Boolean(
+        mezmur.title?.trim() ||
+          mezmur.titleEn?.trim() ||
+          mezmur.titleAm?.trim() ||
+          mezmur.transliteration?.trim() ||
+          mezmur.lyrics?.trim() ||
+          isUsableHttpLink(mezmur.youtubeUrl),
+      ),
+  )
 
   return (
     <div className="space-y-4">
       <Card id="class-summary">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Catch up from this class</p>
-        <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{week.topic}</h1>
-        <p className="mt-1 text-sm text-brand-700">
-          {formatClassDate(week.date)} · {week.speaker}
-        </p>
+        <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{week.topic?.trim() || 'Weekly Timirit'}</h1>
+        <p className="mt-1 text-sm text-brand-700">{formatClassDate(week.date)}</p>
+        {week.speaker?.trim() ? <p className="text-sm text-brand-700">{week.speaker}</p> : null}
         <p className="mt-3 text-sm leading-relaxed text-brand-800">
           Catch up quietly with the summary, the mezmurs, and a short review before the next Tuesday Timirit.
         </p>
@@ -497,21 +522,27 @@ export function ClassPage() {
         </Card>
       ) : null}
 
+      {hasSummarySection ? (
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Summary</p>
         <div className="mt-3 space-y-4">
+          {hasAmharicSummary ? (
           <div>
             <h2 className="text-base font-semibold text-brand-900">Amharic summary</h2>
             <p className="mt-2 whitespace-pre-line text-[1rem] leading-relaxed text-brand-900">
               {week.amharicSummary}
             </p>
           </div>
+          ) : null}
+          {hasEnglishSummary ? (
           <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3">
             <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
               English summary
             </summary>
             <p className="mt-2 text-sm leading-relaxed text-brand-800">{week.englishSummary}</p>
           </details>
+          ) : null}
+          {hasKeyPoints ? (
           <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3" open>
             <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
               Key points
@@ -522,13 +553,14 @@ export function ClassPage() {
               ))}
             </ul>
           </details>
-          {week.verses?.length ? (
+          ) : null}
+          {hasVerses ? (
             <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3">
               <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
                 Verses
               </summary>
               <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
-                {week.verses.map((verse) => (
+                {(week.verses ?? []).map((verse) => (
                   <li key={verse}>{verse}</li>
                 ))}
               </ul>
@@ -536,11 +568,13 @@ export function ClassPage() {
           ) : null}
         </div>
       </Card>
+      ) : null}
 
+      {visibleMezmurs.length > 0 ? (
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Mezmurs from this class</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {week.mezmurs.map((mezmur, index) => (
+          {visibleMezmurs.map((mezmur, index) => (
             <article key={`${week.id}-${index}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
               <p className="text-xs font-semibold uppercase text-brand-700">Mezmur {index + 1}</p>
               <h3 className="mt-1 text-base font-semibold text-brand-900">{mezmur.title}</h3>
@@ -560,18 +594,30 @@ export function ClassPage() {
               {!mezmur.lyrics && mezmur.transliteration ? (
                 <p className="mt-2 text-sm leading-relaxed text-brand-700">{previewLyrics(mezmur.transliteration)}</p>
               ) : null}
+              {isUsableHttpLink(mezmur.youtubeUrl) ? (
               <a
                 className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 px-3 text-sm font-semibold text-accent-600 hover:bg-brand-50"
-                href={mezmur.youtubeUrl ?? TEWAHEDO_DAILY_MEZMURS_URL}
+                href={mezmur.youtubeUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                {mezmur.youtubeUrl ? 'Practice Link' : 'Mezmur Practice'}
+                Practice Link
               </a>
+              ) : (
+                <a
+                  className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 px-3 text-sm font-semibold text-accent-600 hover:bg-brand-50"
+                  href={TEWAHEDO_DAILY_MEZMURS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Mezmur Practice
+                </a>
+              )}
             </article>
           ))}
         </div>
       </Card>
+      ) : null}
 
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Quick review</p>

@@ -32,10 +32,7 @@ export interface UpcomingTimirtPreview {
   organizerNote?: string
   organizerNoteEn?: string
   organizerNoteAm?: string
-  classSummaryContent?: string
-  classSummaryContentEn?: string
-  classSummaryContentAm?: string
-  publicationStatus?: 'draft' | 'published'
+  status?: 'draft' | 'published'
   mezmurs: [Mezmur, Mezmur]
 }
 

@@ -65,7 +65,7 @@ export function AnonymousFeedbackForm() {
       </p>
       <h3 className="mt-1 text-lg font-semibold text-brand-900">Send feedback by email</h3>
       <p className="mt-2 text-sm leading-relaxed text-brand-800">
-        Share feedback, prayer/support notes, or topic suggestions for future Timirt classes.
+        Share feedback, prayer/support notes, or topic suggestions for future Timirt classes by email.
       </p>
       <p className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-3 text-sm text-brand-700">
         This will open your email app with your message prefilled before you send it.

@@ -95,17 +95,43 @@ export function UpcomingClassPage() {
     )
   }
 
-  const previewEmbedUrl = toYouTubeEmbedUrl(upcoming.lessonYoutubeUrl)
-  const hasPreviewAudio = Boolean(upcoming.lessonAudioUrl?.trim())
+  const isUsableHttpLink = (value?: string) => {
+    if (!value?.trim()) return false
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+  const previewEmbedUrl = isUsableHttpLink(upcoming.lessonYoutubeUrl)
+    ? toYouTubeEmbedUrl(upcoming.lessonYoutubeUrl)
+    : undefined
+  const hasPreviewAudio = isUsableHttpLink(upcoming.lessonAudioUrl)
   const hasPreviewVideo = Boolean(previewEmbedUrl)
+  const visibleMezmurs = upcoming.mezmurs.filter(
+    (mezmur) =>
+      Boolean(
+        mezmur.title?.trim() ||
+          mezmur.titleEn?.trim() ||
+          mezmur.titleAm?.trim() ||
+          mezmur.transliteration?.trim() ||
+          mezmur.lyrics?.trim() ||
+          (mezmur.youtubeUrl && isUsableHttpLink(mezmur.youtubeUrl)),
+      ),
+  )
 
   return (
     <div className="space-y-4">
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t('nextClass')}</p>
-        <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{upcoming.topicPreview}</h1>
+        <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">
+          {upcoming.topicPreview?.trim() || 'Upcoming Timirit'}
+        </h1>
         <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
-        <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
+        {upcoming.note?.trim() ? (
+          <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
+        ) : null}
         {upcoming.lessonNote ? (
           <p className="mt-3 text-sm leading-relaxed text-brand-700">{upcoming.lessonNote}</p>
         ) : null}
@@ -185,10 +211,11 @@ export function UpcomingClassPage() {
         </div>
       </Card>
 
+      {visibleMezmurs.length > 0 ? (
       <Card>
         <h2 className="text-base font-semibold text-brand-900">{t('upcomingMezmurs')}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {upcoming.mezmurs.map((mezmur, index) => (
+          {visibleMezmurs.map((mezmur, index) => (
             <article key={`${mezmur.title}-${index}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
               <p className="text-xs font-semibold uppercase text-brand-700">Mezmur {index + 1}</p>
               <h3 className="mt-1 text-base font-semibold text-brand-900">{mezmur.title || 'To be announced'}</h3>
@@ -208,13 +235,7 @@ export function UpcomingClassPage() {
           Open upcoming mezmurs
         </a>
       </Card>
-
-      <Card>
-        <h2 className="text-base font-semibold text-brand-900">Class preview summary</h2>
-        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-brand-800">
-          {upcoming.classSummaryContent?.trim() || 'Class summary content will be added by organizers.'}
-        </p>
-      </Card>
+      ) : null}
 
       {upcoming.keyVerse ? (
         <Card>
