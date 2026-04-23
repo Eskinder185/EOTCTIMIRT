@@ -145,7 +145,7 @@ export function UpcomingMezmursPage() {
               Mezmur {activeSlide + 1} of 2
             </p>
             <h2 className="mt-3 text-3xl font-bold leading-tight text-brand-900 sm:text-5xl lg:text-6xl">
-              {activeMezmur.title || `Mezmur ${activeSlide + 1}`}
+              {activeMezmur.title || `Mezmur ${activeSlide + 1} (TBD)`}
             </h2>
 
             {activeMezmur.transliteration ? (
@@ -156,6 +156,29 @@ export function UpcomingMezmursPage() {
               <p className="whitespace-pre-wrap text-lg leading-relaxed text-brand-900 sm:text-2xl sm:leading-loose">
                 {activeMezmur.lyrics?.trim() || LYRICS_PLACEHOLDER}
               </p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+              {activeMezmur.audioUrl ? (
+                <a
+                  href={activeMezmur.audioUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+                >
+                  Listen Audio
+                </a>
+              ) : null}
+              {activeMezmur.youtubeUrl ? (
+                <a
+                  href={activeMezmur.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+                >
+                  Open YouTube
+                </a>
+              ) : null}
             </div>
 
             <div className="mt-6 flex items-center justify-between gap-3 print:hidden">

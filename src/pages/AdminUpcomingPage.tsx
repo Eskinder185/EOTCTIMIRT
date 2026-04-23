@@ -26,11 +26,34 @@ function createEmptyForm(): FormState {
     scheduledDate: getNextTuesday(),
     topicPreview: '',
     note: '',
+    lessonYoutubeUrl: '',
+    lessonAudioUrl: '',
+    lessonAudioTitle: '',
+    lessonNote: '',
+    weeklyKnowledgeContent: '',
+    weeklyKnowledgeImageUrl: '',
+    keyVerse: '',
+    organizerNote: '',
+    classSummaryContent: '',
     isActive: true,
+    publicationStatus: 'draft',
     mezmurs: [
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
     ],
+  }
+}
+
+function isValidUrl(value: string) {
+  if (!value.trim()) {
+    return true
+  }
+
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
   }
 }
 
@@ -60,7 +83,15 @@ export function AdminUpcomingPage() {
         const upcoming = defaultId ? await getUpcomingTimirtForAdmin(defaultId) : null
         setSelectedUpcomingId(defaultId)
         if (savedDraft) {
-          setForm(JSON.parse(savedDraft) as FormState)
+          const parsed = JSON.parse(savedDraft) as Partial<FormState>
+          setForm({
+            ...createEmptyForm(),
+            ...parsed,
+            mezmurs: [
+              parsed.mezmurs?.[0] ?? createEmptyForm().mezmurs[0],
+              parsed.mezmurs?.[1] ?? createEmptyForm().mezmurs[1],
+            ],
+          })
           setNotice('A local upcoming draft was restored on this device.')
           return
         }
@@ -82,14 +113,72 @@ export function AdminUpcomingPage() {
     loadUpcoming()
   }, [draftKey, selectedUpcomingId])
 
-  const saveDraft = () => {
-    localStorage.setItem(draftKey, JSON.stringify(form))
-    setNotice('Upcoming preview draft saved on this device.')
+  const saveDraft = async () => {
+    if (!form.topicPreview || !form.note) {
+      setError('Please complete the date, topic, and preview note before saving a draft.')
+      return
+    }
+    if (!isValidUrl(form.lessonYoutubeUrl || '') || !isValidUrl(form.lessonAudioUrl || '') || !isValidUrl(form.weeklyKnowledgeImageUrl || '')) {
+      setError('Please enter valid links for lesson media and knowledge image URLs.')
+      return
+    }
+    const hasInvalidMezmurLink = form.mezmurs.some(
+      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
+    )
+    if (hasInvalidMezmurLink) {
+      setError('Please enter valid upcoming mezmur audio/video links or leave them empty.')
+      return
+    }
+    if ((form.lessonAudioTitle || '').trim().length > 120) {
+      setError('Audio title should be 120 characters or fewer.')
+      return
+    }
+    if ((form.keyVerse || '').trim().length > 180) {
+      setError('Key verse should be 180 characters or fewer.')
+      return
+    }
+    try {
+      setSaving(true)
+      setError(null)
+      setNotice(null)
+      const draftToSave: FormState = {
+        ...form,
+        isActive: false,
+        publicationStatus: 'draft',
+      }
+      const savedId = await saveUpcomingTimirtEditor(draftToSave)
+      setForm((current) => ({
+        ...current,
+        id: savedId,
+        isActive: false,
+        publicationStatus: 'draft',
+      }))
+      setSelectedUpcomingId(savedId)
+      setUpcomingList(await listUpcomingTimiritForAdmin())
+      localStorage.removeItem(draftKey)
+      setNotice('Draft saved. It is private until you publish.')
+    } catch (saveError) {
+      console.error('Failed to save upcoming draft:', saveError)
+      setError(saveError instanceof Error ? saveError.message : 'Could not save this draft right now.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const publishUpcoming = async () => {
-    if (!form.topicPreview || !form.note || !form.mezmurs[0].title || !form.mezmurs[1].title) {
-      setError('Please complete the topic, preview note, and both upcoming mezmur titles before publishing.')
+    if (!form.topicPreview || !form.note || !form.weeklyKnowledgeContent || !form.classSummaryContent || !form.mezmurs[0].title || !form.mezmurs[1].title) {
+      setError('Please complete topic, preview note, weekly knowledge, class summary, and both mezmur titles before publishing.')
+      return
+    }
+    if (!isValidUrl(form.lessonYoutubeUrl || '') || !isValidUrl(form.lessonAudioUrl || '') || !isValidUrl(form.weeklyKnowledgeImageUrl || '')) {
+      setError('Please enter valid links for lesson media and knowledge image URLs.')
+      return
+    }
+    const hasInvalidMezmurLink = form.mezmurs.some(
+      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
+    )
+    if (hasInvalidMezmurLink) {
+      setError('Please enter valid upcoming mezmur audio/video links or leave them empty.')
       return
     }
 
@@ -97,11 +186,22 @@ export function AdminUpcomingPage() {
       setSaving(true)
       setError(null)
       setNotice(null)
-      await saveUpcomingTimirtEditor(form)
-      setSelectedUpcomingId(form.id ?? null)
+      const payload: FormState = {
+        ...form,
+        isActive: true,
+        publicationStatus: 'published',
+      }
+      const savedId = await saveUpcomingTimirtEditor(payload)
+      setForm((current) => ({
+        ...current,
+        id: savedId,
+        isActive: true,
+        publicationStatus: 'published',
+      }))
+      setSelectedUpcomingId(savedId)
       setUpcomingList(await listUpcomingTimiritForAdmin())
       localStorage.removeItem(draftKey)
-      setNotice('Upcoming Timirit published successfully.')
+      setNotice('Upcoming Timirit published successfully and is now live.')
     } catch (publishError) {
       console.error('Failed to publish upcoming Timirit:', publishError)
       setError(publishError instanceof Error ? publishError.message : 'Could not publish the upcoming Timirit.')
@@ -118,7 +218,7 @@ export function AdminUpcomingPage() {
       await deactivateUpcomingTimirt(form.id)
       setForm((current) => ({ ...current, isActive: false }))
       setUpcomingList(await listUpcomingTimiritForAdmin())
-      setNotice('Upcoming preview was deactivated and is no longer public.')
+      setNotice('Upcoming preview moved back to draft and is no longer public.')
     } catch (deactivateError) {
       console.error('Failed to deactivate upcoming Timirit:', deactivateError)
       setError(
@@ -244,7 +344,7 @@ export function AdminUpcomingPage() {
                 }`}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                  {item.scheduledDate} {item.isActive ? '· Active' : '· Inactive'}
+                  {item.scheduledDate} {item.publicationStatus === 'published' ? '· Published' : '· Draft'}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-brand-900">{item.topicPreview}</p>
               </button>
@@ -284,6 +384,9 @@ export function AdminUpcomingPage() {
           />
           Mark this preview as active on the public site
         </label>
+        <p className="mt-2 text-xs text-brand-700">
+          Status: <span className="font-semibold">{form.publicationStatus === 'published' ? 'Published' : 'Draft'}</span>
+        </p>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
           Preview note
@@ -292,6 +395,104 @@ export function AdminUpcomingPage() {
             onChange={(event) => setForm({ ...form, note: event.target.value })}
             rows={5}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+          />
+        </label>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">
+            YouTube lesson link
+            <input
+              type="url"
+              value={form.lessonYoutubeUrl || ''}
+              onChange={(event) => setForm({ ...form, lessonYoutubeUrl: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder="https://youtube.com/watch?v=..."
+            />
+          </label>
+          <label className="text-sm font-medium text-brand-900">
+            Audio lesson link
+            <input
+              type="url"
+              value={form.lessonAudioUrl || ''}
+              onChange={(event) => setForm({ ...form, lessonAudioUrl: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder="https://..."
+            />
+          </label>
+          <label className="text-sm font-medium text-brand-900">
+            Audio title (optional)
+            <input
+              type="text"
+              value={form.lessonAudioTitle || ''}
+              onChange={(event) => setForm({ ...form, lessonAudioTitle: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder="Audio lesson title"
+            />
+          </label>
+          <label className="text-sm font-medium text-brand-900">
+            Key verse (optional)
+            <input
+              type="text"
+              value={form.keyVerse || ''}
+              onChange={(event) => setForm({ ...form, keyVerse: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder="John 3:16"
+            />
+          </label>
+        </div>
+
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          Lesson note (optional)
+          <textarea
+            value={form.lessonNote || ''}
+            onChange={(event) => setForm({ ...form, lessonNote: event.target.value })}
+            rows={3}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="Any note for the lesson links"
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          Weekly knowledge content
+          <textarea
+            value={form.weeklyKnowledgeContent || ''}
+            onChange={(event) => setForm({ ...form, weeklyKnowledgeContent: event.target.value })}
+            rows={4}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="Share this week's knowledge content"
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          Knowledge image URL (optional)
+          <input
+            type="url"
+            value={form.weeklyKnowledgeImageUrl || ''}
+            onChange={(event) => setForm({ ...form, weeklyKnowledgeImageUrl: event.target.value })}
+            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="https://..."
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          Organizer note (optional)
+          <textarea
+            value={form.organizerNote || ''}
+            onChange={(event) => setForm({ ...form, organizerNote: event.target.value })}
+            rows={3}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="Internal or public organizer note"
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          Class summary content
+          <textarea
+            value={form.classSummaryContent || ''}
+            onChange={(event) => setForm({ ...form, classSummaryContent: event.target.value })}
+            rows={4}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="Summary content shown on public upcoming pages"
           />
         </label>
       </section>
@@ -335,6 +536,17 @@ export function AdminUpcomingPage() {
                   }}
                   className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30 sm:col-span-2"
                   placeholder="YouTube link (optional)"
+                />
+                <input
+                  type="url"
+                  value={mezmur.audioUrl || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, audioUrl: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30 sm:col-span-2"
+                  placeholder="Audio link (optional)"
                 />
               </div>
               <textarea

@@ -27,13 +27,26 @@ CREATE TYPE attendance_choice AS ENUM (
 CREATE TABLE weekly_classes (
   id TEXT PRIMARY KEY,
   date DATE NOT NULL,
-  topic TEXT NOT NULL,
+  topic TEXT,
+  topic_en TEXT,
+  topic_am TEXT,
   speaker TEXT NOT NULL,
   amharic_summary TEXT NOT NULL,
   english_summary TEXT NOT NULL,
   key_points JSONB NOT NULL DEFAULT '[]', -- Array of strings
   verses JSONB DEFAULT '[]', -- Array of strings
   youtube_url TEXT,
+  audio_url TEXT,
+  audio_title TEXT,
+  audio_title_en TEXT,
+  audio_title_am TEXT,
+  audio_note TEXT,
+  audio_note_en TEXT,
+  audio_note_am TEXT,
+  lesson_media_enabled BOOLEAN DEFAULT true,
+  teaching_notes TEXT,
+  teaching_notes_en TEXT,
+  teaching_notes_am TEXT,
   feedback_summary TEXT,
   attendance_summary TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -47,9 +60,16 @@ CREATE TABLE mezmurs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   weekly_class_id TEXT NOT NULL REFERENCES weekly_classes(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
+  title_en TEXT,
+  title_am TEXT,
   transliteration TEXT,
   lyrics TEXT,
+  lyrics_en TEXT,
+  lyrics_am TEXT,
+  note_en TEXT,
+  note_am TEXT,
   youtube_url TEXT,
+  audio_url TEXT,
   order_index INTEGER NOT NULL CHECK (order_index IN (0, 1)), -- First or second mezmur
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -62,11 +82,19 @@ CREATE TABLE questions (
   id TEXT PRIMARY KEY,
   weekly_class_id TEXT NOT NULL REFERENCES weekly_classes(id) ON DELETE CASCADE,
   type question_type NOT NULL,
-  prompt TEXT NOT NULL,
+  prompt TEXT,
+  prompt_en TEXT,
+  prompt_am TEXT,
   helper_text TEXT,
+  helper_text_en TEXT,
+  helper_text_am TEXT,
   placeholder TEXT,
+  placeholder_en TEXT,
+  placeholder_am TEXT,
   correct_index INTEGER, -- Only for multiple-choice questions
-  explanation TEXT, -- Only for multiple-choice questions
+  explanation TEXT,
+  explanation_en TEXT,
+  explanation_am TEXT,
   order_index INTEGER NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -76,7 +104,9 @@ CREATE TABLE questions (
 CREATE TABLE multiple_choice_options (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-  option_text TEXT NOT NULL,
+  option_text TEXT,
+  option_text_en TEXT,
+  option_text_am TEXT,
   option_index INTEGER NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   
@@ -88,7 +118,9 @@ CREATE TABLE attendance_options (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   value attendance_choice NOT NULL,
-  label TEXT NOT NULL,
+  label TEXT,
+  label_en TEXT,
+  label_am TEXT,
   option_index INTEGER NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   
@@ -99,8 +131,34 @@ CREATE TABLE attendance_options (
 CREATE TABLE upcoming_timirit (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   scheduled_date DATE NOT NULL,
-  topic_preview TEXT NOT NULL,
-  note TEXT NOT NULL,
+  topic_preview TEXT,
+  topic_preview_en TEXT,
+  topic_preview_am TEXT,
+  note TEXT,
+  note_en TEXT,
+  note_am TEXT,
+  lesson_youtube_url TEXT,
+  lesson_audio_url TEXT,
+  lesson_audio_title TEXT,
+  lesson_audio_title_en TEXT,
+  lesson_audio_title_am TEXT,
+  lesson_note TEXT,
+  lesson_note_en TEXT,
+  lesson_note_am TEXT,
+  weekly_knowledge_content TEXT,
+  weekly_knowledge_content_en TEXT,
+  weekly_knowledge_content_am TEXT,
+  weekly_knowledge_image_url TEXT,
+  key_verse TEXT,
+  key_verse_en TEXT,
+  key_verse_am TEXT,
+  organizer_note TEXT,
+  organizer_note_en TEXT,
+  organizer_note_am TEXT,
+  class_summary_content TEXT,
+  class_summary_content_en TEXT,
+  class_summary_content_am TEXT,
+  publication_status TEXT NOT NULL DEFAULT 'draft' CHECK (publication_status IN ('draft', 'published')),
   is_active BOOLEAN DEFAULT true, -- Only one should be active at a time
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -112,13 +170,50 @@ CREATE TABLE upcoming_mezmurs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   upcoming_timirit_id UUID NOT NULL REFERENCES upcoming_timirit(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
+  title_en TEXT,
+  title_am TEXT,
   transliteration TEXT,
   lyrics TEXT,
+  lyrics_en TEXT,
+  lyrics_am TEXT,
+  note_en TEXT,
+  note_am TEXT,
   youtube_url TEXT,
+  audio_url TEXT,
   order_index INTEGER NOT NULL CHECK (order_index IN (0, 1)),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   
   UNIQUE(upcoming_timirit_id, order_index)
+);
+
+-- Weekly knowledge card content
+CREATE TABLE weekly_knowledge (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT,
+  title_en TEXT,
+  title_am TEXT,
+  subtitle TEXT,
+  subtitle_en TEXT,
+  subtitle_am TEXT,
+  content TEXT,
+  content_en TEXT,
+  content_am TEXT,
+  extra_note TEXT,
+  extra_note_en TEXT,
+  extra_note_am TEXT,
+  image_url TEXT,
+  button_text TEXT,
+  button_text_en TEXT,
+  button_text_am TEXT,
+  button_link TEXT,
+  content_type TEXT NOT NULL DEFAULT 'Knowledge',
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'hidden')),
+  start_date DATE,
+  end_date DATE,
+  is_active BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  created_by UUID REFERENCES auth.users(id)
 );
 
 -- ============================================================================
@@ -160,8 +255,9 @@ CREATE TABLE anonymous_feedback_submissions (
   category TEXT NOT NULL CHECK (category IN (
     'Website feedback',
     'Teaching feedback',
-    'Future topic suggestion',
-    'General note'
+    'Topic suggestion',
+    'Prayer / support note',
+    'General message'
   )),
   subject TEXT,
   message TEXT NOT NULL,
@@ -183,6 +279,7 @@ CREATE TABLE anonymous_feedback_rate_limits (
 -- Weekly classes indexes
 CREATE INDEX idx_weekly_classes_date ON weekly_classes(date DESC);
 CREATE INDEX idx_weekly_classes_created_at ON weekly_classes(created_at DESC);
+CREATE INDEX idx_weekly_knowledge_status_active ON weekly_knowledge(status, is_active, updated_at DESC);
 
 -- Questions indexes
 CREATE INDEX idx_questions_weekly_class ON questions(weekly_class_id, order_index);
@@ -205,6 +302,7 @@ ALTER TABLE multiple_choice_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upcoming_timirit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upcoming_mezmurs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weekly_knowledge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE anonymous_feedback_submissions ENABLE ROW LEVEL SECURITY;
@@ -218,6 +316,7 @@ CREATE POLICY "Public can read multiple choice options" ON multiple_choice_optio
 CREATE POLICY "Public can read attendance options" ON attendance_options FOR SELECT USING (true);
 CREATE POLICY "Public can read upcoming timirit" ON upcoming_timirit FOR SELECT USING (true);
 CREATE POLICY "Public can read upcoming mezmurs" ON upcoming_mezmurs FOR SELECT USING (true);
+CREATE POLICY "Public can read weekly knowledge" ON weekly_knowledge FOR SELECT USING (true);
 
 -- Public can submit responses
 CREATE POLICY "Public can insert responses" ON user_responses FOR INSERT WITH CHECK (true);
@@ -259,6 +358,11 @@ CREATE POLICY "Organizers can manage upcoming mezmurs" ON upcoming_mezmurs FOR A
   EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
 );
 
+CREATE POLICY "Organizers can manage weekly knowledge" ON weekly_knowledge FOR ALL USING (
+  auth.role() = 'authenticated' AND
+  EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
+);
+
 -- User profiles management
 CREATE POLICY "Users can read own profile" ON user_profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
@@ -289,6 +393,7 @@ CREATE TRIGGER update_weekly_classes_updated_at BEFORE UPDATE ON weekly_classes 
 CREATE TRIGGER update_mezmurs_updated_at BEFORE UPDATE ON mezmurs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_questions_updated_at BEFORE UPDATE ON questions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_upcoming_timirit_updated_at BEFORE UPDATE ON upcoming_timirit FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_weekly_knowledge_updated_at BEFORE UPDATE ON weekly_knowledge FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
+import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import {
@@ -9,7 +11,10 @@ import {
 import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
+import type { WeeklyKnowledgeItem } from '../data/weeklyKnowledge'
 import { formatClassDate } from '../lib/formatDate'
+import { getActiveWeeklyKnowledge } from '../lib/supabaseData'
+import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { useUiText } from '../lib/uiText'
 
 function previewText(text: string, maxLength = 120) {
@@ -25,14 +30,20 @@ export function HomePage() {
   const t = useUiText()
   const [recentClasses, setRecentClasses] = useState<WeeklyClass[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingTimirtPreview | null>(null)
+  const [weeklyKnowledge, setWeeklyKnowledge] = useState<WeeklyKnowledgeItem | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [weeks, upcomingPreview] = await Promise.all([listWeeks(), getUpcomingPreview()])
+        const [weeks, upcomingPreview, knowledge] = await Promise.all([
+          listWeeks(),
+          getUpcomingPreview(),
+          getActiveWeeklyKnowledge(),
+        ])
         setRecentClasses(weeks.slice(0, 3))
         setUpcoming(upcomingPreview)
+        setWeeklyKnowledge(knowledge)
       } catch (error) {
         console.error('Failed to load homepage data:', error)
       } finally {
@@ -65,6 +76,10 @@ export function HomePage() {
       </div>
     )
   }
+
+  const latestClass = recentClasses[0] ?? null
+  const lessonPreviewAudio = upcoming?.lessonAudioUrl?.trim() ? upcoming.lessonAudioUrl : undefined
+  const lessonPreviewVideo = toYouTubeEmbedUrl(upcoming?.lessonYoutubeUrl)
 
   return (
     <div className="space-y-4">
@@ -111,7 +126,7 @@ export function HomePage() {
         <a
           href="/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           title="Opens the main Orthodox study PDF"
           className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-3 text-base font-medium text-brand-900 shadow-sm transition-all duration-200 hover:border-brand-300 hover:bg-brand-50"
         >
@@ -127,8 +142,94 @@ export function HomePage() {
           <h2 className="mt-1 text-lg font-semibold text-brand-900">{upcoming.topicPreview}</h2>
           <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
           <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
-          <RouterLinkButton to="/upcoming" className="mt-4 w-full sm:w-auto">
-            Prepare for Next Class
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <RouterLinkButton to="/upcoming" className="w-full">
+              Prepare for Next Class
+            </RouterLinkButton>
+            <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
+              Practice Mezmurs
+            </RouterLinkButton>
+          </div>
+        </Card>
+      ) : null}
+
+      {weeklyKnowledge ? <WeeklyKnowledgeCard item={weeklyKnowledge} /> : null}
+
+      <TeacherYoutubeChannelCard eyebrow="Teacher teaching channel" />
+
+      {upcoming && (lessonPreviewAudio || lessonPreviewVideo) ? (
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teacher lesson media</p>
+          <h2 className="mt-1 text-base font-semibold text-brand-900">Preview before Tuesday</h2>
+          {lessonPreviewAudio ? (
+            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+              <p className="text-sm font-semibold text-brand-900">
+                {upcoming.lessonAudioTitle?.trim() || 'Listen to teaching'}
+              </p>
+              <audio controls preload="none" className="mt-2 w-full">
+                <source src={lessonPreviewAudio} />
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          ) : null}
+          {lessonPreviewVideo ? (
+            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+              <p className="text-sm font-semibold text-brand-900">Watch lesson preview</p>
+              <div className="mt-2 overflow-hidden rounded-xl border border-brand-200 bg-black">
+                <iframe
+                  src={lessonPreviewVideo}
+                  title="Homepage lesson preview video"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="aspect-video w-full"
+                />
+              </div>
+            </div>
+          ) : null}
+          {upcoming.lessonNote ? (
+            <p className="mt-2 text-sm text-brand-700">{upcoming.lessonNote}</p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      <Card>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Quick prepare</p>
+        <h2 className="mt-1 text-base font-semibold text-brand-900">Three simple steps</h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <RouterLinkButton to={latestClass ? `/class/${latestClass.id}` : '/past-timirit'} variant="secondary" className="w-full">
+            Review summary
+          </RouterLinkButton>
+          <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
+            Practice mezmurs
+          </RouterLinkButton>
+          {lessonPreviewAudio ? (
+            <a
+              href={lessonPreviewAudio}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+            >
+              Listen to teaching
+            </a>
+          ) : (
+            <RouterLinkButton to="/upcoming" variant="secondary" className="w-full">
+              Open next class
+            </RouterLinkButton>
+          )}
+        </div>
+      </Card>
+
+      {latestClass ? (
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Recent class highlight</p>
+          <h2 className="mt-1 text-base font-semibold text-brand-900">{latestClass.topic}</h2>
+          <p className="mt-1 text-sm text-brand-700">{formatClassDate(latestClass.date)} · {latestClass.speaker}</p>
+          <p className="mt-2 text-sm leading-relaxed text-brand-800">
+            {previewText(latestClass.englishSummary, 200)}
+          </p>
+          <RouterLinkButton to={`/class/${latestClass.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
+            Catch up from this class
           </RouterLinkButton>
         </Card>
       ) : null}

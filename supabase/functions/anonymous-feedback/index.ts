@@ -9,8 +9,9 @@ const corsHeaders = {
 const allowedCategories = new Set([
   'Website feedback',
   'Teaching feedback',
-  'Future topic suggestion',
-  'General note',
+  'Topic suggestion',
+  'Prayer / support note',
+  'General message',
 ])
 
 const FEEDBACK_LIMIT = 5
@@ -83,9 +84,38 @@ async function sendEmail(params: {
   }
 }
 
+async function logDeliveryFailure(params: {
+  supabase: ReturnType<typeof createClient>
+  category: string
+  subject: string
+  message: string
+  errorText: string
+}) {
+  // Safe logging: only short metadata and message preview.
+  const truncatedMessage = params.message.slice(0, 600)
+  const logPayload = {
+    category: params.category,
+    subject: `[delivery-failure] ${params.subject || '(none)'}`.slice(0, 120),
+    message: `Delivery failed: ${params.errorText}\n\nOriginal message preview:\n${truncatedMessage}`,
+  }
+  const { error } = await params.supabase
+    .from('anonymous_feedback_submissions')
+    .insert(logPayload)
+  if (error) {
+    console.error('Failed to log delivery failure metadata:', error)
+  }
+}
+
 Deno.serve(async (request) => {
   try {
+    console.log('[feedback] Function invoked', {
+      method: request.method,
+      url: request.url,
+      hasAuthHeader: Boolean(request.headers.get('authorization')),
+    })
+
     if (request.method === 'OPTIONS') {
+      console.log('[feedback] OPTIONS preflight request')
       return new Response('ok', { headers: corsHeaders })
     }
 
@@ -119,6 +149,12 @@ Deno.serve(async (request) => {
     let payload: FeedbackPayload
     try {
       payload = (await request.json()) as FeedbackPayload
+      console.log('[feedback] Request JSON parsed', {
+        hasCategory: typeof payload.category === 'string',
+        hasSubject: typeof payload.subject === 'string',
+        hasMessage: typeof payload.message === 'string',
+        hasWebsite: typeof payload.website === 'string',
+      })
     } catch {
       return jsonResponse({ error: 'Invalid request body. Please submit the form again.' }, 400)
     }
@@ -128,15 +164,32 @@ Deno.serve(async (request) => {
     const message = payload.message?.trim() || ''
     const honeypot = payload.website?.trim() || ''
 
+    console.log('[feedback] Extracted request fields', {
+      category,
+      hasSubject: Boolean(subject),
+      subjectLength: subject.length,
+      messageLength: message.length,
+      honeypotFilled: Boolean(honeypot),
+    })
+
     if (honeypot) {
+      console.log('[feedback] Honeypot triggered; returning success to bot')
       return jsonResponse({ ok: true })
+    }
+
+    if (!category) {
+      return jsonResponse({ error: 'Category is required.' }, 400)
+    }
+
+    if (!message) {
+      return jsonResponse({ error: 'Message is required.' }, 400)
     }
 
     if (!allowedCategories.has(category)) {
       return jsonResponse({ error: 'Please choose a valid category.' }, 400)
     }
 
-    if (!message || message.length < 8) {
+    if (message.length < 8) {
       return jsonResponse({ error: 'Please enter a fuller message before submitting.' }, 400)
     }
 
@@ -196,15 +249,42 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Too many submissions from this device right now. Please try again later.' }, 429)
     }
 
-    const { error: insertError } = await supabase.from('anonymous_feedback_submissions').insert({
+    const insertPayload = {
       category,
       subject: subject || null,
       message,
+    }
+    console.log('[feedback] Inserting feedback row', {
+      table: 'anonymous_feedback_submissions',
+      category,
+      hasSubject: Boolean(subject),
+      messageLength: message.length,
+    })
+    const { data: insertedFeedback, error: insertError } = await supabase
+      .from('anonymous_feedback_submissions')
+      .insert(insertPayload)
+      .select('id, created_at')
+      .single()
+
+    console.log('[feedback] Insert result', {
+      table: 'anonymous_feedback_submissions',
+      insertError: insertError ? {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+      } : null,
+      insertedFeedback,
     })
 
     if (insertError) {
-      console.error(insertError)
-      return jsonResponse({ error: 'Unable to save the submission right now.' }, 500)
+      console.error('[feedback] Insert failed:', insertError)
+      return jsonResponse(
+        {
+          error: 'Unable to save the submission right now.',
+          details: insertError.message,
+        },
+        500,
+      )
     }
 
     try {
@@ -218,12 +298,32 @@ Deno.serve(async (request) => {
       })
     } catch (emailError) {
       console.error(emailError)
-      return jsonResponse({ error: 'Your note was saved, but email delivery is not configured correctly yet.' }, 500)
+      const fallbackMessage =
+        'Your note was saved, but delivery email failed. Organizers can still read it from the dashboard.'
+      await logDeliveryFailure({
+        supabase,
+        category,
+        subject,
+        message,
+        errorText: emailError instanceof Error ? emailError.message : 'unknown email error',
+      })
+      return jsonResponse({ ok: true, saved: true, delivered: false, message: fallbackMessage }, 202)
     }
 
-    return jsonResponse({ ok: true })
+    console.log('[feedback] Returning success response', {
+      saved: true,
+      delivered: true,
+      feedbackId: insertedFeedback?.id ?? null,
+    })
+    return jsonResponse({ ok: true, saved: true, delivered: true })
   } catch (unexpectedError) {
-    console.error('Unexpected anonymous feedback handler error:', unexpectedError)
-    return jsonResponse({ error: 'Unexpected server error while submitting feedback.' }, 500)
+    console.error('[feedback] Unexpected handler error:', unexpectedError)
+    return jsonResponse(
+      {
+        error: 'Unexpected server error while submitting feedback.',
+        details: unexpectedError instanceof Error ? unexpectedError.message : String(unexpectedError),
+      },
+      500,
+    )
   }
 })

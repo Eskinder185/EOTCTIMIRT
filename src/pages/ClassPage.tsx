@@ -8,6 +8,7 @@ import type { Question, WeeklyClass } from '../data/types'
 import { getUserFingerprint } from '../lib/anonymousIdentity'
 import { formatClassDate } from '../lib/formatDate'
 import { submitUserResponses } from '../lib/supabaseData'
+import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { TEWAHEDO_DAILY_MEZMURS_URL } from '../site/tewahedoDaily'
 
 function previewLyrics(text?: string) {
@@ -30,7 +31,9 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
   const reviewQuestions = questions.slice(0, 5)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null)
+  const [failedSaves, setFailedSaves] = useState<Record<string, number>>({})
 
   const multipleChoiceQuestions = reviewQuestions.filter(isMultipleChoice)
   const answeredMultipleChoice = multipleChoiceQuestions.filter((question) => {
@@ -45,6 +48,7 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
   const completedAllMultipleChoice =
     multipleChoiceQuestions.length > 0 &&
     answeredMultipleChoice.length === multipleChoiceQuestions.length
+  const progressLabel = `${answeredMultipleChoice.length}/${multipleChoiceQuestions.length}`
 
   const summaryStats = answeredMultipleChoice.reduce(
     (acc, question) => {
@@ -94,22 +98,83 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
   const persistChoice = async (questionId: string, selectedOptionIndex: number) => {
     try {
       setSaveError(null)
+      setSaveNotice(null)
       setSavingQuestionId(questionId)
       await submitUserResponses(
         weekId,
         [{ questionId, selectedOptionIndex }],
         getUserFingerprint(),
       )
+      setFailedSaves((current) => {
+        if (!(questionId in current)) {
+          return current
+        }
+        const next = { ...current }
+        delete next[questionId]
+        return next
+      })
     } catch (error) {
       console.error('Failed to save quick review response:', error)
-      setSaveError('Could not save this response right now. Please try again in a moment.')
+      setFailedSaves((current) => ({ ...current, [questionId]: selectedOptionIndex }))
+      setSaveError('Your answer is kept on this device, but sync failed right now. You can continue and retry sync.')
     } finally {
       setSavingQuestionId(null)
     }
   }
 
+  const retryFailedSaves = async () => {
+    const entries = Object.entries(failedSaves)
+    if (entries.length === 0) {
+      return
+    }
+    setSaveError(null)
+    let failedCount = 0
+    for (const [questionId, selectedOptionIndex] of entries) {
+      try {
+        await submitUserResponses(
+          weekId,
+          [{ questionId, selectedOptionIndex }],
+          getUserFingerprint(),
+        )
+        setFailedSaves((current) => {
+          const next = { ...current }
+          delete next[questionId]
+          return next
+        })
+      } catch {
+        failedCount += 1
+      }
+    }
+    if (failedCount === 0) {
+      setSaveNotice('All pending answers synced successfully.')
+    } else {
+      setSaveError(`${failedCount} answer(s) still waiting to sync. You can retry again.`)
+    }
+  }
+
   return (
     <section className="space-y-3">
+      <Card className="p-3 sm:p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Quick review progress</p>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-brand-900">
+            Multiple-choice completed: {progressLabel}
+          </p>
+          <p className="text-sm text-brand-700">{multipleChoiceQuestions.length > 0 ? `${scorePercent}%` : 'No score yet'}</p>
+        </div>
+        <div className="mt-2 h-2 rounded-full bg-brand-100">
+          <div
+            className="h-full rounded-full bg-accent-600 transition-all"
+            style={{
+              width:
+                multipleChoiceQuestions.length > 0
+                  ? `${Math.round((answeredMultipleChoice.length / multipleChoiceQuestions.length) * 100)}%`
+                  : '0%',
+            }}
+          />
+        </div>
+      </Card>
+
       {reviewQuestions.map((question, index) => {
         if (isMultipleChoice(question)) {
           const answer = answers[question.id]
@@ -219,8 +284,18 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
         )
       })}
       {saveError ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {saveError}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p>{saveError}</p>
+          {Object.keys(failedSaves).length > 0 ? (
+            <Button type="button" variant="secondary" className="mt-2" onClick={retryFailedSaves}>
+              Retry sync ({Object.keys(failedSaves).length})
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {saveNotice ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {saveNotice}
         </p>
       ) : null}
 
@@ -279,7 +354,12 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setAnswers({})}
+              onClick={() => {
+                setAnswers({})
+                setFailedSaves({})
+                setSaveError(null)
+                setSaveNotice(null)
+              }}
             >
               Try again
             </Button>
@@ -353,12 +433,15 @@ export function ClassPage() {
     )
   }
 
+  const showMedia = week.lessonMediaEnabled !== false
+  const embedUrl = showMedia ? toYouTubeEmbedUrl(week.youtubeUrl) : undefined
+  const hasAudio = showMedia && Boolean(week.audioUrl?.trim())
+  const hasVideo = showMedia && Boolean(embedUrl)
+
   return (
     <div className="space-y-4">
       <Card id="class-summary">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Past class summary
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Catch up from this class</p>
         <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{week.topic}</h1>
         <p className="mt-1 text-sm text-brand-700">
           {formatClassDate(week.date)} · {week.speaker}
@@ -366,17 +449,50 @@ export function ClassPage() {
         <p className="mt-3 text-sm leading-relaxed text-brand-800">
           Catch up quietly with the summary, the mezmurs, and a short review before the next Tuesday Timirit.
         </p>
-        {week.youtubeUrl ? (
-          <a
-            className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-sm font-semibold text-accent-600 hover:bg-brand-50"
-            href={week.youtubeUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Watch Replay
-          </a>
-        ) : null}
       </Card>
+
+      {hasAudio || hasVideo ? (
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teacher lesson media</p>
+          {hasAudio ? (
+            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+              <h2 className="text-base font-semibold text-brand-900">Listen to the Lesson</h2>
+              <p className="mt-1 text-sm text-brand-700">
+                {week.audioTitle?.trim() || 'Audio lesson for mobile listening with headphones'}
+              </p>
+              {week.audioNote?.trim() ? (
+                <p className="mt-2 text-sm leading-relaxed text-brand-700">{week.audioNote}</p>
+              ) : null}
+              <audio controls preload="none" className="mt-3 w-full">
+                <source src={week.audioUrl} />
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          ) : null}
+          {hasVideo ? (
+            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+              <h2 className="text-base font-semibold text-brand-900">Watch the Lesson</h2>
+              <div className="mt-2 overflow-hidden rounded-xl border border-brand-200 bg-black">
+                <iframe
+                  src={embedUrl}
+                  title={`${week.topic} lesson video`}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="aspect-video w-full"
+                />
+              </div>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {week.teachingNotes?.trim() ? (
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teaching notes / transcript</p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-brand-800">{week.teachingNotes}</p>
+        </Card>
+      ) : null}
 
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Summary</p>
@@ -470,6 +586,9 @@ export function ClassPage() {
         </RouterLinkButton>
         <RouterLinkButton to="/upcoming" className="w-full">
           Prepare for Next Class
+        </RouterLinkButton>
+        <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full sm:col-span-2">
+          Practice upcoming mezmurs
         </RouterLinkButton>
       </div>
     </div>

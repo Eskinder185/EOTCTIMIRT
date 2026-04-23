@@ -1,6 +1,9 @@
 /** External reference links used as optional mezmur support. */
 export const TEWAHEDO_DAILY_BASE = 'https://tewahedodaily.pages.dev'
 
+/** Deeper mezmur and liturgy practice (external). */
+export const TEWAHEDO_DAILY_PRACTICE_URL = `${TEWAHEDO_DAILY_BASE}/practice`
+
 export const TEWAHEDO_DAILY_PRAYERS_URL = `${TEWAHEDO_DAILY_BASE}/prayers`
 export const TEWAHEDO_DAILY_CALENDAR_URL = `${TEWAHEDO_DAILY_BASE}/calendar`
 export const TEWAHEDO_DAILY_MEZMURS_URL = `${TEWAHEDO_DAILY_BASE}/mezmurs`

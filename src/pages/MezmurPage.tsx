@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MezmurActionCard } from '../components/MezmurActionCard'
 import { Card } from '../components/ui/Card'
 import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
-import type { WeeklyClass } from '../data/types'
+import type { Mezmur, WeeklyClass } from '../data/types'
 import { formatClassDate } from '../lib/formatDate'
 import { useUiText } from '../lib/uiText'
 
@@ -51,122 +52,71 @@ export function MezmurPage() {
     )
   }, [weeks])
 
-  const upcomingMezmurs = useMemo(
+  const placeholderMezmur = (slot: 1 | 2): Mezmur => ({
+    title: slot === 1 ? 'Mezmur 1 will be announced soon' : 'Mezmur 2 will be announced soon',
+  })
+
+  const upcomingMezmurs: [Mezmur, Mezmur] = useMemo(
     () => [
-      upcoming?.mezmurs[0] ?? { title: 'Mezmur 1 will be announced soon' },
-      upcoming?.mezmurs[1] ?? { title: 'Mezmur 2 will be announced soon' },
+      upcoming?.mezmurs[0] ?? placeholderMezmur(1),
+      upcoming?.mezmurs[1] ?? placeholderMezmur(2),
     ],
     [upcoming],
   )
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
           Ethiopian Orthodox Tewahedo Mezmurs
         </p>
         <h1 className="mt-1 text-2xl font-bold text-brand-900 sm:text-3xl">Weekly Mezmurs</h1>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          Prepare for the coming Timirt with the upcoming mezmur titles, then quickly review the
-          most recent class mezmurs.
+          See the titles for the next class and last week, open YouTube when available, and use{' '}
+          <span className="font-medium text-brand-900">Tewahedo Daily</span> for deeper practice.
         </p>
-        <Link
-          to="/upcoming-mezmurs?mode=present"
-          className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-accent-600 px-4 py-2 text-base font-semibold text-white shadow-sm hover:opacity-95"
-        >
-          {t('presentationMode')}
-        </Link>
+        <p className="mt-3 text-xs text-brand-600">
+          <Link to="/upcoming-mezmurs?mode=present" className="font-semibold text-accent-700 underline-offset-2 hover:underline">
+            {t('presentationMode')}
+          </Link>
+          <span className="text-brand-500"> · </span>
+          projector-friendly lyrics with slide controls
+        </p>
       </div>
 
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Upcoming class</p>
-        <h2 className="mt-1 text-lg font-semibold text-brand-900">Upcoming two mezmurs</h2>
+        <h2 className="mt-1 text-lg font-semibold text-brand-900">Upcoming mezmurs</h2>
         <p className="mt-1 text-sm text-brand-700">
-          {upcoming?.scheduledDate ? formatClassDate(upcoming.scheduledDate) : 'Upcoming Timirt'}
+          {upcoming?.scheduledDate ? formatClassDate(upcoming.scheduledDate) : 'Upcoming Timirit'}
         </p>
         {upcoming?.topicPreview ? (
           <p className="mt-1 text-sm leading-relaxed text-brand-700">{upcoming.topicPreview}</p>
         ) : null}
-        <div className="mt-3 space-y-3">
-          {upcomingMezmurs.map((mezmur, index) => (
-            <div key={`${mezmur.title}-${index}`} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-              <p className="text-xs font-semibold uppercase text-brand-700">Mezmur {index + 1}</p>
-              <p className="mt-1 text-base font-semibold text-brand-900">{mezmur.title || 'To be announced'}</p>
-              {mezmur.transliteration ? (
-                <p className="mt-1 text-sm italic text-brand-700">{mezmur.transliteration}</p>
-              ) : null}
-              <a
-                href={mezmur.youtubeUrl || 'https://tewahedodaily.pages.dev/practice'}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
-              >
-                {mezmur.youtubeUrl ? t('openYouTube') : t('openPractice')}
-              </a>
-            </div>
-          ))}
+        <div className="mt-4 space-y-3">
+          <MezmurActionCard slot={1} mezmur={upcomingMezmurs[0]} context="upcoming" />
+          <MezmurActionCard slot={2} mezmur={upcomingMezmurs[1]} context="upcoming" />
         </div>
       </Card>
 
       <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Last week</p>
-        <h2 className="mt-1 text-base font-semibold text-brand-900">Most recent class mezmurs</h2>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Recent class</p>
+        <h2 className="mt-1 text-lg font-semibold text-brand-900">Last week&apos;s mezmurs</h2>
         {loading ? (
           <p className="mt-2 text-sm text-brand-700">{t('loading')}</p>
         ) : lastWeek ? (
-          <div className="mt-2 space-y-2 text-sm">
-            <p className="text-brand-700">
-              {formatClassDate(lastWeek.date)} - {lastWeek.topic}
+          <div className="mt-2 space-y-3">
+            <p className="text-sm text-brand-700">
+              <span className="font-medium text-brand-900">{formatClassDate(lastWeek.date)}</span>
+              <span className="text-brand-500"> · </span>
+              {lastWeek.topic}
             </p>
-            <p className="text-brand-900">
-              <span className="font-semibold">Mezmur 1:</span> {lastWeek.mezmurs[0].title}
-            </p>
-            <p className="text-brand-900">
-              <span className="font-semibold">Mezmur 2:</span> {lastWeek.mezmurs[1].title}
-            </p>
+            <MezmurActionCard slot={1} mezmur={lastWeek.mezmurs[0]} context="last-week" />
+            <MezmurActionCard slot={2} mezmur={lastWeek.mezmurs[1]} context="last-week" />
           </div>
         ) : (
           <p className="mt-2 text-sm text-brand-700">No recent mezmur record is available yet.</p>
         )}
-      </Card>
-
-      <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Preparation links</p>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <a
-            href="https://tewahedodaily.pages.dev/practice"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
-          >
-            {t('mezmurPractice')}
-          </a>
-          <a
-            href="https://tewahedodaily.pages.dev/calendar"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
-          >
-            {t('calendar')}
-          </a>
-          <a
-            href="/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf"
-            target="_blank"
-            rel="noreferrer"
-            title="Opens the main Orthodox study PDF"
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
-          >
-            Orthodox Resources
-          </a>
-          <a
-            href="https://tewahedodaily.pages.dev/prayers"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
-          >
-            {t('prayer')}
-          </a>
-        </div>
       </Card>
     </div>
   )

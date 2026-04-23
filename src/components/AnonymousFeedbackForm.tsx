@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import {
   anonymousFeedbackCategories,
-  submitAnonymousFeedback,
+  buildAnonymousFeedbackMailto,
   type AnonymousFeedbackCategory,
 } from '../lib/anonymousFeedback'
-import { useUiText } from '../lib/uiText'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 
@@ -12,31 +11,30 @@ interface FormState {
   category: AnonymousFeedbackCategory
   subject: string
   message: string
-  website: string
 }
 
 const initialState: FormState = {
   category: 'Website feedback',
   subject: '',
   message: '',
-  website: '',
 }
 
 export function AnonymousFeedbackForm() {
-  const t = useUiText()
   const [form, setForm] = useState<FormState>(initialState)
-  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
   const updateField = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setNotice(null)
     setError(null)
+
+    if (!form.category) {
+      setError('Please choose a category before submitting.')
+      return
+    }
 
     if (!form.message.trim()) {
       setError('Please enter a message before submitting.')
@@ -44,35 +42,33 @@ export function AnonymousFeedbackForm() {
     }
 
     try {
-      setSubmitting(true)
-      await submitAnonymousFeedback({
+      const mailtoUrl = buildAnonymousFeedbackMailto({
         category: form.category,
         subject: form.subject.trim() || undefined,
         message: form.message.trim(),
       })
+      window.location.href = mailtoUrl
       setForm(initialState)
-      setNotice('Your anonymous note was received. Thank you for helping the community grow together in the faith.')
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
           ? submissionError.message
-          : 'Unable to submit the anonymous note right now.',
+          : 'Unable to open your email app right now.',
       )
-    } finally {
-      setSubmitting(false)
     }
   }
 
   return (
     <Card>
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-        {t('anonymousFeedback')}
+        FEEDBACK
       </p>
+      <h3 className="mt-1 text-lg font-semibold text-brand-900">Send feedback by email</h3>
       <p className="mt-2 text-sm leading-relaxed text-brand-800">
-        Share anonymous feedback about the website, the teaching, or future topics so that we can grow together in the faith.
+        Share feedback, prayer/support notes, or topic suggestions for future Timirt classes.
       </p>
       <p className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-3 text-sm text-brand-700">
-        This form is anonymous. You do not need to enter your name or contact information.
+        This will open your email app with your message prefilled before you send it.
       </p>
 
       <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
@@ -116,33 +112,18 @@ export function AnonymousFeedbackForm() {
           />
         </label>
 
-        <label className="hidden" aria-hidden="true">
-          Website
-          <input
-            type="text"
-            tabIndex={-1}
-            autoComplete="off"
-            value={form.website}
-            onChange={(event) => updateField('website', event.target.value)}
-            name="website"
-          />
-        </label>
-
-        {notice ? (
-          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm leading-relaxed text-emerald-950">
-            {notice}
-          </p>
-        ) : null}
-
         {error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm leading-relaxed text-red-900">
             {error}
           </p>
         ) : null}
 
-        <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-          {submitting ? 'Submitting...' : 'Submit Anonymous Note'}
+        <Button type="submit" className="w-full sm:w-auto">
+          Open Email Draft
         </Button>
+        <p className="text-xs text-brand-700">
+          This will open your email app with your message prefilled.
+        </p>
       </form>
     </Card>
   )

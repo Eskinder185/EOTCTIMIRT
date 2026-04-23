@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase'
+import { pickLocalized } from './bilingualText'
 import type { 
   WeeklyClass, 
   OrganizerSnapshot, 
@@ -11,18 +12,26 @@ import type {
   RecapSuggestion,
   Question,
   Mezmur,
+  LocalizedText,
   QuestionType,
   AttendanceChoice,
   WeeklyQuestionStatsReport,
   WeeklyQuestionStat,
 } from '../data/types'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
+import type {
+  WeeklyKnowledgeEditorInput,
+  WeeklyKnowledgeItem,
+  WeeklyKnowledgeStatus,
+} from '../data/weeklyKnowledge'
 
 const CACHE_DURATION_MS = 60 * 1000
 let weeklyClassesCache: WeeklyClass[] | null = null
 let weeklyClassesCacheTimestamp = 0
 let upcomingTimiritAdminCache: UpcomingTimirtEditorInput | null | undefined
 let upcomingTimiritAdminCacheTimestamp = 0
+let weeklyKnowledgeCache: WeeklyKnowledgeItem | null | undefined
+let weeklyKnowledgeCacheTimestamp = 0
 
 function isFresh(timestamp: number) {
   return Date.now() - timestamp < CACHE_DURATION_MS
@@ -33,6 +42,66 @@ function invalidateDataCaches() {
   weeklyClassesCacheTimestamp = 0
   upcomingTimiritAdminCache = undefined
   upcomingTimiritAdminCacheTimestamp = 0
+  weeklyKnowledgeCache = undefined
+  weeklyKnowledgeCacheTimestamp = 0
+}
+
+const WEEKLY_KNOWLEDGE_TYPES = new Set([
+  'Knowledge',
+  'Fun Fact',
+  'Church Reminder',
+  'Weekly Greeting',
+  'Important Note',
+  'Vocabulary / Term of the Week',
+])
+
+function normalizeWeeklyKnowledgeStatus(value: string | null | undefined): WeeklyKnowledgeStatus {
+  if (!value) return 'draft'
+  const normalized = value.toLowerCase()
+  if (normalized === 'published') return 'published'
+  if (normalized === 'hidden') return 'hidden'
+  return 'draft'
+}
+
+function mapWeeklyKnowledge(row: any): WeeklyKnowledgeItem {
+  const titleEn = row.title_en ?? undefined
+  const titleAm = row.title_am ?? undefined
+  const subtitleEn = row.subtitle_en ?? undefined
+  const subtitleAm = row.subtitle_am ?? undefined
+  const contentEn = row.content_en ?? undefined
+  const contentAm = row.content_am ?? undefined
+  const extraNoteEn = row.extra_note_en ?? undefined
+  const extraNoteAm = row.extra_note_am ?? undefined
+  const buttonTextEn = row.button_text_en ?? undefined
+  const buttonTextAm = row.button_text_am ?? undefined
+
+  return {
+    id: row.id,
+    title: pickLocalized('en', titleEn, titleAm, row.title),
+    titleEn,
+    titleAm,
+    subtitle: pickLocalized('en', subtitleEn, subtitleAm, row.subtitle),
+    subtitleEn,
+    subtitleAm,
+    content: pickLocalized('en', contentEn, contentAm, row.content),
+    contentEn,
+    contentAm,
+    extraNote: pickLocalized('en', extraNoteEn, extraNoteAm, row.extra_note),
+    extraNoteEn,
+    extraNoteAm,
+    imageUrl: row.image_url || undefined,
+    buttonText: pickLocalized('en', buttonTextEn, buttonTextAm, row.button_text),
+    buttonTextEn,
+    buttonTextAm,
+    buttonLink: row.button_link || undefined,
+    contentType: WEEKLY_KNOWLEDGE_TYPES.has(row.content_type) ? row.content_type : 'Knowledge',
+    status: normalizeWeeklyKnowledgeStatus(row.status),
+    startDate: row.start_date || undefined,
+    endDate: row.end_date || undefined,
+    isActive: row.is_active ?? false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 function isMissingYoutubeUrlColumnError(error: { code?: string; message?: string } | null | undefined) {
@@ -54,23 +123,40 @@ export function getCachedWeeklyClasses(): WeeklyClass[] | null {
 
 export interface EditorMezmurInput {
   title: string
+  titleEn?: string
+  titleAm?: string
   transliteration?: string
   lyrics?: string
+  lyricsEn?: string
+  lyricsAm?: string
+  noteEn?: string
+  noteAm?: string
   youtubeUrl?: string
+  audioUrl?: string
 }
 
 export interface EditorQuestionInput {
   id?: string
   type: QuestionType
   prompt: string
+  promptEn?: string
+  promptAm?: string
   helperText?: string
+  helperTextEn?: string
+  helperTextAm?: string
   placeholder?: string
+  placeholderEn?: string
+  placeholderAm?: string
   correctIndex?: number
   explanation?: string
-  options?: string[]
+  explanationEn?: string
+  explanationAm?: string
+  options?: LocalizedText[]
   attendanceOptions?: Array<{
     value: AttendanceChoice
     label: string
+    labelEn?: string
+    labelAm?: string
   }>
 }
 
@@ -78,12 +164,25 @@ export interface WeeklyClassEditorInput {
   id: string
   date: string
   topic: string
+  topicEn?: string
+  topicAm?: string
   speaker: string
   amharicSummary: string
   englishSummary: string
   keyPoints: string[]
   verses: string[]
   youtubeUrl?: string
+  audioUrl?: string
+  audioTitle?: string
+  audioTitleEn?: string
+  audioTitleAm?: string
+  audioNote?: string
+  audioNoteEn?: string
+  audioNoteAm?: string
+  lessonMediaEnabled?: boolean
+  teachingNotes?: string
+  teachingNotesEn?: string
+  teachingNotesAm?: string
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
   questions: EditorQuestionInput[]
   feedbackSummary?: string
@@ -94,8 +193,34 @@ export interface UpcomingTimirtEditorInput {
   id?: string
   scheduledDate: string
   topicPreview: string
+  topicPreviewEn?: string
+  topicPreviewAm?: string
   note: string
+  noteEn?: string
+  noteAm?: string
+  lessonYoutubeUrl?: string
+  lessonAudioUrl?: string
+  lessonAudioTitle?: string
+  lessonAudioTitleEn?: string
+  lessonAudioTitleAm?: string
+  lessonNote?: string
+  lessonNoteEn?: string
+  lessonNoteAm?: string
+  weeklyKnowledgeContent?: string
+  weeklyKnowledgeContentEn?: string
+  weeklyKnowledgeContentAm?: string
+  weeklyKnowledgeImageUrl?: string
+  keyVerse?: string
+  keyVerseEn?: string
+  keyVerseAm?: string
+  organizerNote?: string
+  organizerNoteEn?: string
+  organizerNoteAm?: string
+  classSummaryContent?: string
+  classSummaryContentEn?: string
+  classSummaryContentAm?: string
   isActive: boolean
+  publicationStatus: 'draft' | 'published'
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
 }
 
@@ -105,6 +230,27 @@ export interface UpcomingTimirtListItem {
   topicPreview: string
   note: string
   isActive: boolean
+  publicationStatus: 'draft' | 'published'
+}
+
+export interface AnonymousFeedbackItem {
+  id: string
+  category: string
+  subject?: string
+  message: string
+  status?: string
+  createdAt: string
+}
+
+export interface ReviewSessionItem {
+  id: string
+  weeklyClassId: string
+  userFingerprint?: string
+  questionCount?: number
+  correctAnswers?: number
+  scorePercent?: number
+  completedAt?: string
+  createdAt: string
 }
 
 // ============================================================================
@@ -130,27 +276,46 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
       mezmurs (
         id,
         title,
+        title_en,
+        title_am,
         transliteration,
         lyrics,
+        lyrics_en,
+        lyrics_am,
+        note_en,
+        note_am,
         youtube_url,
+        audio_url,
         order_index
       ),
       questions (
         id,
         type,
         prompt,
+        prompt_en,
+        prompt_am,
         helper_text,
+        helper_text_en,
+        helper_text_am,
         placeholder,
+        placeholder_en,
+        placeholder_am,
         correct_index,
         explanation,
+        explanation_en,
+        explanation_am,
         order_index,
         multiple_choice_options (
           option_text,
+          option_text_en,
+          option_text_am,
           option_index
         ),
         attendance_options (
           value,
           label,
+          label_en,
+          label_am,
           option_index
         )
       )
@@ -191,27 +356,46 @@ export async function getWeeklyClass(id: string): Promise<WeeklyClass | null> {
       mezmurs (
         id,
         title,
+        title_en,
+        title_am,
         transliteration,
         lyrics,
+        lyrics_en,
+        lyrics_am,
+        note_en,
+        note_am,
         youtube_url,
+        audio_url,
         order_index
       ),
       questions (
         id,
         type,
         prompt,
+        prompt_en,
+        prompt_am,
         helper_text,
+        helper_text_en,
+        helper_text_am,
         placeholder,
+        placeholder_en,
+        placeholder_am,
         correct_index,
         explanation,
+        explanation_en,
+        explanation_am,
         order_index,
         multiple_choice_options (
           option_text,
+          option_text_en,
+          option_text_am,
           option_index
         ),
         attendance_options (
           value,
           label,
+          label_en,
+          label_am,
           option_index
         )
       )
@@ -254,14 +438,249 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
       transliteration: m.transliteration || undefined,
       lyrics: m.lyrics || undefined,
       youtubeUrl: m.youtube_url || undefined,
+      audioUrl: m.audio_url || undefined,
     }))
 
   return {
     scheduledDate: data.scheduled_date,
     topicPreview: data.topic_preview,
     note: data.note,
+    lessonYoutubeUrl: data.lesson_youtube_url || undefined,
+    lessonAudioUrl: data.lesson_audio_url || undefined,
+    lessonAudioTitle: data.lesson_audio_title || undefined,
+    lessonNote: data.lesson_note || undefined,
+    weeklyKnowledgeContent: data.weekly_knowledge_content || undefined,
+    weeklyKnowledgeImageUrl: data.weekly_knowledge_image_url || undefined,
+    keyVerse: data.key_verse || undefined,
+    organizerNote: data.organizer_note || undefined,
+    classSummaryContent: data.class_summary_content || undefined,
+    publicationStatus: data.publication_status === 'published' ? 'published' : 'draft',
     mezmurs: [sortedMezmurs[0], sortedMezmurs[1]] as [Mezmur, Mezmur]
   }
+}
+
+export async function getActiveWeeklyKnowledge(targetDate?: string): Promise<WeeklyKnowledgeItem | null> {
+  if (weeklyKnowledgeCache !== undefined && isFresh(weeklyKnowledgeCacheTimestamp)) {
+    return weeklyKnowledgeCache
+  }
+
+  if (!supabase) {
+    return null
+  }
+
+  const date = targetDate || new Date().toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from('weekly_knowledge')
+    .select('*')
+    .eq('is_active', true)
+    .eq('status', 'published')
+    .order('updated_at', { ascending: false })
+    .limit(25)
+
+  if (error) {
+    throw error
+  }
+
+  const row = (data ?? []).find((candidate) => {
+    const startsOk = !candidate.start_date || candidate.start_date <= date
+    const endsOk = !candidate.end_date || candidate.end_date >= date
+    return startsOk && endsOk
+  })
+  const result = row ? mapWeeklyKnowledge(row) : null
+  weeklyKnowledgeCache = result
+  weeklyKnowledgeCacheTimestamp = Date.now()
+  return result
+}
+
+export async function listWeeklyKnowledgeForAdmin(): Promise<WeeklyKnowledgeItem[]> {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('weekly_knowledge')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(mapWeeklyKnowledge)
+}
+
+export async function getWeeklyKnowledgeForAdmin(id: string): Promise<WeeklyKnowledgeItem | null> {
+  if (!supabase) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('weekly_knowledge')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data ? mapWeeklyKnowledge(data) : null
+}
+
+export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInput): Promise<string> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const normalizedStatus = normalizeWeeklyKnowledgeStatus(input.status)
+  const normalizedIsActive = normalizedStatus === 'published' ? input.isActive : false
+
+  const titleEn = input.titleEn?.trim() || input.title.trim()
+  const titleAm = input.titleAm?.trim() || null
+  const subtitleEn = input.subtitleEn?.trim() || input.subtitle?.trim() || null
+  const subtitleAm = input.subtitleAm?.trim() || null
+  const contentEn = input.contentEn?.trim() || input.content.trim()
+  const contentAm = input.contentAm?.trim() || null
+  const extraNoteEn = input.extraNoteEn?.trim() || input.extraNote?.trim() || null
+  const extraNoteAm = input.extraNoteAm?.trim() || null
+  const buttonTextEn = input.buttonTextEn?.trim() || input.buttonText?.trim() || null
+  const buttonTextAm = input.buttonTextAm?.trim() || null
+
+  const { data, error } = await supabase
+    .from('weekly_knowledge')
+    .upsert({
+      id: input.id,
+      title: titleEn,
+      title_en: titleEn,
+      title_am: titleAm,
+      subtitle: subtitleEn,
+      subtitle_en: subtitleEn,
+      subtitle_am: subtitleAm,
+      content: contentEn,
+      content_en: contentEn,
+      content_am: contentAm,
+      extra_note: extraNoteEn,
+      extra_note_en: extraNoteEn,
+      extra_note_am: extraNoteAm,
+      image_url: input.imageUrl?.trim() || null,
+      button_text: buttonTextEn,
+      button_text_en: buttonTextEn,
+      button_text_am: buttonTextAm,
+      button_link: input.buttonLink?.trim() || null,
+      content_type: input.contentType,
+      status: normalizedStatus,
+      start_date: input.startDate || null,
+      end_date: input.endDate || null,
+      is_active: normalizedIsActive,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  if (normalizedStatus === 'published' && normalizedIsActive) {
+    const { error: deactivateOthersError } = await supabase
+      .from('weekly_knowledge')
+      .update({ is_active: false })
+      .neq('id', data.id)
+      .eq('is_active', true)
+    if (deactivateOthersError) {
+      throw deactivateOthersError
+    }
+  }
+
+  invalidateDataCaches()
+  return data.id
+}
+
+export async function setWeeklyKnowledgeStatus(
+  id: string,
+  status: WeeklyKnowledgeStatus,
+  isActive: boolean,
+): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  if (status === 'published' && isActive) {
+    const { error: deactivateError } = await supabase
+      .from('weekly_knowledge')
+      .update({ is_active: false })
+      .neq('id', id)
+      .eq('is_active', true)
+    if (deactivateError) {
+      throw deactivateError
+    }
+  }
+
+  const { error } = await supabase
+    .from('weekly_knowledge')
+    .update({
+      status,
+      is_active: status === 'published' ? isActive : false,
+    })
+    .eq('id', id)
+
+  if (error) {
+    throw error
+  }
+
+  invalidateDataCaches()
+}
+
+export async function listAnonymousFeedbackForAdmin(limit = 50): Promise<AnonymousFeedbackItem[]> {
+  if (!supabase) {
+    return []
+  }
+
+  const tableName = 'anonymous_feedback'
+  const { data, error } = await supabase
+    .from(tableName)
+    .select('id, category, subject, message, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    category: row.category,
+    subject: row.subject || undefined,
+    message: row.message,
+    status: row.status || undefined,
+    createdAt: row.created_at,
+  }))
+}
+
+export async function listReviewSessionsForWeek(weeklyClassId: string): Promise<ReviewSessionItem[]> {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('review_sessions')
+    .select('id, weekly_class_id, user_fingerprint, question_count, correct_answers, score_percent, completed_at, created_at')
+    .eq('weekly_class_id', weeklyClassId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    weeklyClassId: row.weekly_class_id,
+    userFingerprint: row.user_fingerprint || undefined,
+    questionCount: row.question_count ?? undefined,
+    correctAnswers: row.correct_answers ?? undefined,
+    scorePercent: row.score_percent ?? undefined,
+    completedAt: row.completed_at || undefined,
+    createdAt: row.created_at,
+  }))
 }
 
 async function fetchUpcomingTimiritRecordForPublic({
@@ -282,6 +701,7 @@ async function fetchUpcomingTimiritRecordForPublic({
         transliteration,
         lyrics,
         youtube_url,
+        audio_url,
         order_index
       )
     `)
@@ -508,10 +928,14 @@ export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQues
     .select(`
       id,
       prompt,
+      prompt_en,
+      prompt_am,
       type,
       correct_index,
       multiple_choice_options (
         option_text,
+        option_text_en,
+        option_text_am,
         option_index
       )
     `)
@@ -571,12 +995,17 @@ export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQues
     const percentIncorrect = totalResponses > 0 ? 100 - percentCorrect : 0
     const options = (question.multiple_choice_options ?? [])
       .sort((a, b) => a.option_index - b.option_index)
-    const correctOptionText =
-      options.find((option) => option.option_index === correctOptionIndex)?.option_text ?? 'Correct answer'
+    const correctOptionRow = options.find((option) => option.option_index === correctOptionIndex)
+    const correctOptionText = pickLocalized(
+      'en',
+      correctOptionRow?.option_text_en,
+      correctOptionRow?.option_text_am,
+      correctOptionRow?.option_text,
+    ) || 'Correct answer'
 
     return {
       questionId: question.id,
-      prompt: question.prompt,
+      prompt: pickLocalized('en', question.prompt_en, question.prompt_am, question.prompt),
       totalResponses,
       correctResponses,
       incorrectResponses,
@@ -590,7 +1019,7 @@ export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQues
         ).length
         return {
           optionIndex: option.option_index,
-          optionText: option.option_text,
+          optionText: pickLocalized('en', option.option_text_en, option.option_text_am, option.option_text),
           responses: count,
           percentage: totalResponses > 0 ? Math.round((count / totalResponses) * 100) : 0,
         }
@@ -661,6 +1090,11 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       key_points: data.keyPoints,
       verses: data.verses,
       youtube_url: data.youtubeUrl || null,
+      audio_url: data.audioUrl || null,
+      audio_title: data.audioTitle || null,
+      audio_note: data.audioNote || null,
+      lesson_media_enabled: data.lessonMediaEnabled ?? true,
+      teaching_notes: data.teachingNotes || null,
       feedback_summary: data.feedbackSummary || null,
       attendance_summary: data.attendanceSummary || null,
     })
@@ -687,6 +1121,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
         transliteration: mezmur.transliteration || null,
         lyrics: mezmur.lyrics || null,
         youtube_url: mezmur.youtubeUrl || null,
+        audio_url: mezmur.audioUrl || null,
         order_index: index,
       })),
     )
@@ -810,6 +1245,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
         transliteration,
         lyrics,
         youtube_url,
+        audio_url,
         order_index
       )
     `)
@@ -860,6 +1296,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
           transliteration: mezmur.transliteration || undefined,
           lyrics: mezmur.lyrics || undefined,
           youtubeUrl: mezmur.youtube_url || undefined,
+          audioUrl: mezmur.audio_url || undefined,
         }))
     : []
 
@@ -868,7 +1305,17 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     scheduledDate: row.scheduled_date,
     topicPreview: row.topic_preview,
     note: row.note,
+    lessonYoutubeUrl: row.lesson_youtube_url || undefined,
+    lessonAudioUrl: row.lesson_audio_url || undefined,
+    lessonAudioTitle: row.lesson_audio_title || undefined,
+    lessonNote: row.lesson_note || undefined,
+    weeklyKnowledgeContent: row.weekly_knowledge_content || undefined,
+    weeklyKnowledgeImageUrl: row.weekly_knowledge_image_url || undefined,
+    keyVerse: row.key_verse || undefined,
+    organizerNote: row.organizer_note || undefined,
+    classSummaryContent: row.class_summary_content || undefined,
     isActive: row.is_active ?? true,
+    publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
     mezmurs: [
       sortedMezmurs[0] ?? { title: '' },
       sortedMezmurs[1] ?? { title: '' },
@@ -894,7 +1341,17 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
       scheduled_date: data.scheduledDate,
       topic_preview: data.topicPreview,
       note: data.note,
+      lesson_youtube_url: data.lessonYoutubeUrl || null,
+      lesson_audio_url: data.lessonAudioUrl || null,
+      lesson_audio_title: data.lessonAudioTitle || null,
+      lesson_note: data.lessonNote || null,
+      weekly_knowledge_content: data.weeklyKnowledgeContent || null,
+      weekly_knowledge_image_url: data.weeklyKnowledgeImageUrl || null,
+      key_verse: data.keyVerse || null,
+      organizer_note: data.organizerNote || null,
+      class_summary_content: data.classSummaryContent || null,
       is_active: data.isActive,
+      publication_status: data.publicationStatus,
     })
     .select('id')
     .single()
@@ -923,6 +1380,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
         transliteration: mezmur.transliteration || null,
         lyrics: mezmur.lyrics || null,
         youtube_url: mezmur.youtubeUrl || null,
+        audio_url: mezmur.audioUrl || null,
         order_index: index,
       })),
     )
@@ -957,7 +1415,7 @@ export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListI
 
   const { data, error } = await supabase
     .from('upcoming_timirit')
-    .select('id, scheduled_date, topic_preview, note, is_active')
+    .select('id, scheduled_date, topic_preview, note, is_active, publication_status')
     .order('scheduled_date', { ascending: true })
 
   if (error) {
@@ -970,6 +1428,7 @@ export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListI
     topicPreview: row.topic_preview,
     note: row.note,
     isActive: row.is_active ?? false,
+    publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
   }))
 }
 
@@ -980,7 +1439,7 @@ export async function listActiveUpcomingTimirit(): Promise<UpcomingTimirtListIte
 
   const { data, error } = await supabase
     .from('upcoming_timirit')
-    .select('id, scheduled_date, topic_preview, note, is_active')
+    .select('id, scheduled_date, topic_preview, note, is_active, publication_status')
     .eq('is_active', true)
     .order('scheduled_date', { ascending: true })
 
@@ -994,6 +1453,7 @@ export async function listActiveUpcomingTimirit(): Promise<UpcomingTimirtListIte
     topicPreview: row.topic_preview,
     note: row.note,
     isActive: row.is_active ?? false,
+    publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
   }))
 }
 
@@ -1004,7 +1464,10 @@ export async function setUpcomingTimiritActive(id: string, isActive: boolean): P
 
   const { error } = await supabase
     .from('upcoming_timirit')
-    .update({ is_active: isActive })
+    .update({
+      is_active: isActive,
+      publication_status: isActive ? 'published' : 'draft',
+    })
     .eq('id', id)
 
   if (error) {
@@ -1021,7 +1484,7 @@ export async function deactivateUpcomingTimirt(id?: string): Promise<void> {
 
   let query = supabase
     .from('upcoming_timirit')
-    .update({ is_active: false })
+    .update({ is_active: false, publication_status: 'draft' })
     .eq('is_active', true)
 
   if (id) {
@@ -1103,7 +1566,11 @@ export async function createWeeklyClass(
       english_summary: data.englishSummary,
       key_points: data.keyPoints,
       verses: data.verses || [],
-      youtube_url: data.youtubeUrl || null
+      youtube_url: data.youtubeUrl || null,
+      audio_url: data.audioUrl || null,
+      audio_title: data.audioTitle || null,
+      audio_note: data.audioNote || null,
+      lesson_media_enabled: data.lessonMediaEnabled ?? true,
     })
     .select('id')
     .single()
@@ -1137,6 +1604,11 @@ export async function updateWeeklyClass(
   if (data.keyPoints !== undefined) updateData.key_points = data.keyPoints
   if (data.verses !== undefined) updateData.verses = data.verses
   if (data.youtubeUrl !== undefined) updateData.youtube_url = data.youtubeUrl
+  if (data.audioUrl !== undefined) updateData.audio_url = data.audioUrl
+  if (data.audioTitle !== undefined) updateData.audio_title = data.audioTitle
+  if (data.audioNote !== undefined) updateData.audio_note = data.audioNote
+  if (data.lessonMediaEnabled !== undefined) updateData.lesson_media_enabled = data.lessonMediaEnabled
+  if (data.teachingNotes !== undefined) updateData.teaching_notes = data.teachingNotes
   if (data.feedbackSummary !== undefined) updateData.feedback_summary = data.feedbackSummary
   if (data.attendanceSummary !== undefined) updateData.attendance_summary = data.attendanceSummary
 
@@ -1190,7 +1662,8 @@ function transformWeeklyClass(data: any): WeeklyClass {
           title: m.title,
           transliteration: m.transliteration || undefined,
           lyrics: m.lyrics || undefined,
-          youtubeUrl: m.youtube_url || undefined
+          youtubeUrl: m.youtube_url || undefined,
+          audioUrl: m.audio_url || undefined,
         }))
     : []
 
@@ -1216,6 +1689,11 @@ function transformWeeklyClass(data: any): WeeklyClass {
     keyPoints: Array.isArray(data.key_points) ? data.key_points : [],
     verses: Array.isArray(data.verses) ? data.verses : undefined,
     youtubeUrl: data.youtube_url || undefined,
+    audioUrl: data.audio_url || undefined,
+    audioTitle: data.audio_title || undefined,
+    audioNote: data.audio_note || undefined,
+    lessonMediaEnabled: data.lesson_media_enabled ?? true,
+    teachingNotes: data.teaching_notes || undefined,
     mezmurs,
     questions: sortedQuestions,
     feedbackSummary: data.feedback_summary || undefined,

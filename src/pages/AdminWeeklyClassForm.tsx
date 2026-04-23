@@ -61,13 +61,31 @@ function createEmptyForm(): FormState {
     keyPoints: ['', '', ''],
     verses: ['', ''],
     youtubeUrl: '',
+    audioUrl: '',
+    audioTitle: '',
+    audioNote: '',
+    lessonMediaEnabled: true,
+    teachingNotes: '',
     mezmurs: [
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
     ],
     questions: [],
     feedbackSummary: '',
     attendanceSummary: '',
+  }
+}
+
+function isValidUrl(value: string) {
+  if (!value.trim()) {
+    return true
+  }
+
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
   }
 }
 
@@ -119,18 +137,25 @@ export function AdminWeeklyClassForm() {
           keyPoints: [...weeklyClass.keyPoints, '', '', ''].slice(0, 3),
           verses: [...(weeklyClass.verses ?? []), '', ''].slice(0, 2),
           youtubeUrl: weeklyClass.youtubeUrl || '',
+          audioUrl: weeklyClass.audioUrl || '',
+          audioTitle: weeklyClass.audioTitle || '',
+          audioNote: weeklyClass.audioNote || '',
+          lessonMediaEnabled: weeklyClass.lessonMediaEnabled ?? true,
+          teachingNotes: weeklyClass.teachingNotes || '',
           mezmurs: [
             {
               title: weeklyClass.mezmurs[0]?.title || '',
               transliteration: weeklyClass.mezmurs[0]?.transliteration || '',
               lyrics: weeklyClass.mezmurs[0]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[0]?.youtubeUrl || '',
+              audioUrl: weeklyClass.mezmurs[0]?.audioUrl || '',
             },
             {
               title: weeklyClass.mezmurs[1]?.title || '',
               transliteration: weeklyClass.mezmurs[1]?.transliteration || '',
               lyrics: weeklyClass.mezmurs[1]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[1]?.youtubeUrl || '',
+              audioUrl: weeklyClass.mezmurs[1]?.audioUrl || '',
             },
           ],
           questions: weeklyClass.questions.map((question) => {
@@ -223,6 +248,18 @@ export function AdminWeeklyClassForm() {
       return
     }
 
+    if (!isValidUrl(form.youtubeUrl || '') || !isValidUrl(form.audioUrl || '')) {
+      setError('Please enter valid YouTube/audio links or leave them empty.')
+      return
+    }
+    const hasInvalidMezmurLink = form.mezmurs.some(
+      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
+    )
+    if (hasInvalidMezmurLink) {
+      setError('Please enter valid mezmur audio/video links or leave them empty.')
+      return
+    }
+
     try {
       setSaving(true)
       setError(null)
@@ -233,6 +270,9 @@ export function AdminWeeklyClassForm() {
         id: form.id.trim() || form.date,
         keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
         verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
+        audioTitle: form.audioTitle?.trim() || '',
+        audioNote: form.audioNote?.trim() || '',
+        teachingNotes: form.teachingNotes?.trim() || '',
         questions: form.questions
           .map((question) => {
             if (question.type === 'multiple-choice') {
@@ -319,6 +359,28 @@ export function AdminWeeklyClassForm() {
         <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link
           <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
         </label>
+        <label className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-brand-200 px-4 text-sm font-medium text-brand-900">
+          <input
+            type="checkbox"
+            checked={form.lessonMediaEnabled ?? true}
+            onChange={(event) => setForm({ ...form, lessonMediaEnabled: event.target.checked })}
+          />
+          Enable lesson media on the public lesson page
+        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Audio lesson link
+            <input type="url" value={form.audioUrl || ''} onChange={(event) => setForm({ ...form, audioUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://example.com/lesson.mp3" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Audio title (optional)
+            <input type="text" value={form.audioTitle || ''} onChange={(event) => setForm({ ...form, audioTitle: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Week 12 audio lesson" />
+          </label>
+        </div>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Audio note (optional)
+          <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Use headphones for clearer listening in public spaces." />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Teaching notes / transcript (optional)
+          <textarea value={form.teachingNotes || ''} onChange={(event) => setForm({ ...form, teachingNotes: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Optional transcript highlights or teaching notes for catch-up readers." />
+        </label>
         <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
@@ -358,6 +420,7 @@ export function AdminWeeklyClassForm() {
                 <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Transliteration" />
               </div>
               <input type="url" value={mezmur.youtubeUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="YouTube practice link" />
+              <input type="url" value={mezmur.audioUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, audioUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Audio practice link" />
               <textarea value={mezmur.lyrics || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, lyrics: event.target.value }; setForm({ ...form, mezmurs }) }} rows={4} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur lyrics" />
             </div>
           ))}

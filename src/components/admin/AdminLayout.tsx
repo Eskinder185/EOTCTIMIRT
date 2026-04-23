@@ -6,6 +6,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: '📊' },
   { name: 'Weekly Classes', href: '/admin/weekly-classes', icon: '📚' },
   { name: 'Upcoming Timirit', href: '/admin/upcoming', icon: '🔮' },
+  { name: 'Weekly Knowledge', href: '/admin/weekly-knowledge', icon: '🕯️' },
 ]
 
 export function AdminLayout() {
@@ -80,7 +81,7 @@ export function AdminLayout() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-brand-200 bg-white/95 px-2 py-2 shadow-lg backdrop-blur md:hidden">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href
             return (

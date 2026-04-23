@@ -22,6 +22,13 @@ export const TEACHER_INFO = {
   nameAmharic: 'በኩረ ሰባክያን ምህረተአብ አሰፋ',
 } as const
 
+/** Official public teaching channel for the Timirt teacher */
+export const TEACHER_YOUTUBE_CHANNEL = {
+  url: 'https://youtube.com/@orthodoxbiblestudy?si=cbzq6Og9yQv94-6Z',
+  title: 'Orthodox Bible Study Channel',
+  description: 'Watch teachings and Bible study videos from the main teacher channel.',
+} as const
+
 /** Current Timirt topic */
 export const CURRENT_TOPIC = {
   english: 'Ekebete Ement',

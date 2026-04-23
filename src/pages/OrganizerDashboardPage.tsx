@@ -6,6 +6,7 @@ const organizerLinks = [
   { label: 'Organizer Login', href: '/admin/login' },
   { label: 'Weekly Classes', href: '/admin/weekly-classes' },
   { label: 'Upcoming Timirit', href: '/admin/upcoming' },
+  { label: 'Weekly Knowledge', href: '/admin/weekly-knowledge' },
   { label: 'About', href: '/about' },
 ]
 
@@ -29,6 +30,11 @@ const organizerActions = [
     title: 'Manage Upcoming Timirit',
     detail: 'Update the next Tuesday preview and the two upcoming mezmurs for the parish site.',
     href: '/admin/upcoming',
+  },
+  {
+    title: 'Manage Weekly Knowledge',
+    detail: 'Publish this week\'s short Orthodox insight, reminder, or term card.',
+    href: '/admin/weekly-knowledge',
   },
 ]
 

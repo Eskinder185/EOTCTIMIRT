@@ -4,6 +4,87 @@
 ALTER TABLE upcoming_mezmurs
 ADD COLUMN IF NOT EXISTS youtube_url TEXT;
 
+ALTER TABLE mezmurs
+ADD COLUMN IF NOT EXISTS audio_url TEXT;
+
+ALTER TABLE upcoming_mezmurs
+ADD COLUMN IF NOT EXISTS audio_url TEXT;
+
+ALTER TABLE weekly_classes
+ADD COLUMN IF NOT EXISTS audio_url TEXT,
+ADD COLUMN IF NOT EXISTS audio_title TEXT,
+ADD COLUMN IF NOT EXISTS audio_note TEXT,
+ADD COLUMN IF NOT EXISTS lesson_media_enabled BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS teaching_notes TEXT;
+
+CREATE TABLE IF NOT EXISTS weekly_knowledge (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  content TEXT NOT NULL,
+  extra_note TEXT,
+  image_url TEXT,
+  button_text TEXT,
+  button_link TEXT,
+  content_type TEXT NOT NULL DEFAULT 'Knowledge',
+  status TEXT NOT NULL DEFAULT 'Draft',
+  start_date DATE,
+  end_date DATE,
+  is_active BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  created_by UUID REFERENCES auth.users(id)
+);
+
+ALTER TABLE weekly_knowledge
+DROP CONSTRAINT IF EXISTS weekly_knowledge_status_check;
+
+ALTER TABLE weekly_knowledge
+ADD CONSTRAINT weekly_knowledge_status_check
+CHECK (status IN ('Draft', 'Published', 'Hidden'));
+
+CREATE INDEX IF NOT EXISTS idx_weekly_knowledge_status_active
+  ON weekly_knowledge(status, is_active, updated_at DESC);
+
+ALTER TABLE weekly_knowledge ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read weekly knowledge" ON weekly_knowledge;
+CREATE POLICY "Public can read weekly knowledge" ON weekly_knowledge FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Organizers can manage weekly knowledge" ON weekly_knowledge;
+CREATE POLICY "Organizers can manage weekly knowledge" ON weekly_knowledge FOR ALL USING (
+  auth.role() = 'authenticated' AND
+  EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
+);
+
+DROP TRIGGER IF EXISTS update_weekly_knowledge_updated_at ON weekly_knowledge;
+CREATE TRIGGER update_weekly_knowledge_updated_at
+BEFORE UPDATE ON weekly_knowledge
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE upcoming_timirit
+ADD COLUMN IF NOT EXISTS lesson_youtube_url TEXT,
+ADD COLUMN IF NOT EXISTS lesson_audio_url TEXT,
+ADD COLUMN IF NOT EXISTS lesson_audio_title TEXT,
+ADD COLUMN IF NOT EXISTS lesson_note TEXT,
+ADD COLUMN IF NOT EXISTS weekly_knowledge_content TEXT,
+ADD COLUMN IF NOT EXISTS weekly_knowledge_image_url TEXT,
+ADD COLUMN IF NOT EXISTS key_verse TEXT,
+ADD COLUMN IF NOT EXISTS organizer_note TEXT,
+ADD COLUMN IF NOT EXISTS class_summary_content TEXT,
+ADD COLUMN IF NOT EXISTS publication_status TEXT DEFAULT 'draft';
+
+UPDATE upcoming_timirit
+SET publication_status = CASE WHEN is_active = true THEN 'published' ELSE 'draft' END
+WHERE publication_status IS NULL;
+
+ALTER TABLE upcoming_timirit
+DROP CONSTRAINT IF EXISTS upcoming_timirit_publication_status_check;
+
+ALTER TABLE upcoming_timirit
+ADD CONSTRAINT upcoming_timirit_publication_status_check
+CHECK (publication_status IN ('draft', 'published'));
+
 -- ============================================================================
 -- MIGRATE WEEKLY CLASSES
 -- ============================================================================
@@ -180,11 +261,36 @@ VALUES
 -- MIGRATE UPCOMING TIMIRIT
 -- ============================================================================
 
-INSERT INTO upcoming_timirit (scheduled_date, topic_preview, note, is_active)
+INSERT INTO upcoming_timirit (
+  scheduled_date,
+  topic_preview,
+  note,
+  lesson_youtube_url,
+  lesson_audio_url,
+  lesson_audio_title,
+  lesson_note,
+  weekly_knowledge_content,
+  weekly_knowledge_image_url,
+  key_verse,
+  organizer_note,
+  class_summary_content,
+  publication_status,
+  is_active
+)
 VALUES (
   '2026-04-22',
   'The Mother of God in the teaching of the Ethiopian Orthodox Tewahedo Church',
   'We will hear from the Divine Liturgy, the Synaxarium, and the Fathers on how the Theotokos is honored rightly in our Church.',
+  'https://www.youtube.com/watch?v=placeholder-upcoming-class',
+  NULL,
+  NULL,
+  'Please review these lesson links before class.',
+  'Mary is honored in the Church as Theotokos, and her witness points us to Christ in humility and obedience.',
+  NULL,
+  'Luke 1:46-49',
+  'Come prepared with prayer and your questions.',
+  'This week we will connect liturgy, synaxarium readings, and patristic teaching on the Mother of God.',
+  'published',
   true
 );
 
@@ -269,13 +375,34 @@ CREATE TABLE IF NOT EXISTS anonymous_feedback_submissions (
   category TEXT NOT NULL CHECK (category IN (
     'Website feedback',
     'Teaching feedback',
-    'Future topic suggestion',
-    'General note'
+    'Topic suggestion',
+    'Prayer / support note',
+    'General message'
   )),
   subject TEXT,
   message TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+UPDATE anonymous_feedback_submissions
+SET category = 'Topic suggestion'
+WHERE category = 'Future topic suggestion';
+
+UPDATE anonymous_feedback_submissions
+SET category = 'General message'
+WHERE category = 'General note';
+
+ALTER TABLE anonymous_feedback_submissions
+DROP CONSTRAINT IF EXISTS anonymous_feedback_submissions_category_check;
+
+ALTER TABLE anonymous_feedback_submissions
+ADD CONSTRAINT anonymous_feedback_submissions_category_check CHECK (category IN (
+  'Website feedback',
+  'Teaching feedback',
+  'Topic suggestion',
+  'Prayer / support note',
+  'General message'
+));
 
 CREATE TABLE IF NOT EXISTS anonymous_feedback_rate_limits (
   identifier_hash TEXT PRIMARY KEY,
@@ -295,3 +422,177 @@ CREATE POLICY "Organizers can read anonymous feedback" ON anonymous_feedback_sub
   auth.role() = 'authenticated' AND
   EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND is_active = true)
 );
+
+-- ============================================================================
+-- BILINGUAL CONTENT (English / Amharic) — additive columns + backfills
+-- ============================================================================
+
+-- Weekly classes
+ALTER TABLE weekly_classes
+  ADD COLUMN IF NOT EXISTS topic_en TEXT,
+  ADD COLUMN IF NOT EXISTS topic_am TEXT,
+  ADD COLUMN IF NOT EXISTS audio_title_en TEXT,
+  ADD COLUMN IF NOT EXISTS audio_title_am TEXT,
+  ADD COLUMN IF NOT EXISTS audio_note_en TEXT,
+  ADD COLUMN IF NOT EXISTS audio_note_am TEXT,
+  ADD COLUMN IF NOT EXISTS teaching_notes_en TEXT,
+  ADD COLUMN IF NOT EXISTS teaching_notes_am TEXT;
+
+UPDATE weekly_classes
+SET topic_en = COALESCE(topic_en, topic)
+WHERE topic IS NOT NULL;
+
+ALTER TABLE weekly_classes
+  ALTER COLUMN topic DROP NOT NULL;
+
+-- Mezmurs (weekly class)
+ALTER TABLE mezmurs
+  ADD COLUMN IF NOT EXISTS title_en TEXT,
+  ADD COLUMN IF NOT EXISTS title_am TEXT,
+  ADD COLUMN IF NOT EXISTS lyrics_en TEXT,
+  ADD COLUMN IF NOT EXISTS lyrics_am TEXT,
+  ADD COLUMN IF NOT EXISTS note_en TEXT,
+  ADD COLUMN IF NOT EXISTS note_am TEXT;
+
+UPDATE mezmurs
+SET title_en = COALESCE(title_en, title)
+WHERE title IS NOT NULL;
+
+-- Questions
+ALTER TABLE questions
+  ADD COLUMN IF NOT EXISTS prompt_en TEXT,
+  ADD COLUMN IF NOT EXISTS prompt_am TEXT,
+  ADD COLUMN IF NOT EXISTS helper_text_en TEXT,
+  ADD COLUMN IF NOT EXISTS helper_text_am TEXT,
+  ADD COLUMN IF NOT EXISTS placeholder_en TEXT,
+  ADD COLUMN IF NOT EXISTS placeholder_am TEXT,
+  ADD COLUMN IF NOT EXISTS explanation_en TEXT,
+  ADD COLUMN IF NOT EXISTS explanation_am TEXT;
+
+UPDATE questions
+SET prompt_en = COALESCE(prompt_en, prompt)
+WHERE prompt IS NOT NULL;
+
+ALTER TABLE questions
+  ALTER COLUMN prompt DROP NOT NULL;
+
+-- Multiple choice options
+ALTER TABLE multiple_choice_options
+  ADD COLUMN IF NOT EXISTS option_text_en TEXT,
+  ADD COLUMN IF NOT EXISTS option_text_am TEXT;
+
+UPDATE multiple_choice_options
+SET option_text_en = COALESCE(option_text_en, option_text)
+WHERE option_text IS NOT NULL;
+
+ALTER TABLE multiple_choice_options
+  ALTER COLUMN option_text DROP NOT NULL;
+
+-- Attendance options
+ALTER TABLE attendance_options
+  ADD COLUMN IF NOT EXISTS label_en TEXT,
+  ADD COLUMN IF NOT EXISTS label_am TEXT;
+
+UPDATE attendance_options
+SET label_en = COALESCE(label_en, label)
+WHERE label IS NOT NULL;
+
+ALTER TABLE attendance_options
+  ALTER COLUMN label DROP NOT NULL;
+
+-- Upcoming timirit
+ALTER TABLE upcoming_timirit
+  ADD COLUMN IF NOT EXISTS topic_preview_en TEXT,
+  ADD COLUMN IF NOT EXISTS topic_preview_am TEXT,
+  ADD COLUMN IF NOT EXISTS note_en TEXT,
+  ADD COLUMN IF NOT EXISTS note_am TEXT,
+  ADD COLUMN IF NOT EXISTS lesson_audio_title_en TEXT,
+  ADD COLUMN IF NOT EXISTS lesson_audio_title_am TEXT,
+  ADD COLUMN IF NOT EXISTS lesson_note_en TEXT,
+  ADD COLUMN IF NOT EXISTS lesson_note_am TEXT,
+  ADD COLUMN IF NOT EXISTS weekly_knowledge_content_en TEXT,
+  ADD COLUMN IF NOT EXISTS weekly_knowledge_content_am TEXT,
+  ADD COLUMN IF NOT EXISTS key_verse_en TEXT,
+  ADD COLUMN IF NOT EXISTS key_verse_am TEXT,
+  ADD COLUMN IF NOT EXISTS organizer_note_en TEXT,
+  ADD COLUMN IF NOT EXISTS organizer_note_am TEXT,
+  ADD COLUMN IF NOT EXISTS class_summary_content_en TEXT,
+  ADD COLUMN IF NOT EXISTS class_summary_content_am TEXT;
+
+UPDATE upcoming_timirit
+SET topic_preview_en = COALESCE(topic_preview_en, topic_preview)
+WHERE topic_preview IS NOT NULL;
+
+UPDATE upcoming_timirit
+SET note_en = COALESCE(note_en, note)
+WHERE note IS NOT NULL;
+
+UPDATE upcoming_timirit
+SET weekly_knowledge_content_en = COALESCE(weekly_knowledge_content_en, weekly_knowledge_content)
+WHERE weekly_knowledge_content IS NOT NULL;
+
+UPDATE upcoming_timirit
+SET key_verse_en = COALESCE(key_verse_en, key_verse)
+WHERE key_verse IS NOT NULL;
+
+UPDATE upcoming_timirit
+SET organizer_note_en = COALESCE(organizer_note_en, organizer_note)
+WHERE organizer_note IS NOT NULL;
+
+UPDATE upcoming_timirit
+SET class_summary_content_en = COALESCE(class_summary_content_en, class_summary_content)
+WHERE class_summary_content IS NOT NULL;
+
+ALTER TABLE upcoming_timirit
+  ALTER COLUMN topic_preview DROP NOT NULL,
+  ALTER COLUMN note DROP NOT NULL;
+
+-- Upcoming mezmurs
+ALTER TABLE upcoming_mezmurs
+  ADD COLUMN IF NOT EXISTS title_en TEXT,
+  ADD COLUMN IF NOT EXISTS title_am TEXT,
+  ADD COLUMN IF NOT EXISTS lyrics_en TEXT,
+  ADD COLUMN IF NOT EXISTS lyrics_am TEXT,
+  ADD COLUMN IF NOT EXISTS note_en TEXT,
+  ADD COLUMN IF NOT EXISTS note_am TEXT;
+
+UPDATE upcoming_mezmurs
+SET title_en = COALESCE(title_en, title)
+WHERE title IS NOT NULL;
+
+-- Weekly knowledge
+ALTER TABLE weekly_knowledge
+  ADD COLUMN IF NOT EXISTS title_en TEXT,
+  ADD COLUMN IF NOT EXISTS title_am TEXT,
+  ADD COLUMN IF NOT EXISTS subtitle_en TEXT,
+  ADD COLUMN IF NOT EXISTS subtitle_am TEXT,
+  ADD COLUMN IF NOT EXISTS content_en TEXT,
+  ADD COLUMN IF NOT EXISTS content_am TEXT,
+  ADD COLUMN IF NOT EXISTS extra_note_en TEXT,
+  ADD COLUMN IF NOT EXISTS extra_note_am TEXT,
+  ADD COLUMN IF NOT EXISTS button_text_en TEXT,
+  ADD COLUMN IF NOT EXISTS button_text_am TEXT;
+
+UPDATE weekly_knowledge
+SET title_en = COALESCE(title_en, title)
+WHERE title IS NOT NULL;
+
+UPDATE weekly_knowledge
+SET subtitle_en = COALESCE(subtitle_en, subtitle)
+WHERE subtitle IS NOT NULL;
+
+UPDATE weekly_knowledge
+SET content_en = COALESCE(content_en, content)
+WHERE content IS NOT NULL;
+
+UPDATE weekly_knowledge
+SET extra_note_en = COALESCE(extra_note_en, extra_note)
+WHERE extra_note IS NOT NULL;
+
+UPDATE weekly_knowledge
+SET button_text_en = COALESCE(button_text_en, button_text)
+WHERE button_text IS NOT NULL;
+
+ALTER TABLE weekly_knowledge
+  ALTER COLUMN title DROP NOT NULL,
+  ALTER COLUMN content DROP NOT NULL;

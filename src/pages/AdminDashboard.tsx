@@ -30,7 +30,14 @@ const quickActions = [
     href: '/admin/upcoming',
     icon: '🔮',
     color: 'bg-violet-600'
-  }
+  },
+  {
+    title: 'Manage Weekly Knowledge',
+    description: 'Publish one compact weekly insight card for parish learners.',
+    href: '/admin/weekly-knowledge',
+    icon: '🕯️',
+    color: 'bg-indigo-600'
+  },
 ]
 
 export function AdminDashboard() {

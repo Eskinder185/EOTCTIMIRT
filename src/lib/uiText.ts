@@ -20,6 +20,14 @@ const uiText = {
   mezmurPractice: { en: 'Mezmur Practice', am: 'የመዝሙር ልምምድ' },
   openYouTube: { en: 'Open YouTube', am: 'YouTube ይክፈቱ' },
   openPractice: { en: 'Open Practice', am: 'ልምምድ ይክፈቱ' },
+  watchOnYouTube: { en: 'Watch on YouTube', am: 'በ YouTube ይመልከቱ' },
+  practiceOnTewahedoDaily: {
+    en: 'Practice on Tewahedo Daily',
+    am: 'በ Tewahedo Daily ልምምድ',
+  },
+  youtubeComingSoon: { en: 'YouTube link coming soon', am: 'የ YouTube አገናኝ በቅርቡ ይመጣል' },
+  contextUpcoming: { en: 'Upcoming', am: 'የሚመጣ' },
+  contextLastWeek: { en: 'Last week', am: 'ያለፈ ሳምንት' },
   loading: { en: 'Loading...', am: 'በመጫን ላይ...' },
   language: { en: 'Language', am: 'ቋንቋ' },
 } as const

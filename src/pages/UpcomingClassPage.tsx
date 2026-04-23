@@ -1,33 +1,58 @@
 import { useEffect, useMemo, useState } from 'react'
+import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
+import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
-import { getUpcomingPreview } from '../data/weeksRepo'
+import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
+import type { WeeklyClass } from '../data/types'
+import type { WeeklyKnowledgeItem } from '../data/weeklyKnowledge'
 import { formatClassDate } from '../lib/formatDate'
+import { getActiveWeeklyKnowledge } from '../lib/supabaseData'
+import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { useUiText } from '../lib/uiText'
 
 export function UpcomingClassPage() {
   const t = useUiText()
   const [upcoming, setUpcoming] = useState<UpcomingTimirtPreview | null>(null)
+  const [weeklyKnowledge, setWeeklyKnowledge] = useState<WeeklyKnowledgeItem | null>(null)
+  const [lastClass, setLastClass] = useState<WeeklyClass | null>(null)
   const [loading, setLoading] = useState(true)
   const preparationLinks = useMemo(
     () => [
-      { label: t('mezmurPractice'), href: 'https://tewahedodaily.pages.dev/practice' },
-      { label: t('calendar'), href: 'https://tewahedodaily.pages.dev/calendar' },
       {
-        label: 'Orthodox Resources',
+        label: 'Open Mezmur practice library',
+        href: 'https://tewahedodaily.pages.dev/practice',
+      },
+      {
+        label: 'View parish calendar',
+        href: 'https://tewahedodaily.pages.dev/calendar',
+      },
+      {
+        label: 'Read Orthodox study resource',
         href: '/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf',
         title: 'Opens the main Orthodox study PDF',
       },
+      {
+        label: 'Browse upcoming mezmurs page',
+        href: '/upcoming-mezmurs?mode=present',
+      },
     ],
-    [t],
+    [],
   )
 
   useEffect(() => {
     const loadUpcoming = async () => {
       try {
         setLoading(true)
-        setUpcoming(await getUpcomingPreview())
+        const [preview, knowledge, weeks] = await Promise.all([
+          getUpcomingPreview(),
+          getActiveWeeklyKnowledge(),
+          listWeeks(),
+        ])
+        setUpcoming(preview)
+        setWeeklyKnowledge(knowledge)
+        setLastClass(weeks[0] ?? null)
       } catch (error) {
         console.error('Failed to load upcoming class:', error)
         setUpcoming(null)
@@ -70,6 +95,10 @@ export function UpcomingClassPage() {
     )
   }
 
+  const previewEmbedUrl = toYouTubeEmbedUrl(upcoming.lessonYoutubeUrl)
+  const hasPreviewAudio = Boolean(upcoming.lessonAudioUrl?.trim())
+  const hasPreviewVideo = Boolean(previewEmbedUrl)
+
   return (
     <div className="space-y-4">
       <Card>
@@ -77,14 +106,83 @@ export function UpcomingClassPage() {
         <h1 className="mt-1 text-xl font-bold text-brand-900 sm:text-2xl">{upcoming.topicPreview}</h1>
         <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
         <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
+        {upcoming.lessonNote ? (
+          <p className="mt-3 text-sm leading-relaxed text-brand-700">{upcoming.lessonNote}</p>
+        ) : null}
       </Card>
 
+      {weeklyKnowledge ? <WeeklyKnowledgeCard item={weeklyKnowledge} /> : null}
+
+      {hasPreviewAudio || hasPreviewVideo ? (
+        <Card>
+          <h2 className="text-base font-semibold text-brand-900">Teacher lesson media</h2>
+          <div className="mt-3 space-y-3">
+            {hasPreviewAudio ? (
+              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+                <p className="text-sm font-semibold text-brand-900">
+                  {upcoming.lessonAudioTitle?.trim() || 'Listen to the Lesson'}
+                </p>
+                <p className="mt-1 text-sm text-brand-700">Best for mobile listening with headphones.</p>
+                <audio controls preload="none" className="mt-2 w-full">
+                  <source src={upcoming.lessonAudioUrl} />
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            ) : null}
+            {hasPreviewVideo ? (
+              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+                <p className="text-sm font-semibold text-brand-900">Watch the Lesson</p>
+                <div className="mt-2 overflow-hidden rounded-xl border border-brand-200 bg-black">
+                  <iframe
+                    src={previewEmbedUrl}
+                    title="Upcoming lesson preview video"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="aspect-video w-full"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
+      <TeacherYoutubeChannelCard
+        eyebrow="From the teacher's channel"
+        title="Teacher teaching channel"
+        description="Browse deeper teaching and Bible study videos from the teacher's official channel to prepare your heart and mind before Tuesday."
+        buttonLabel="Visit teacher channel"
+      />
+
       <Card>
-        <h2 className="text-base font-semibold text-brand-900">What the next class is about</h2>
-        <p className="mt-2 text-sm leading-relaxed text-brand-800">
-          This preview gives the parish a simple way to see the next Timirit topic, review the note from the organizers,
-          and prepare with peace before next Tuesday.
-        </p>
+        <h2 className="text-base font-semibold text-brand-900">Preparation checklist</h2>
+        <ul className="mt-3 space-y-2 text-sm text-brand-800">
+          <li className="rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2">
+            1. Review last summary before Tuesday.
+          </li>
+          <li className="rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2">
+            2. Listen to the lesson audio while commuting or resting.
+          </li>
+          <li className="rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2">
+            3. Practice the two upcoming mezmurs with your family.
+          </li>
+          <li className="rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2">
+            4. Check Orthodox resources for context and key terms.
+          </li>
+        </ul>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <RouterLinkButton
+            to={lastClass ? `/class/${lastClass.id}` : '/past-timirit'}
+            variant="secondary"
+            className="w-full"
+          >
+            {lastClass ? 'Review last summary' : 'Browse past summaries'}
+          </RouterLinkButton>
+          <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
+            Practice upcoming mezmurs
+          </RouterLinkButton>
+        </div>
       </Card>
 
       <Card>
@@ -107,13 +205,29 @@ export function UpcomingClassPage() {
           href="/mezmurs"
           className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
         >
-          Go to Mezmurs
+          Open upcoming mezmurs
         </a>
       </Card>
 
       <Card>
-        <h2 className="text-base font-semibold text-brand-900">Preparation resources</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <h2 className="text-base font-semibold text-brand-900">Class preview summary</h2>
+        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-brand-800">
+          {upcoming.classSummaryContent?.trim() || 'Class summary content will be added by organizers.'}
+        </p>
+      </Card>
+
+      {upcoming.keyVerse ? (
+        <Card>
+          <h2 className="text-base font-semibold text-brand-900">Key verse for this week</h2>
+          <p className="mt-2 rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-3 text-sm font-medium leading-relaxed text-brand-900">
+            {upcoming.keyVerse}
+          </p>
+        </Card>
+      ) : null}
+
+      <Card>
+        <h2 className="text-base font-semibold text-brand-900">Related links</h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {preparationLinks.map((link) => (
             <a
               key={link.href}
@@ -129,15 +243,14 @@ export function UpcomingClassPage() {
         </div>
       </Card>
 
-      <Card>
-        <h2 className="text-base font-semibold text-brand-900">Guidance</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
-          <li>Review the last class summary before next Tuesday.</li>
-          <li>Prepare the mezmurs ahead of time if possible.</li>
-          <li>Read the preview note so the topic is familiar.</li>
-          <li>Come ready for the next Tuesday Timirit with prayer and attention.</li>
-        </ul>
-      </Card>
+      {upcoming.organizerNote?.trim() ? (
+        <Card>
+          <h2 className="text-base font-semibold text-brand-900">Note from organizers</h2>
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-brand-800">
+            {upcoming.organizerNote}
+          </p>
+        </Card>
+      ) : null}
     </div>
   )
 }

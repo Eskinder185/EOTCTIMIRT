@@ -8,8 +8,34 @@ export interface UpcomingTimirtPreview {
   /** ISO date for the upcoming Tuesday session */
   scheduledDate: string
   topicPreview: string
+  topicPreviewEn?: string
+  topicPreviewAm?: string
   /** Short note for the parish bulletin tone — Holy Tradition, not hype */
   note: string
+  noteEn?: string
+  noteAm?: string
+  lessonYoutubeUrl?: string
+  lessonAudioUrl?: string
+  lessonAudioTitle?: string
+  lessonAudioTitleEn?: string
+  lessonAudioTitleAm?: string
+  lessonNote?: string
+  lessonNoteEn?: string
+  lessonNoteAm?: string
+  weeklyKnowledgeContent?: string
+  weeklyKnowledgeContentEn?: string
+  weeklyKnowledgeContentAm?: string
+  weeklyKnowledgeImageUrl?: string
+  keyVerse?: string
+  keyVerseEn?: string
+  keyVerseAm?: string
+  organizerNote?: string
+  organizerNoteEn?: string
+  organizerNoteAm?: string
+  classSummaryContent?: string
+  classSummaryContentEn?: string
+  classSummaryContentAm?: string
+  publicationStatus?: 'draft' | 'published'
   mezmurs: [Mezmur, Mezmur]
 }
 
