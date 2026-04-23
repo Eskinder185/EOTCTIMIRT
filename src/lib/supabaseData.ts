@@ -133,6 +133,13 @@ type SupabaseErrorLike = {
   code?: string | null
 }
 
+function parseOptionalUuid(value?: string | null): string | undefined {
+  const trimmed = trim(value)
+  if (!trimmed) return undefined
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidPattern.test(trimmed) ? trimmed : undefined
+}
+
 function throwSupabaseWriteError(
   operation: string,
   table: string,
@@ -383,7 +390,7 @@ export async function deleteWeeklyKnowledge(id: string): Promise<void> {
 
 export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.')
-  const id = trim(data.id) ?? data.date ?? crypto.randomUUID()
+  const id = parseOptionalUuid(data.id) ?? crypto.randomUUID()
   const assertNoError = (
     operation: string,
     error: { message: string; details?: string | null; hint?: string | null; code?: string | null } | null,
