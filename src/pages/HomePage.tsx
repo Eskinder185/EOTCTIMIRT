@@ -93,7 +93,7 @@ export function HomePage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
           {CHURCH_FULL_NAME}
         </p>
-        <h1 className="mt-1 text-xl font-bold text-brand-900">EOTC Timrit</h1>
+        <h1 className="mt-1 text-xl font-bold text-brand-900">EOTC Timirt</h1>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
           A compact Ethiopian Orthodox Tewahedo Timirt hub for next Tuesday&apos;s class,
           recent summaries, weekly mezmurs, and parish support.
