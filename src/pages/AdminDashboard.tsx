@@ -19,7 +19,7 @@ const quickActions = [
   },
   {
     title: 'Manage Questions',
-    description: 'Add follow-up, multiple-choice, reflection, and attendance questions.',
+    description: 'Add follow-up, multiple-choice, reflection, and short-answer questions.',
     href: '/admin/weekly-classes/new#questions-editor',
     icon: '❓',
     color: 'bg-blue-600'

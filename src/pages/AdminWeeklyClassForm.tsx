@@ -685,7 +685,7 @@ export function AdminWeeklyClassForm() {
             <p className="text-sm text-brand-700">Add, arrange, and refine the follow-up questions for the parish.</p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            {(['multiple-choice', 'short-answer', 'reflection', 'feedback-open', 'attendance'] as QuestionType[]).map((type) => (
+            {(['multiple-choice', 'short-answer', 'reflection', 'feedback-open'] as QuestionType[]).map((type) => (
               <button key={type} type="button" onClick={() => setForm({ ...form, questions: [...form.questions, createEmptyQuestion(type)] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900 shadow-sm">Add {type}</button>
             ))}
           </div>
@@ -718,7 +718,6 @@ export function AdminWeeklyClassForm() {
                       <option value="short-answer">short-answer</option>
                       <option value="reflection">reflection</option>
                       <option value="feedback-open">feedback-open</option>
-                      <option value="attendance">attendance</option>
                     </select>
                   </label>
                 </div>

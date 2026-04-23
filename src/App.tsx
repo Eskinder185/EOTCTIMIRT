@@ -7,7 +7,6 @@ import { ClassPage } from './pages/ClassPage'
 import { AboutPage } from './pages/AboutPage'
 import { HomePage } from './pages/HomePage'
 import { AdminDashboard } from './pages/AdminDashboard'
-import { AdminResponsesDashboard } from './pages/AdminResponsesDashboard'
 import { AdminUpcomingPage } from './pages/AdminUpcomingPage'
 import { AdminWeeklyKnowledgePage } from './pages/AdminWeeklyKnowledgePage'
 import { AdminWeeklyClassForm } from './pages/AdminWeeklyClassForm'
@@ -75,7 +74,6 @@ export default function App() {
           <Route path="weekly-classes/:id" element={<AdminWeeklyClassForm />} />
           <Route path="upcoming" element={<AdminUpcomingPage />} />
           <Route path="weekly-knowledge" element={<AdminWeeklyKnowledgePage />} />
-          <Route path="responses" element={<AdminResponsesDashboard />} />
           <Route path="classes" element={<Navigate to="/admin/weekly-classes" replace />} />
           <Route path="classes/new" element={<Navigate to="/admin/weekly-classes/new" replace />} />
           <Route path="classes/:id" element={<Navigate to="/admin/weekly-classes" replace />} />

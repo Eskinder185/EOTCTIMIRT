@@ -23,7 +23,7 @@ const organizerActions = [
   },
   {
     title: 'Manage Questions',
-    detail: 'Create multiple-choice, reflection, feedback, and attendance questions for the week.',
+    detail: 'Create multiple-choice, reflection, feedback, and short-answer questions for the week.',
     href: '/admin/weekly-classes/new#questions-editor',
   },
   {
