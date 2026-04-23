@@ -15,10 +15,6 @@ export type Database = {
           created_at: string
           id: string
           lyrics: string | null
-          lyrics_am: string | null
-          lyrics_en: string | null
-          note_am: string | null
-          note_en: string | null
           order_index: number
           title: string
           title_am: string | null
@@ -33,10 +29,6 @@ export type Database = {
           created_at?: string
           id?: string
           lyrics?: string | null
-          lyrics_am?: string | null
-          lyrics_en?: string | null
-          note_am?: string | null
-          note_en?: string | null
           order_index: number
           title: string
           title_am?: string | null
@@ -51,10 +43,6 @@ export type Database = {
           created_at?: string
           id?: string
           lyrics?: string | null
-          lyrics_am?: string | null
-          lyrics_en?: string | null
-          note_am?: string | null
-          note_en?: string | null
           order_index?: number
           title?: string
           title_am?: string | null
@@ -192,10 +180,6 @@ export type Database = {
           created_at: string
           id: string
           lyrics: string | null
-          lyrics_am: string | null
-          lyrics_en: string | null
-          note_am: string | null
-          note_en: string | null
           order_index: number
           title: string
           title_am: string | null
@@ -209,10 +193,6 @@ export type Database = {
           created_at?: string
           id?: string
           lyrics?: string | null
-          lyrics_am?: string | null
-          lyrics_en?: string | null
-          note_am?: string | null
-          note_en?: string | null
           order_index: number
           title: string
           title_am?: string | null
@@ -226,10 +206,6 @@ export type Database = {
           created_at?: string
           id?: string
           lyrics?: string | null
-          lyrics_am?: string | null
-          lyrics_en?: string | null
-          note_am?: string | null
-          note_en?: string | null
           order_index?: number
           title?: string
           title_am?: string | null
@@ -416,8 +392,6 @@ export type Database = {
           amharic_summary: string
           audio_note: string | null
           audio_title: string | null
-          audio_title_am: string | null
-          audio_title_en: string | null
           audio_url: string | null
           created_at: string
           created_by: string | null
@@ -431,8 +405,6 @@ export type Database = {
           speaker: string
           status: string | null
           teaching_notes: string | null
-          teaching_notes_am: string | null
-          teaching_notes_en: string | null
           topic: string | null
           topic_am: string | null
           topic_en: string | null
@@ -445,8 +417,6 @@ export type Database = {
           amharic_summary: string
           audio_note?: string | null
           audio_title?: string | null
-          audio_title_am?: string | null
-          audio_title_en?: string | null
           audio_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -460,8 +430,6 @@ export type Database = {
           speaker: string
           status?: string | null
           teaching_notes?: string | null
-          teaching_notes_am?: string | null
-          teaching_notes_en?: string | null
           topic?: string | null
           topic_am?: string | null
           topic_en?: string | null
@@ -474,8 +442,6 @@ export type Database = {
           amharic_summary?: string
           audio_note?: string | null
           audio_title?: string | null
-          audio_title_am?: string | null
-          audio_title_en?: string | null
           audio_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -489,8 +455,6 @@ export type Database = {
           speaker?: string
           status?: string | null
           teaching_notes?: string | null
-          teaching_notes_am?: string | null
-          teaching_notes_en?: string | null
           topic?: string | null
           topic_am?: string | null
           topic_en?: string | null
