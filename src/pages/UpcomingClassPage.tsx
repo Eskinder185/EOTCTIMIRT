@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
 import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
 import { LessonAudioBlock } from '../components/LessonAudioBlock'
+import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
@@ -110,9 +111,6 @@ export function UpcomingClassPage() {
     : undefined
   const hasPreviewAudio = isUsableHttpLink(upcoming.lessonAudioUrl)
   const hasPreviewVideo = Boolean(previewEmbedUrl)
-  const mainPoints = (upcoming.mainPoints ?? [])
-    .map((point) => point.am?.trim() || point.en?.trim())
-    .filter((point): point is string => Boolean(point))
   const visibleMezmurs = upcoming.mezmurs.filter(
     (mezmur) =>
       Boolean(
@@ -136,19 +134,14 @@ export function UpcomingClassPage() {
         {upcoming.note?.trim() ? (
           <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
         ) : null}
-        {upcoming.lessonNote ? (
-          <p className="mt-3 text-sm leading-relaxed text-brand-700">{upcoming.lessonNote}</p>
-        ) : null}
-        {mainPoints.length > 0 ? (
-          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-            <h2 className="text-sm font-semibold text-brand-900">Main points</h2>
-            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
-              {mainPoints.map((point, index) => (
-                <li key={`${point}-${index}`}>{point}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+        <StructuredLessonContent
+          className="mt-3"
+          summary={{
+            en: upcoming.classSummaryEn ?? upcoming.classSummary ?? upcoming.lessonNote,
+            am: upcoming.classSummaryAm,
+          }}
+          mainPoints={upcoming.mainPoints}
+        />
       </Card>
 
       {weeklyKnowledge ? <WeeklyKnowledgeCard item={weeklyKnowledge} /> : null}

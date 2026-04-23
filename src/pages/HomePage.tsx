@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
 import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
 import { LessonAudioBlock } from '../components/LessonAudioBlock'
+import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import {
@@ -146,7 +147,16 @@ export function HomePage() {
           </p>
           <h2 className="mt-1 text-lg font-semibold text-brand-900">{upcoming.topicPreview}</h2>
           <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
-          <p className="mt-3 text-sm leading-relaxed text-brand-800">{upcoming.note}</p>
+          <StructuredLessonContent
+            className="mt-3"
+            sectionTitle="Teaching preview"
+            summary={{
+              en: upcoming.classSummaryEn ?? upcoming.classSummary ?? upcoming.noteEn ?? upcoming.note,
+              am: upcoming.classSummaryAm ?? upcoming.noteAm,
+            }}
+            mainPoints={upcoming.mainPoints}
+            compact
+          />
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <RouterLinkButton to="/upcoming" className="w-full">
               Prepare for Next Class
@@ -227,9 +237,17 @@ export function HomePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Recent class highlight</p>
           <h2 className="mt-1 text-base font-semibold text-brand-900">{latestClass.topic}</h2>
           <p className="mt-1 text-sm text-brand-700">{formatClassDate(latestClass.date)} · {latestClass.speaker}</p>
-          <p className="mt-2 text-sm leading-relaxed text-brand-800">
-            {previewText(latestClass.englishSummary, 200)}
-          </p>
+          <StructuredLessonContent
+            className="mt-2"
+            sectionTitle="Teaching recap"
+            summary={{ en: latestClass.englishSummary, am: latestClass.amharicSummary }}
+            mainPoints={
+              latestClass.mainPoints && latestClass.mainPoints.length > 0
+                ? latestClass.mainPoints
+                : latestClass.keyPoints.map((point) => ({ en: previewText(point, 120) }))
+            }
+            compact
+          />
           <RouterLinkButton to={`/class/${latestClass.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
             Catch up from this class
           </RouterLinkButton>
@@ -259,9 +277,20 @@ export function HomePage() {
               </p>
               <h3 className="mt-1 text-base font-semibold text-brand-900">{week.topic}</h3>
               <p className="mt-1 text-sm text-brand-700">{week.speaker}</p>
-              <p className="mt-2 text-sm leading-relaxed text-brand-800">
-                {previewText(week.englishSummary)}
-              </p>
+              <StructuredLessonContent
+                className="mt-2"
+                sectionTitle="Teaching recap"
+                summary={{ en: previewText(week.englishSummary), am: previewText(week.amharicSummary) }}
+                mainPoints={
+                  week.mainPoints && week.mainPoints.length > 0
+                    ? week.mainPoints.map((point) => ({
+                        en: point.en ? previewText(point.en, 90) : undefined,
+                        am: point.am ? previewText(point.am, 90) : undefined,
+                      }))
+                    : week.keyPoints.slice(0, 2).map((point) => ({ en: previewText(point, 90) }))
+                }
+                compact
+              />
               <RouterLinkButton to={`/class/${week.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
                 {t('viewSummary')}
               </RouterLinkButton>

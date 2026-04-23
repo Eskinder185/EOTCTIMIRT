@@ -172,6 +172,18 @@ type SupabaseErrorLike = {
   code?: string | null
 }
 
+function isMissingColumnError(error: unknown, table: string, column: string): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const maybe = error as { code?: string; message?: string }
+  return (
+    maybe.code === '42703' &&
+    typeof maybe.message === 'string' &&
+    maybe.message.includes(`${table}.${column}`)
+  )
+}
+
 function parseOptionalUuid(value?: string | null): string | undefined {
   const trimmed = trim(value)
   if (!trimmed) return undefined
@@ -296,11 +308,51 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     'created_by',
     'updated_by',
   ].join(',')
+  const weeklyClassSelectShapeLegacy = [
+    'id',
+    'date',
+    'topic',
+    'topic_en',
+    'topic_am',
+    'speaker',
+    'amharic_summary',
+    'english_summary',
+    'key_verse',
+    'youtube_url',
+    'audio_url',
+    'audio_title',
+    'audio_note',
+    'organizer_note',
+    'status',
+    'created_at',
+    'updated_at',
+    'created_by',
+    'updated_by',
+  ].join(',')
   if (import.meta.env.DEV) {
     console.info('[getWeeklyClasses] select shape', weeklyClassSelectShape)
   }
-  const { data: classRows, error } = await supabase.from('weekly_classes').select(weeklyClassSelectShape).order('date', { ascending: false })
-  if (error) throw error
+  let classRows: unknown[] | null = null
+  {
+    const { data, error } = await supabase
+      .from('weekly_classes')
+      .select(weeklyClassSelectShape)
+      .order('date', { ascending: false })
+    if (error) {
+      if (isMissingColumnError(error, 'weekly_classes', 'main_points')) {
+        const legacy = await supabase
+          .from('weekly_classes')
+          .select(weeklyClassSelectShapeLegacy)
+          .order('date', { ascending: false })
+        if (legacy.error) throw legacy.error
+        classRows = legacy.data as unknown[] | null
+      } else {
+        throw error
+      }
+    } else {
+      classRows = data as unknown[] | null
+    }
+  }
   const rows = (classRows ?? []) as unknown as WeeklyClassRow[]
   const ids = rows.map((r) => r.id)
   if (ids.length === 0) return []
@@ -329,9 +381,32 @@ export async function getWeeklyClass(id: string): Promise<WeeklyClass | null> {
 
 export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null> {
   if (!supabase) return null
-  const { data, error } = await supabase.from('upcoming_timirit').select('*').eq('is_active', true).order('scheduled_date', { ascending: true }).limit(1)
-  if (error) throw error
-  const row = data?.[0]
+  let data: Array<Record<string, unknown>> | null = null
+  {
+    const withMainPoints = await supabase
+      .from('upcoming_timirit')
+      .select('*')
+      .eq('is_active', true)
+      .order('scheduled_date', { ascending: true })
+      .limit(1)
+    if (withMainPoints.error) {
+      if (isMissingColumnError(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
+        const legacy = await supabase
+          .from('upcoming_timirit')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .eq('is_active', true)
+          .order('scheduled_date', { ascending: true })
+          .limit(1)
+        if (legacy.error) throw legacy.error
+        data = legacy.data as Array<Record<string, unknown>> | null
+      } else {
+        throw withMainPoints.error
+      }
+    } else {
+      data = withMainPoints.data as Array<Record<string, unknown>> | null
+    }
+  }
+  const row = data?.[0] as Database['public']['Tables']['upcoming_timirit']['Row'] | undefined
   if (!row) return null
   const { data: mezmurs } = await supabase.from('upcoming_mezmurs').select('*').eq('upcoming_timirit_id', row.id).order('order_index', { ascending: true })
   return {
@@ -575,9 +650,29 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   if (!supabase) return null
   let query = supabase.from('upcoming_timirit').select('*').order('scheduled_date', { ascending: true }).limit(1)
   query = id ? query.eq('id', id) : query.eq('is_active', true)
-  const { data, error } = await query
-  if (error) throw error
-  const row = data?.[0]; if (!row) return null
+  let data: Array<Record<string, unknown>> | null = null
+  {
+    const result = await query
+    if (result.error) {
+      if (isMissingColumnError(result.error, 'upcoming_timirit', 'main_points')) {
+        let legacyQuery = supabase
+          .from('upcoming_timirit')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .order('scheduled_date', { ascending: true })
+          .limit(1)
+        legacyQuery = id ? legacyQuery.eq('id', id) : legacyQuery.eq('is_active', true)
+        const legacy = await legacyQuery
+        if (legacy.error) throw legacy.error
+        data = legacy.data as Array<Record<string, unknown>> | null
+      } else {
+        throw result.error
+      }
+    } else {
+      data = result.data as Array<Record<string, unknown>> | null
+    }
+  }
+  const row = data?.[0] as Database['public']['Tables']['upcoming_timirit']['Row'] | undefined
+  if (!row) return null
   const { data: mez } = await supabase.from('upcoming_mezmurs').select('*').eq('upcoming_timirit_id', row.id).order('order_index', { ascending: true })
   return {
     id: row.id, scheduledDate: row.scheduled_date,

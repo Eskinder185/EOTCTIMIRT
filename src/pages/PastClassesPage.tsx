@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
+import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import { formatClassDate } from '../lib/formatDate'
@@ -75,7 +76,10 @@ export function PastClassesPage() {
           w.englishSummary.toLowerCase().includes(q) ||
           w.amharicSummary.toLowerCase().includes(q) ||
           w.speaker.toLowerCase().includes(q) ||
-          w.keyPoints.some((point) => point.toLowerCase().includes(q))
+          w.keyPoints.some((point) => point.toLowerCase().includes(q)) ||
+          (w.mainPoints ?? []).some((point) =>
+            `${point.en ?? ''} ${point.am ?? ''}`.toLowerCase().includes(q),
+          )
 
         const inTopicSearch = !topicQ || w.topic.toLowerCase().includes(topicQ)
         const inTeacher = !teacherFilter || w.speaker === teacherFilter
@@ -218,9 +222,23 @@ export function PastClassesPage() {
                   </p>
                   <h2 className="text-lg font-semibold text-brand-900">{week.topic}</h2>
                   <p className="mt-1 text-sm text-brand-700">{week.speaker}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-brand-800">
-                    {summaryPreview(week.englishSummary)}
-                  </p>
+                  <StructuredLessonContent
+                    className="mt-2"
+                    sectionTitle="Teaching recap"
+                    summary={{
+                      en: summaryPreview(week.englishSummary),
+                      am: summaryPreview(week.amharicSummary),
+                    }}
+                    mainPoints={
+                      week.mainPoints && week.mainPoints.length > 0
+                        ? week.mainPoints.map((point) => ({
+                            en: point.en ? summaryPreview(point.en, 90) : undefined,
+                            am: point.am ? summaryPreview(point.am, 90) : undefined,
+                          }))
+                        : week.keyPoints.slice(0, 2).map((point) => ({ en: summaryPreview(point, 90) }))
+                    }
+                    compact
+                  />
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <RouterLinkButton

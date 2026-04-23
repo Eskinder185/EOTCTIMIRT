@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useUiLanguage } from '../contexts/LanguageContext'
 import { LessonAudioBlock } from '../components/LessonAudioBlock'
+import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
@@ -453,14 +454,13 @@ export function ClassPage() {
   const hasVideo = showMedia && Boolean(embedUrl)
   const hasAmharicSummary = Boolean(week.amharicSummary?.trim())
   const hasEnglishSummary = Boolean(week.englishSummary?.trim())
-  const mainPoints = (week.mainPoints ?? [])
-    .map((point) => point.am?.trim() || point.en?.trim())
-    .filter((point): point is string => Boolean(point))
-  const fallbackKeyPoints = week.keyPoints.filter((point) => point.trim())
-  const visibleMainPoints = mainPoints.length > 0 ? mainPoints : fallbackKeyPoints
-  const hasMainPoints = visibleMainPoints.length > 0
   const hasVerses = Boolean(week.verses?.length)
-  const hasSummarySection = hasAmharicSummary || hasEnglishSummary || hasMainPoints || hasVerses
+  const hasSummarySection =
+    hasAmharicSummary ||
+    hasEnglishSummary ||
+    (week.mainPoints?.length ?? 0) > 0 ||
+    week.keyPoints.length > 0 ||
+    hasVerses
   const visibleMezmurs = week.mezmurs.filter(
     (mezmur) =>
       Boolean(
@@ -524,36 +524,15 @@ export function ClassPage() {
 
       {hasSummarySection ? (
       <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teaching overview</p>
-        <div className="mt-3 space-y-4">
-          {hasAmharicSummary ? (
-          <div>
-            <h2 className="text-base font-semibold text-brand-900">Amharic summary</h2>
-            <p className="mt-2 whitespace-pre-line text-[1rem] leading-relaxed text-brand-900">
-              {week.amharicSummary}
-            </p>
-          </div>
-          ) : null}
-          {hasEnglishSummary ? (
-          <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-            <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
-              English summary
-            </summary>
-            <p className="mt-2 text-sm leading-relaxed text-brand-800">{week.englishSummary}</p>
-          </details>
-          ) : null}
-          {hasMainPoints ? (
-          <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3" open>
-            <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">
-              Main points
-            </summary>
-            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-brand-800">
-              {visibleMainPoints.map((point, index) => (
-                <li key={`${point}-${index}`}>{point}</li>
-              ))}
-            </ul>
-          </details>
-          ) : null}
+        <div className="mt-1 space-y-4">
+          <StructuredLessonContent
+            summary={{ en: week.englishSummary, am: week.amharicSummary }}
+            mainPoints={
+              week.mainPoints && week.mainPoints.length > 0
+                ? week.mainPoints
+                : week.keyPoints.map((point) => ({ en: point }))
+            }
+          />
           {hasVerses ? (
             <details className="group rounded-xl border border-brand-100 bg-brand-50/40 p-3">
               <summary className="cursor-pointer list-none text-base font-semibold text-brand-900 [&::-webkit-details-marker]:hidden">

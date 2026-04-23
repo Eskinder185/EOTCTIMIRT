@@ -6,6 +6,7 @@ import { MezmurCard } from '../MezmurCard'
 import { SupportBanner } from '../SupportBanner'
 import { TimiritConnectPanel } from '../TimiritConnectPanel'
 import { VideoEmbed } from '../VideoEmbed'
+import { StructuredLessonContent } from '../StructuredLessonContent'
 import { Button } from '../ui/Button'
 import { CollapsibleSection } from '../ui/CollapsibleSection'
 import type { WeeklyClass } from '../../data/types'
@@ -102,23 +103,15 @@ export function TimirtWeekPageContent({ week }: { week: WeeklyClass }) {
       </div>
 
       <div id="summary-section">
-        <CollapsibleSection title="Amharic summary" subtitle="Notes from the Timirit in አማርኛ" defaultOpen>
-          <p className="text-[1.05rem] leading-relaxed text-brand-900">{week.amharicSummary}</p>
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title={`English recap for ${week.topic}`}
-          subtitle="Brief support for households still learning Amharic — the teaching itself remains in the Holy Church."
-        >
-          <p className="leading-relaxed text-brand-900">{week.englishSummary}</p>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Key points from Holy Scripture & Tradition" defaultOpen>
-          <ul className="list-disc space-y-2 pl-5 text-brand-900">
-            {week.keyPoints.map((pt) => (
-              <li key={pt}>{pt}</li>
-            ))}
-          </ul>
+        <CollapsibleSection title="Teaching overview" subtitle="Short summary and the main points from this Timirit" defaultOpen>
+          <StructuredLessonContent
+            summary={{ en: week.englishSummary, am: week.amharicSummary }}
+            mainPoints={
+              week.mainPoints && week.mainPoints.length > 0
+                ? week.mainPoints
+                : week.keyPoints.map((point) => ({ en: point }))
+            }
+          />
         </CollapsibleSection>
 
         {week.verses?.length ? (
