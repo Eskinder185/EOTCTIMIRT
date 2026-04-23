@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
@@ -7,6 +8,7 @@ import { getWeekById } from '../data/weeksRepo'
 import type { Question, WeeklyClass } from '../data/types'
 import { getUserFingerprint } from '../lib/anonymousIdentity'
 import { formatClassDate } from '../lib/formatDate'
+import { getLocalizedText } from '../lib/localizedText'
 import { submitUserResponses } from '../lib/supabaseData'
 import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { TEWAHEDO_DAILY_MEZMURS_URL } from '../site/tewahedoDaily'
@@ -28,6 +30,7 @@ function isMultipleChoice(question: Question): question is Extract<Question, { t
 }
 
 function QuickReview({ weekId, questions }: { weekId: string; questions: Question[] }) {
+  const { language } = useUiLanguage()
   const reviewQuestions = questions.slice(0, 5)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -214,7 +217,7 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
                       }}
                       disabled={savingQuestionId === question.id}
                     >
-                      {option}
+                      {getLocalizedText(option, language)}
                     </Button>
                   )
                 })}
@@ -233,7 +236,7 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
                   {hasValidCorrectIndex ? (
                     <p className="mt-1">
                       <span className="font-semibold">Correct answer:</span>{' '}
-                      {question.options[question.correctIndex]}
+                      {getLocalizedText(question.options[question.correctIndex], language)}
                     </p>
                   ) : (
                     <p className="mt-1">

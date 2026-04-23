@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase'
 import { pickLocalized } from './bilingualText'
+import { legacySingleLineFromLocalized, normalizeLocalizedText } from './localizedText'
 import type { 
   WeeklyClass, 
   OrganizerSnapshot, 
@@ -1175,11 +1176,16 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       const { error: choiceError } = await supabase
         .from('multiple_choice_options')
         .insert(
-          question.options.map((optionText, optionIndex) => ({
-            question_id: questionId,
-            option_text: optionText,
-            option_index: optionIndex,
-          })),
+          question.options.map((option, optionIndex) => {
+            const n = normalizeLocalizedText(option)
+            return {
+              question_id: questionId,
+              option_text_en: n.en ?? null,
+              option_text_am: n.am ?? null,
+              option_text: legacySingleLineFromLocalized(n),
+              option_index: optionIndex,
+            }
+          }),
         )
 
       if (choiceError) {
@@ -1425,8 +1431,8 @@ export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListI
   return (data ?? []).map((row) => ({
     id: row.id,
     scheduledDate: row.scheduled_date,
-    topicPreview: row.topic_preview,
-    note: row.note,
+    topicPreview: row.topic_preview ?? '',
+    note: row.note ?? '',
     isActive: row.is_active ?? false,
     publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
   }))
@@ -1450,8 +1456,8 @@ export async function listActiveUpcomingTimirit(): Promise<UpcomingTimirtListIte
   return (data ?? []).map((row) => ({
     id: row.id,
     scheduledDate: row.scheduled_date,
-    topicPreview: row.topic_preview,
-    note: row.note,
+    topicPreview: row.topic_preview ?? '',
+    note: row.note ?? '',
     isActive: row.is_active ?? false,
     publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
   }))
@@ -1713,20 +1719,30 @@ function transformQuestion(data: any): Question {
   }
 
   switch (data.type) {
-    case 'multiple-choice':
+    case 'multiple-choice': {
       const sortedOptions = Array.isArray(data.multiple_choice_options)
         ? data.multiple_choice_options
-            .sort((a: any, b: any) => a.option_index - b.option_index)
-            .map((opt: any) => opt.option_text)
+            .sort((a: { option_index: number }, b: { option_index: number }) => a.option_index - b.option_index)
+            .map((opt: {
+              option_text?: string | null
+              option_text_en?: string | null
+              option_text_am?: string | null
+            }) =>
+              normalizeLocalizedText({
+                en: opt.option_text_en ?? opt.option_text ?? undefined,
+                am: opt.option_text_am ?? undefined,
+              }),
+            )
         : []
-      
+
       return {
         ...baseQuestion,
         type: 'multiple-choice',
         options: sortedOptions,
         correctIndex: data.correct_index,
-        explanation: data.explanation
+        explanation: data.explanation,
       }
+    }
 
     case 'attendance':
       const sortedAttendanceOptions = Array.isArray(data.attendance_options)

@@ -46,10 +46,10 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         prompt: 'According to the Gospel of John, how do Christ’s sheep know Him?',
         helperText: 'Choose the answer closest to the Holy Gospel we heard.',
         options: [
-          'They rely only on private opinions',
-          'They hear His voice in the life of the Church and follow Him',
-          'They never grow tired',
-          'They avoid the Divine Liturgy',
+          { en: 'They rely only on private opinions', am: '' },
+          { en: 'They hear His voice in the life of the Church and follow Him', am: '' },
+          { en: 'They never grow tired', am: '' },
+          { en: 'They avoid the Divine Liturgy', am: '' },
         ],
         correctIndex: 1,
         explanation:
@@ -60,10 +60,10 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         type: 'multiple-choice',
         prompt: 'Which image best matches Psalm 23’s consolation for the faithful?',
         options: [
-          'A harsh accuser',
-          'A shepherd who leads beside still waters',
-          'A stranger who hides',
-          'A voice without the Church',
+          { en: 'A harsh accuser', am: '' },
+          { en: 'A shepherd who leads beside still waters', am: '' },
+          { en: 'A stranger who hides', am: '' },
+          { en: 'A voice without the Church', am: '' },
         ],
         correctIndex: 1,
         explanation:
@@ -132,7 +132,12 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         id: 'q1',
         type: 'multiple-choice',
         prompt: 'In Matthew 6, forgiveness is tied to which habit?',
-        options: ['Pride', 'Prayer', 'Ignoring others', 'Avoiding church'],
+        options: [
+          { en: 'Pride', am: '' },
+          { en: 'Prayer', am: '' },
+          { en: 'Ignoring others', am: '' },
+          { en: 'Avoiding church', am: '' },
+        ],
         correctIndex: 1,
         explanation:
           'In the Lord’s Prayer we ask the Father to forgive us as we forgive — the Church teaches this as a whole way of life, not a slogan.',
@@ -142,10 +147,10 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         type: 'multiple-choice',
         prompt: 'In this week’s teaching, a “healed heart” chiefly means…',
         options: [
-          'Never remembering any sorrow',
-          'Being strengthened by grace to show mercy like Christ',
-          'Avoiding confession',
-          'Trusting only private feelings',
+          { en: 'Never remembering any sorrow', am: '' },
+          { en: 'Being strengthened by grace to show mercy like Christ', am: '' },
+          { en: 'Avoiding confession', am: '' },
+          { en: 'Trusting only private feelings', am: '' },
         ],
         correctIndex: 1,
         explanation:
@@ -214,10 +219,10 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         type: 'multiple-choice',
         prompt: 'In this week’s Timirt, Ekebete Ement chiefly referred to…',
         options: [
-          'Guarding the Orthodox faith faithfully within the life of the Church',
-          'Winning every debate by forceful words',
-          'Inventing a private teaching apart from the Fathers',
-          'Ignoring worship and focusing only on opinions',
+          { en: 'Guarding the Orthodox faith faithfully within the life of the Church', am: '' },
+          { en: 'Winning every debate by forceful words', am: '' },
+          { en: 'Inventing a private teaching apart from the Fathers', am: '' },
+          { en: 'Ignoring worship and focusing only on opinions', am: '' },
         ],
         correctIndex: 0,
         explanation:
@@ -228,10 +233,10 @@ export const MOCK_WEEKS: WeeklyClass[] = [
         type: 'multiple-choice',
         prompt: 'Which practice did we connect with guarding the faith this week?',
         options: [
-          'Prayer, fasting, and communion',
-          'Arguing without mercy',
-          'Following trends without discernment',
-          'Separating from the Church’s worship',
+          { en: 'Prayer, fasting, and communion', am: '' },
+          { en: 'Arguing without mercy', am: '' },
+          { en: 'Following trends without discernment', am: '' },
+          { en: 'Separating from the Church’s worship', am: '' },
         ],
         correctIndex: 0,
         explanation:

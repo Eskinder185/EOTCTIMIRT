@@ -1,10 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
+import type { AttendanceChoice, LocalizedText, QuestionType } from '../data/types'
+import {
+  coerceLocalizedText,
+  compactLocalizedOptionsForSave,
+  emptyLocalizedText,
+  hasLocalizedText,
+  normalizeLocalizedText,
+} from '../lib/localizedText'
 import { getWeeklyClass, saveWeeklyClassEditor, type EditorQuestionInput, type WeeklyClassEditorInput } from '../lib/supabaseData'
-import type { AttendanceChoice, QuestionType } from '../data/types'
 
 type FormState = WeeklyClassEditorInput
+
+function migrateWeeklyClassFormState(form: WeeklyClassEditorInput): WeeklyClassEditorInput {
+  return {
+    ...form,
+    questions: form.questions.map((q) => {
+      if (q.type !== 'multiple-choice') {
+        return q
+      }
+      return {
+        ...q,
+        options: (q.options ?? []).map((opt) => coerceLocalizedText(opt)),
+      }
+    }),
+  }
+}
 
 const defaultAttendanceOptions: Array<{ value: AttendanceChoice; label: string }> = [
   { value: 'in-person', label: 'In person' },
@@ -29,7 +51,12 @@ function createEmptyQuestion(type: QuestionType): EditorQuestionInput {
       helperText: '',
       correctIndex: 0,
       explanation: '',
-      options: ['', '', '', ''],
+      options: [
+        emptyLocalizedText(),
+        emptyLocalizedText(),
+        emptyLocalizedText(),
+        emptyLocalizedText(),
+      ],
     }
   }
 
@@ -106,7 +133,7 @@ export function AdminWeeklyClassForm() {
 
     if (!isEditing) {
       if (savedDraft) {
-        setForm(JSON.parse(savedDraft) as FormState)
+        setForm(migrateWeeklyClassFormState(JSON.parse(savedDraft) as FormState))
         setNotice('A local draft was restored on this device.')
       }
       return
@@ -167,7 +194,7 @@ export function AdminWeeklyClassForm() {
                 helperText: question.helperText || '',
                 correctIndex: question.correctIndex,
                 explanation: question.explanation,
-                options: [...question.options],
+                options: question.options.map((opt) => coerceLocalizedText(opt)),
               }
             }
 
@@ -194,7 +221,7 @@ export function AdminWeeklyClassForm() {
         }
 
         if (savedDraft) {
-          setForm(JSON.parse(savedDraft) as FormState)
+          setForm(migrateWeeklyClassFormState(JSON.parse(savedDraft) as FormState))
           setNotice('A local draft override was restored for this week.')
         } else {
           setForm(nextForm)
@@ -260,6 +287,16 @@ export function AdminWeeklyClassForm() {
       return
     }
 
+    const emptyMc = form.questions.find(
+      (q) =>
+        q.type === 'multiple-choice' &&
+        !(q.options ?? []).some((opt) => hasLocalizedText({ ...emptyLocalizedText(), ...opt })),
+    )
+    if (emptyMc) {
+      setError('Each multiple-choice question needs at least one answer option in English or Amharic.')
+      return
+    }
+
     try {
       setSaving(true)
       setError(null)
@@ -276,9 +313,18 @@ export function AdminWeeklyClassForm() {
         questions: form.questions
           .map((question) => {
             if (question.type === 'multiple-choice') {
+              const rawOptions = (question.options ?? []).map((opt) => ({
+                ...emptyLocalizedText(),
+                ...opt,
+              }))
+              const { options: compacted, correctIndex: nextCorrect } = compactLocalizedOptionsForSave(
+                rawOptions,
+                question.correctIndex ?? 0,
+              )
               return {
                 ...question,
-                options: (question.options ?? []).map((option) => option.trim()).filter(Boolean),
+                options: compacted.map((opt) => normalizeLocalizedText(opt)),
+                correctIndex: nextCorrect,
                 explanation: question.explanation?.trim() || '',
               }
             }
@@ -462,7 +508,7 @@ export function AdminWeeklyClassForm() {
                     <input type="text" value={question.id || ''} onChange={(event) => updateQuestion(index, { ...question, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`${form.id || form.date}-q-1`} />
                   </label>
                   <label className="text-sm font-medium text-brand-900">Question type
-                    <select value={question.type} onChange={(event) => updateQuestion(index, createEmptyQuestion(event.target.value as QuestionType))} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30">
+                    <select value={question.type} onChange={(event) => updateQuestion(index, { ...createEmptyQuestion(event.target.value as QuestionType), id: question.id })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30">
                       <option value="multiple-choice">multiple-choice</option>
                       <option value="short-answer">short-answer</option>
                       <option value="reflection">reflection</option>
@@ -476,20 +522,73 @@ export function AdminWeeklyClassForm() {
                 <input type="text" value={question.helperText || ''} onChange={(event) => updateQuestion(index, { ...question, helperText: event.target.value })} className="mt-3 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Helper text for parish readers" />
 
                 {question.type === 'multiple-choice' ? (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 space-y-4">
+                    <p className="text-xs text-brand-600">
+                      Each choice can use English only, Amharic only, or both. At least one language must be filled somewhere on the list before publishing.
+                    </p>
                     {(question.options ?? []).map((option, optionIndex) => (
-                      <div key={`option-${optionIndex}`} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                        <input type="text" value={option} onChange={(event) => { const options = [...(question.options ?? [])]; options[optionIndex] = event.target.value; updateQuestion(index, { ...question, options }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder={`Answer choice ${optionIndex + 1}`} />
-                        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-brand-200 px-3 text-sm text-brand-800">
-                          <input type="radio" name={`correct-${index}`} checked={(question.correctIndex ?? 0) === optionIndex} onChange={() => updateQuestion(index, { ...question, correctIndex: optionIndex })} />
-                          Correct
+                      <div key={`option-${optionIndex}`} className="space-y-2 rounded-xl border border-brand-100 bg-white/80 p-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="text-sm font-medium text-brand-900">
+                            English
+                            <input
+                              type="text"
+                              value={option.en ?? ''}
+                              onChange={(event) => {
+                                const options: LocalizedText[] = [...(question.options ?? [])]
+                                const base = { ...emptyLocalizedText(), ...options[optionIndex] }
+                                options[optionIndex] = { ...base, en: event.target.value }
+                                updateQuestion(index, { ...question, options })
+                              }}
+                              className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                              placeholder={`Choice ${optionIndex + 1} (English)`}
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-brand-900">
+                            Amharic
+                            <input
+                              type="text"
+                              value={option.am ?? ''}
+                              onChange={(event) => {
+                                const options: LocalizedText[] = [...(question.options ?? [])]
+                                const base = { ...emptyLocalizedText(), ...options[optionIndex] }
+                                options[optionIndex] = { ...base, am: event.target.value }
+                                updateQuestion(index, { ...question, options })
+                              }}
+                              className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                              placeholder={`Choice ${optionIndex + 1} (Amharic)`}
+                            />
+                          </label>
+                        </div>
+                        <label className="flex min-h-11 items-center gap-2 text-sm text-brand-800">
+                          <input
+                            type="radio"
+                            name={`correct-${index}`}
+                            checked={(question.correctIndex ?? 0) === optionIndex}
+                            onChange={() => updateQuestion(index, { ...question, correctIndex: optionIndex })}
+                          />
+                          Correct answer
                         </label>
                       </div>
                     ))}
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => updateQuestion(index, { ...question, options: [...(question.options ?? []), ''] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Add choice</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => updateQuestion(index, { ...question, options: [...(question.options ?? []), emptyLocalizedText()] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Add choice</button>
                       {(question.options?.length ?? 0) > 2 ? (
-                        <button type="button" onClick={() => updateQuestion(index, { ...question, options: (question.options ?? []).slice(0, -1) })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900">Remove last choice</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = (question.options ?? []).slice(0, -1)
+                            const maxIdx = Math.max(0, next.length - 1)
+                            updateQuestion(index, {
+                              ...question,
+                              options: next,
+                              correctIndex: Math.min(question.correctIndex ?? 0, maxIdx),
+                            })
+                          }}
+                          className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900"
+                        >
+                          Remove last choice
+                        </button>
                       ) : null}
                     </div>
                     <textarea value={question.explanation || ''} onChange={(event) => updateQuestion(index, { ...question, explanation: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Explanation shown in recap analytics" />

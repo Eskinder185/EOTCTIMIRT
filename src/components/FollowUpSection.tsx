@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import type { Question, WeeklyClass } from '../data/types'
+import { getLocalizedText } from '../lib/localizedText'
 import { getSubmissionForWeek, saveClassSubmission } from '../lib/feedbackClient'
 import { getUserFingerprint } from '../lib/anonymousIdentity'
 import { submitUserResponses } from '../lib/supabaseData'
@@ -149,6 +151,8 @@ function QuestionField({
   value: string
   onChange: (v: string) => void
 }) {
+  const { language } = useUiLanguage()
+
   if (isMultipleChoice(question)) {
     const selected = value === '' ? undefined : Number.parseInt(value, 10)
     const showExplanation =
@@ -188,7 +192,7 @@ function QuestionField({
                   checked={active}
                   onChange={() => onChange(String(idx))}
                 />
-                <span className="text-brand-900">{opt}</span>
+                <span className="text-brand-900">{getLocalizedText(opt, language)}</span>
               </label>
             )
           })}
@@ -208,7 +212,8 @@ function QuestionField({
             >
               <p className="font-semibold">{isCorrect ? 'Correct' : 'Not quite'}</p>
               <p className="mt-1">
-                <span className="font-semibold">Correct answer:</span> {correctAnswer}
+                <span className="font-semibold">Correct answer:</span>{' '}
+                {getLocalizedText(correctAnswer, language)}
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Explanation:</span> {question.explanation}
