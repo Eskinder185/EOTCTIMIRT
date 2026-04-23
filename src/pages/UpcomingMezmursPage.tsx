@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getUpcomingPreview } from '../data/weeksRepo'
 import type { Mezmur } from '../data/types'
@@ -8,6 +8,15 @@ import { useUiText } from '../lib/uiText'
 import { CHURCH_SHORT_NAME } from '../site/constants'
 
 const LYRICS_PLACEHOLDER = 'Lyrics will be added soon'
+
+type FullscreenCapableElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void
+}
+
+type FullscreenCapableDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void> | void
+  webkitFullscreenElement?: Element | null
+}
 
 function withRequiredMezmurs(preview: UpcomingTimirtPreview | null): [Mezmur, Mezmur] {
   if (!preview) {
@@ -30,6 +39,9 @@ export function UpcomingMezmursPage() {
   const [preview, setPreview] = useState<UpcomingTimirtPreview | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSlide, setActiveSlide] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [fullscreenError, setFullscreenError] = useState<string | null>(null)
+  const presentationContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const loadUpcoming = async () => {
@@ -68,6 +80,42 @@ export function UpcomingMezmursPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isPresentationMode, mezmurs.length])
 
+  useEffect(() => {
+    const fullscreenDocument = document as FullscreenCapableDocument
+    const syncFullscreenState = () => {
+      const activeElement = document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null
+      setIsFullscreen(Boolean(activeElement))
+    }
+
+    syncFullscreenState()
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isPresentationMode) {
+      return
+    }
+
+    const fullscreenDocument = document as FullscreenCapableDocument
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {})
+      return
+    }
+    if (fullscreenDocument.webkitFullscreenElement) {
+      try {
+        void fullscreenDocument.webkitExitFullscreen?.()
+      } catch {
+        // Ignore exit errors when browser does not allow scripted exit.
+      }
+    }
+  }, [isPresentationMode])
+
   const togglePresentationMode = () => {
     const next = new URLSearchParams(searchParams)
     if (isPresentationMode) {
@@ -78,22 +126,70 @@ export function UpcomingMezmursPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const requestFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen()
+  const toggleFullscreen = async () => {
+    setFullscreenError(null)
+    const fullscreenDocument = document as FullscreenCapableDocument
+    const targetElement = presentationContainerRef.current as FullscreenCapableElement | null
+
+    if (!targetElement) {
+      setFullscreenError('Fullscreen target is not available on this device.')
       return
     }
 
-    await document.exitFullscreen()
+    try {
+      const activeElement = document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null
+      if (activeElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+          return
+        }
+        if (fullscreenDocument.webkitExitFullscreen) {
+          await fullscreenDocument.webkitExitFullscreen()
+          return
+        }
+        setFullscreenError('Fullscreen exit is not supported in this browser.')
+        return
+      }
+
+      if (targetElement.requestFullscreen) {
+        await targetElement.requestFullscreen()
+        return
+      }
+      if (targetElement.webkitRequestFullscreen) {
+        await targetElement.webkitRequestFullscreen()
+        return
+      }
+      setFullscreenError('Fullscreen is not available in this browser.')
+    } catch (error) {
+      console.error('Failed to toggle fullscreen:', error)
+      setFullscreenError('Unable to switch fullscreen mode. Check browser permissions and try again.')
+    }
   }
 
   const activeMezmur = mezmurs[activeSlide]
   const dateLabel = preview?.scheduledDate ? formatClassDate(preview.scheduledDate) : 'Upcoming Timirit'
 
   return (
-    <div className="min-h-dvh bg-brand-50 text-brand-900 print:bg-white">
-      <main className="mx-auto w-full max-w-480 px-4 py-4 sm:px-8 sm:py-8">
-        <section className="rounded-3xl border border-brand-200/90 bg-white/90 p-5 shadow-sm sm:p-8 lg:p-10">
+    <div
+      ref={presentationContainerRef}
+      className={`min-h-dvh bg-brand-50 text-brand-900 print:bg-white ${
+        isPresentationMode ? 'fullscreen:bg-brand-950 fullscreen:text-white' : ''
+      }`}
+    >
+      <main
+        className={`mx-auto w-full ${
+          isPresentationMode
+            ? 'max-w-none px-3 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6 fullscreen:h-dvh fullscreen:px-6 fullscreen:py-4'
+            : 'max-w-480 px-4 py-4 sm:px-8 sm:py-8'
+        }`}
+      >
+        <section
+          className={`${
+            isPresentationMode
+              ? 'rounded-2xl border border-brand-200/80 bg-white/95 p-4 shadow-sm sm:p-6'
+              : 'rounded-3xl border border-brand-200/90 bg-white/90 p-5 shadow-sm sm:p-8 lg:p-10'
+          }`}
+        >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
@@ -103,32 +199,35 @@ export function UpcomingMezmursPage() {
               <p className="mt-2 text-base text-brand-700 sm:text-xl">{preview?.topicPreview || dateLabel}</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center print:hidden">
               <button
                 type="button"
                 onClick={togglePresentationMode}
-                className="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-100"
+                className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-accent-600 px-6 py-3 text-base font-bold text-white shadow-md shadow-accent-700/30 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2"
               >
                 {isPresentationMode ? 'Exit Display Mode' : t('presentationMode')}
               </button>
               {isPresentationMode ? (
                 <button
                   type="button"
-                  onClick={requestFullscreen}
-                  className="inline-flex min-h-11 items-center rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                  onClick={toggleFullscreen}
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-brand-200 bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 hover:bg-brand-50"
                 >
-                  Fullscreen
+                  {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                 </button>
               ) : (
                 <Link
                   to="/mezmurs"
-                  className="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-50"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-brand-200 bg-white px-5 py-2.5 text-sm font-semibold text-brand-800 hover:bg-brand-50"
                 >
                   Back to mezmur page
                 </Link>
               )}
             </div>
           </div>
+          {isPresentationMode && fullscreenError ? (
+            <p className="mt-3 text-sm font-medium text-rose-700">{fullscreenError}</p>
+          ) : null}
         </section>
 
         {loading ? (
@@ -140,25 +239,55 @@ export function UpcomingMezmursPage() {
             </div>
           </section>
         ) : (
-          <section className="mt-5 rounded-3xl border border-brand-200 bg-white p-5 shadow-sm sm:p-8 lg:p-10">
+          <section
+            className={`mt-5 ${
+              isPresentationMode
+                ? 'rounded-2xl border border-brand-100 bg-white p-4 shadow-sm sm:p-6 lg:p-8 fullscreen:mt-3 fullscreen:flex fullscreen:h-[calc(100dvh-10rem)] fullscreen:flex-col fullscreen:overflow-auto fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-transparent fullscreen:p-0 fullscreen:shadow-none'
+                : 'rounded-3xl border border-brand-200 bg-white p-5 shadow-sm sm:p-8 lg:p-10'
+            }`}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
               Mezmur {activeSlide + 1} of 2
             </p>
-            <h2 className="mt-3 text-3xl font-bold leading-tight text-brand-900 sm:text-5xl lg:text-6xl">
+            <h2
+              className={`mt-3 font-bold leading-tight text-brand-900 ${
+                isPresentationMode ? 'text-4xl sm:text-6xl lg:text-7xl fullscreen:text-white' : 'text-3xl sm:text-5xl lg:text-6xl'
+              }`}
+            >
               {activeMezmur.title || `Mezmur ${activeSlide + 1} (TBD)`}
             </h2>
 
             {activeMezmur.transliteration ? (
-              <p className="mt-4 text-xl italic text-brand-700 sm:text-3xl">{activeMezmur.transliteration}</p>
+              <p
+                className={`mt-4 italic ${
+                  isPresentationMode
+                    ? 'text-2xl text-brand-700 sm:text-3xl fullscreen:text-brand-100'
+                    : 'text-xl text-brand-700 sm:text-3xl'
+                }`}
+              >
+                {activeMezmur.transliteration}
+              </p>
             ) : null}
 
-            <div className="mt-6 rounded-2xl border border-brand-100 bg-brand-50/70 p-5 sm:p-8">
-              <p className="whitespace-pre-wrap text-lg leading-relaxed text-brand-900 sm:text-2xl sm:leading-loose">
+            <div
+              className={`mt-6 ${
+                isPresentationMode
+                  ? 'rounded-2xl border border-brand-100 bg-brand-50/80 p-5 sm:p-8 fullscreen:flex-1 fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-transparent fullscreen:p-0'
+                  : 'rounded-2xl border border-brand-100 bg-brand-50/70 p-5 sm:p-8'
+              }`}
+            >
+              <p
+                className={`whitespace-pre-wrap ${
+                  isPresentationMode
+                    ? 'text-2xl leading-relaxed text-brand-900 sm:text-4xl sm:leading-snug lg:text-5xl fullscreen:text-white'
+                    : 'text-lg leading-relaxed text-brand-900 sm:text-2xl sm:leading-loose'
+                }`}
+              >
                 {activeMezmur.lyrics?.trim() || LYRICS_PLACEHOLDER}
               </p>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+            <div className="mt-4 flex flex-wrap gap-2 print:hidden fullscreen:mt-6">
               {activeMezmur.audioUrl ? (
                 <a
                   href={activeMezmur.audioUrl}
@@ -181,12 +310,12 @@ export function UpcomingMezmursPage() {
               ) : null}
             </div>
 
-            <div className="mt-6 flex items-center justify-between gap-3 print:hidden">
+            <div className="mt-6 flex items-center justify-between gap-3 print:hidden fullscreen:mt-8">
               <button
                 type="button"
                 onClick={() => setActiveSlide((current) => Math.max(current - 1, 0))}
                 disabled={activeSlide === 0}
-                className="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 enabled:hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-12 items-center rounded-xl border border-brand-200 bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 enabled:hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Previous Mezmur
               </button>
@@ -194,7 +323,7 @@ export function UpcomingMezmursPage() {
                 type="button"
                 onClick={() => setActiveSlide((current) => Math.min(current + 1, mezmurs.length - 1))}
                 disabled={activeSlide === mezmurs.length - 1}
-                className="inline-flex min-h-11 items-center rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white enabled:hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-12 items-center rounded-xl bg-accent-600 px-5 py-2.5 text-sm font-semibold text-white enabled:hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next Mezmur
               </button>
