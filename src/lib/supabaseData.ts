@@ -216,7 +216,7 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     topic: pickLocalized(row.topic_en, row.topic_am, row.topic) ?? '',
     topicEn: trim(row.topic_en), topicAm: trim(row.topic_am), speaker: trim(row.speaker) ?? '',
     amharicSummary: row.amharic_summary ?? '', englishSummary: row.english_summary ?? '',
-    keyPoints: toStrings(row.key_points), verses: toStrings(row.verses),
+    keyPoints: toStrings((row as { key_points?: unknown }).key_points), verses: toStrings(row.verses),
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url),
     audioTitle: trim(row.audio_title),
     audioTitleEn: undefined, audioTitleAm: undefined,
@@ -389,7 +389,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     id, date: data.date, topic: trim(data.topic) ?? trim(data.topicEn) ?? trim(data.topicAm) ?? null,
     topic_en: trim(data.topicEn) ?? null, topic_am: trim(data.topicAm) ?? null,
     speaker: trim(data.speaker) ?? '', amharic_summary: trim(data.amharicSummary) ?? '', english_summary: trim(data.englishSummary) ?? '',
-    key_points: data.keyPoints.map((x) => x.trim()).filter(Boolean), verses: data.verses.map((x) => x.trim()).filter(Boolean),
+    verses: data.verses.map((x) => x.trim()).filter(Boolean),
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null,
     audio_title: trim(data.audioTitle) ?? trim(data.audioTitleEn) ?? trim(data.audioTitleAm) ?? null,
     audio_note: trim(data.audioNote) ?? null, lesson_media_enabled: data.lessonMediaEnabled ?? true,
@@ -398,8 +398,15 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     organizer_note: trim(data.organizerNote) ?? null,
     status: data.status ?? 'published',
   }
-  const { error } = await supabase.from('weekly_classes').upsert(row)
-  assertNoError('upsert weekly_classes', error, { weeklyClassId: id, payload: row })
+  // Defensive guard against stale/bad frontend payloads during schema migration.
+  const liveSchemaSafeRow: Database['public']['Tables']['weekly_classes']['Insert'] = { ...row }
+  delete (liveSchemaSafeRow as Record<string, unknown>).key_points
+  delete (liveSchemaSafeRow as Record<string, unknown>).audio_title_en
+  delete (liveSchemaSafeRow as Record<string, unknown>).audio_title_am
+  delete (liveSchemaSafeRow as Record<string, unknown>).teaching_notes_en
+  delete (liveSchemaSafeRow as Record<string, unknown>).teaching_notes_am
+  const { error } = await supabase.from('weekly_classes').upsert(liveSchemaSafeRow)
+  assertNoError('upsert weekly_classes', error, { weeklyClassId: id, payload: liveSchemaSafeRow })
 
   const { data: existingQuestions, error: existingQuestionsError } = await supabase
     .from('questions')

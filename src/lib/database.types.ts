@@ -399,7 +399,6 @@ export type Database = {
           english_summary: string
           id: string
           key_verse: string | null
-          key_points: Json
           lesson_media_enabled: boolean | null
           organizer_note: string | null
           speaker: string
@@ -424,7 +423,6 @@ export type Database = {
           english_summary: string
           id: string
           key_verse?: string | null
-          key_points?: Json
           lesson_media_enabled?: boolean | null
           organizer_note?: string | null
           speaker: string
@@ -449,7 +447,6 @@ export type Database = {
           english_summary?: string
           id?: string
           key_verse?: string | null
-          key_points?: Json
           lesson_media_enabled?: boolean | null
           organizer_note?: string | null
           speaker?: string
