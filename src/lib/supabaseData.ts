@@ -184,6 +184,15 @@ function isMissingColumnError(error: unknown, table: string, column: string): bo
   )
 }
 
+function shouldRetryWithLegacySelect(error: unknown, table: string, column: string): boolean {
+  if (isMissingColumnError(error, table, column)) {
+    return true
+  }
+  const maybe = (error ?? {}) as { code?: string; message?: string }
+  const message = typeof maybe.message === 'string' ? maybe.message.toLowerCase() : ''
+  return maybe.code === '400' || message.includes('does not exist') || message.includes(column)
+}
+
 function parseOptionalUuid(value?: string | null): string | undefined {
   const trimmed = trim(value)
   if (!trimmed) return undefined
@@ -286,28 +295,6 @@ export function getCachedWeeklyClasses(): WeeklyClass[] | null {
 export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
   if (weeklyClassesCache && isFresh()) return weeklyClassesCache
   if (!supabase) return []
-  const weeklyClassSelectShape = [
-    'id',
-    'date',
-    'topic',
-    'topic_en',
-    'topic_am',
-    'speaker',
-    'amharic_summary',
-    'english_summary',
-    'main_points',
-    'key_verse',
-    'youtube_url',
-    'audio_url',
-    'audio_title',
-    'audio_note',
-    'organizer_note',
-    'status',
-    'created_at',
-    'updated_at',
-    'created_by',
-    'updated_by',
-  ].join(',')
   const weeklyClassSelectShapeLegacy = [
     'id',
     'date',
@@ -330,29 +317,13 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     'updated_by',
   ].join(',')
   if (import.meta.env.DEV) {
-    console.info('[getWeeklyClasses] select shape', weeklyClassSelectShape)
+    console.info('[getWeeklyClasses] select shape', weeklyClassSelectShapeLegacy)
   }
-  let classRows: unknown[] | null = null
-  {
-    const { data, error } = await supabase
-      .from('weekly_classes')
-      .select(weeklyClassSelectShape)
-      .order('date', { ascending: false })
-    if (error) {
-      if (isMissingColumnError(error, 'weekly_classes', 'main_points')) {
-        const legacy = await supabase
-          .from('weekly_classes')
-          .select(weeklyClassSelectShapeLegacy)
-          .order('date', { ascending: false })
-        if (legacy.error) throw legacy.error
-        classRows = legacy.data as unknown[] | null
-      } else {
-        throw error
-      }
-    } else {
-      classRows = data as unknown[] | null
-    }
-  }
+  const { data: classRows, error } = await supabase
+    .from('weekly_classes')
+    .select(weeklyClassSelectShapeLegacy)
+    .order('date', { ascending: false })
+  if (error) throw error
   const rows = (classRows ?? []) as unknown as WeeklyClassRow[]
   const ids = rows.map((r) => r.id)
   if (ids.length === 0) return []
@@ -390,7 +361,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
       .order('scheduled_date', { ascending: true })
       .limit(1)
     if (withMainPoints.error) {
-      if (isMissingColumnError(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
+      if (shouldRetryWithLegacySelect(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
         const legacy = await supabase
           .from('upcoming_timirit')
           .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
@@ -654,7 +625,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   {
     const result = await query
     if (result.error) {
-      if (isMissingColumnError(result.error, 'upcoming_timirit', 'main_points')) {
+      if (shouldRetryWithLegacySelect(result.error, 'upcoming_timirit', 'main_points')) {
         let legacyQuery = supabase
           .from('upcoming_timirit')
           .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
