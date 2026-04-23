@@ -5,7 +5,11 @@
 
 import { supabase } from './supabase'
 import { pickLocalized } from './bilingualText'
+import type { Database } from './database.types'
+import { formatUnknownError } from './formatError'
 import { legacySingleLineFromLocalized, normalizeLocalizedText } from './localizedText'
+import { sanitizeOptionalHttpUrl } from './optionalUrl'
+import { parseOptionalUuid } from './uuid'
 import type { 
   WeeklyClass, 
   OrganizerSnapshot, 
@@ -34,6 +38,54 @@ let upcomingTimiritAdminCacheTimestamp = 0
 let weeklyKnowledgeCache: WeeklyKnowledgeItem | null | undefined
 let weeklyKnowledgeCacheTimestamp = 0
 
+const WEEKLY_CLASS_RELATION_SELECT = `
+  *,
+  mezmurs (*),
+  questions (
+    *,
+    multiple_choice_options (*),
+    attendance_options (*)
+  )
+`
+const WEEKLY_CLASS_MINIMAL_SELECT_WITH_STATUS = 'id, date, topic, speaker, amharic_summary, english_summary, status'
+const WEEKLY_CLASS_MINIMAL_SELECT = 'id, date, topic, speaker, amharic_summary, english_summary'
+const WEEKLY_CLASS_EXPANDED_SCALAR_SELECT = [
+  'id',
+  'date',
+  'topic',
+  'topic_en',
+  'topic_am',
+  'speaker',
+  'amharic_summary',
+  'english_summary',
+  'key_points',
+  'verses',
+  'youtube_url',
+  'audio_url',
+  'audio_title',
+  'audio_title_en',
+  'audio_title_am',
+  'audio_note',
+  'audio_note_en',
+  'audio_note_am',
+  'lesson_media_enabled',
+  'teaching_notes',
+  'teaching_notes_en',
+  'teaching_notes_am',
+  'feedback_summary',
+  'attendance_summary',
+].join(', ')
+const WEEKLY_CLASSES_HEALTH_DEBUG =
+  import.meta.env.DEV || String(import.meta.env.VITE_DEBUG_WEEKLY_CLASSES_FETCH ?? '').toLowerCase() === 'true'
+const ADMIN_WRITE_DEBUG =
+  import.meta.env.DEV || String(import.meta.env.VITE_DEBUG_ADMIN_WRITES ?? '').toLowerCase() === 'true'
+
+type WeeklyClassRow = Database['public']['Tables']['weekly_classes']['Row']
+type MezmurRow = Database['public']['Tables']['mezmurs']['Row']
+type QuestionRow = Database['public']['Tables']['questions']['Row']
+type MultipleChoiceOptionRow = Database['public']['Tables']['multiple_choice_options']['Row']
+type AttendanceOptionRow = Database['public']['Tables']['attendance_options']['Row']
+
 function isFresh(timestamp: number) {
   return Date.now() - timestamp < CACHE_DURATION_MS
 }
@@ -45,6 +97,295 @@ function invalidateDataCaches() {
   upcomingTimiritAdminCacheTimestamp = 0
   weeklyKnowledgeCache = undefined
   weeklyKnowledgeCacheTimestamp = 0
+}
+
+function logSupabaseError(context: string, error: unknown, query?: string) {
+  const details = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null
+  console.error(`[Supabase] ${context}`, {
+    message: typeof details?.message === 'string' ? details.message : undefined,
+    details: typeof details?.details === 'string' ? details.details : undefined,
+    hint: typeof details?.hint === 'string' ? details.hint : undefined,
+    code: typeof details?.code === 'string' ? details.code : undefined,
+    query,
+    error,
+  })
+}
+
+function logWeeklyClassesHealth(stage: string, payload?: Record<string, unknown>) {
+  if (!WEEKLY_CLASSES_HEALTH_DEBUG) return
+  console.info('[weekly_classes_fetch_health]', { stage, ...payload })
+}
+
+function logAdminWrite(action: string, stage: string, payload?: Record<string, unknown>) {
+  if (!ADMIN_WRITE_DEBUG) return
+  console.info('[admin_write]', { action, stage, ...payload })
+}
+
+function logAdminWriteError(action: string, stage: string, error: unknown, query?: string) {
+  logSupabaseError(`${action}:${stage}`, error, query)
+  logAdminWrite(action, `${stage}_error`, {
+    error_message: formatUnknownError(error),
+  })
+}
+
+type WeeklyClassHydratedRow = WeeklyClassRow & {
+  mezmurs?: MezmurRow[]
+  questions?: Array<QuestionRow & {
+    multiple_choice_options?: MultipleChoiceOptionRow[]
+    attendance_options?: AttendanceOptionRow[]
+  }>
+}
+
+async function fetchWeeklyClassRowsWithFallback(): Promise<WeeklyClassHydratedRow[]> {
+  if (!supabase) return []
+
+  const full = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_RELATION_SELECT)
+    .order('date', { ascending: false })
+
+  if (!full.error && full.data) {
+    logWeeklyClassesHealth('full_embedded_query_success', { rows: full.data.length })
+    return full.data as WeeklyClassHydratedRow[]
+  }
+
+  logSupabaseError('weekly_classes full relation select failed', full.error, WEEKLY_CLASS_RELATION_SELECT)
+
+  const minimalWithStatus = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_MINIMAL_SELECT_WITH_STATUS)
+    .order('date', { ascending: false })
+
+  if (minimalWithStatus.error) {
+    logSupabaseError(
+      'weekly_classes minimal select (with status) failed',
+      minimalWithStatus.error,
+      WEEKLY_CLASS_MINIMAL_SELECT_WITH_STATUS,
+    )
+  } else {
+    logWeeklyClassesHealth('minimal_query_with_status_success', { rows: minimalWithStatus.data?.length ?? 0 })
+  }
+
+  const expandedScalar = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_EXPANDED_SCALAR_SELECT)
+    .order('date', { ascending: false })
+
+  let rows: WeeklyClassRow[] = []
+  if (expandedScalar.error) {
+    logSupabaseError(
+      'weekly_classes expanded scalar select failed; falling back to strict minimal fields',
+      expandedScalar.error,
+      WEEKLY_CLASS_EXPANDED_SCALAR_SELECT,
+    )
+
+    const minimal = await supabase
+      .from('weekly_classes')
+      .select(WEEKLY_CLASS_MINIMAL_SELECT)
+      .order('date', { ascending: false })
+
+    if (minimal.error) {
+      logSupabaseError('weekly_classes minimal select failed', minimal.error, WEEKLY_CLASS_MINIMAL_SELECT)
+      throw minimal.error
+    }
+    logWeeklyClassesHealth('strict_minimal_scalar_query_success', { rows: minimal.data?.length ?? 0 })
+    rows = (minimal.data ?? []) as unknown as WeeklyClassRow[]
+  } else {
+    logWeeklyClassesHealth('expanded_scalar_query_success', { rows: expandedScalar.data?.length ?? 0 })
+    rows = (expandedScalar.data ?? []) as unknown as WeeklyClassRow[]
+  }
+
+  return hydrateWeeklyClassRelations(rows)
+}
+
+async function fetchWeeklyClassRowByIdWithFallback(id: string): Promise<WeeklyClassHydratedRow | null> {
+  if (!supabase) return null
+
+  const full = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_RELATION_SELECT)
+    .eq('id', id)
+    .single()
+
+  if (!full.error && full.data) {
+    logWeeklyClassesHealth('full_embedded_query_success_single', { id })
+    return full.data as WeeklyClassHydratedRow
+  }
+  if (full.error?.code === 'PGRST116') {
+    return null
+  }
+
+  logSupabaseError(`weekly_class ${id} full relation select failed`, full.error, WEEKLY_CLASS_RELATION_SELECT)
+
+  const minimalWithStatus = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_MINIMAL_SELECT_WITH_STATUS)
+    .eq('id', id)
+    .single()
+
+  if (minimalWithStatus.error) {
+    if (minimalWithStatus.error.code === 'PGRST116') return null
+    logSupabaseError(
+      `weekly_class ${id} minimal select (with status) failed`,
+      minimalWithStatus.error,
+      WEEKLY_CLASS_MINIMAL_SELECT_WITH_STATUS,
+    )
+  } else {
+    logWeeklyClassesHealth('minimal_query_with_status_success_single', { id })
+  }
+
+  const expandedScalar = await supabase
+    .from('weekly_classes')
+    .select(WEEKLY_CLASS_EXPANDED_SCALAR_SELECT)
+    .eq('id', id)
+    .single()
+
+  let baseRow: WeeklyClassRow
+  if (expandedScalar.error) {
+    if (expandedScalar.error.code === 'PGRST116') return null
+    logSupabaseError(
+      `weekly_class ${id} expanded scalar select failed; falling back to strict minimal fields`,
+      expandedScalar.error,
+      WEEKLY_CLASS_EXPANDED_SCALAR_SELECT,
+    )
+
+    const minimal = await supabase
+      .from('weekly_classes')
+      .select(WEEKLY_CLASS_MINIMAL_SELECT)
+      .eq('id', id)
+      .single()
+
+    if (minimal.error) {
+      if (minimal.error.code === 'PGRST116') return null
+      logSupabaseError(`weekly_class ${id} minimal select failed`, minimal.error, WEEKLY_CLASS_MINIMAL_SELECT)
+      throw minimal.error
+    }
+    logWeeklyClassesHealth('strict_minimal_scalar_query_success_single', { id })
+    baseRow = minimal.data as unknown as WeeklyClassRow
+  } else {
+    logWeeklyClassesHealth('expanded_scalar_query_success_single', { id })
+    baseRow = expandedScalar.data as unknown as WeeklyClassRow
+  }
+
+  const hydrated = await hydrateWeeklyClassRelations([baseRow])
+  return hydrated[0] ?? null
+}
+
+async function hydrateWeeklyClassRelations(rows: WeeklyClassRow[]): Promise<WeeklyClassHydratedRow[]> {
+  if (!supabase || rows.length === 0) {
+    if (rows.length === 0) {
+      logWeeklyClassesHealth('separate_relation_fetches_skipped_empty_rows')
+    }
+    return rows as WeeklyClassHydratedRow[]
+  }
+
+  const classIds = rows.map((row) => row.id)
+  const baseById = new Map<string, WeeklyClassHydratedRow>(
+    rows.map((row) => [row.id, { ...row, mezmurs: [], questions: [] }]),
+  )
+
+  const mezmursResult = await supabase
+    .from('mezmurs')
+    .select('*')
+    .in('weekly_class_id', classIds)
+    .order('order_index', { ascending: true })
+
+  if (mezmursResult.error) {
+    logSupabaseError('Failed to fetch weekly_classes->mezmurs relation', mezmursResult.error, 'mezmurs(*)')
+  } else {
+    for (const mezmur of mezmursResult.data as MezmurRow[]) {
+      const target = baseById.get(mezmur.weekly_class_id)
+      if (target?.mezmurs) target.mezmurs.push(mezmur)
+    }
+  }
+
+  const questionsResult = await supabase
+    .from('questions')
+    .select('*')
+    .in('weekly_class_id', classIds)
+    .order('order_index', { ascending: true })
+
+  const questionIds: string[] = []
+  if (questionsResult.error) {
+    logSupabaseError('Failed to fetch weekly_classes->questions relation', questionsResult.error, 'questions(*)')
+  } else {
+    for (const question of questionsResult.data as QuestionRow[]) {
+      questionIds.push(question.id)
+      const target = baseById.get(question.weekly_class_id)
+      if (target?.questions) {
+        target.questions.push({
+          ...question,
+          multiple_choice_options: [],
+          attendance_options: [],
+        })
+      }
+    }
+  }
+
+  if (questionIds.length > 0) {
+    const optionsResult = await supabase
+      .from('multiple_choice_options')
+      .select('*')
+      .in('question_id', questionIds)
+      .order('option_index', { ascending: true })
+
+    if (optionsResult.error) {
+      logSupabaseError(
+        'Failed to fetch questions->multiple_choice_options relation',
+        optionsResult.error,
+        'multiple_choice_options(*)',
+      )
+    } else {
+      const optionMap = new Map<string, MultipleChoiceOptionRow[]>()
+      for (const option of optionsResult.data as MultipleChoiceOptionRow[]) {
+        const current = optionMap.get(option.question_id)
+        if (current) current.push(option)
+        else optionMap.set(option.question_id, [option])
+      }
+      for (const weeklyClass of baseById.values()) {
+        for (const question of weeklyClass.questions ?? []) {
+          question.multiple_choice_options = optionMap.get(question.id) ?? []
+        }
+      }
+    }
+
+    const attendanceResult = await supabase
+      .from('attendance_options')
+      .select('*')
+      .in('question_id', questionIds)
+      .order('option_index', { ascending: true })
+
+    if (attendanceResult.error) {
+      logSupabaseError(
+        'Failed to fetch questions->attendance_options relation',
+        attendanceResult.error,
+        'attendance_options(*)',
+      )
+    } else {
+      const attendanceMap = new Map<string, AttendanceOptionRow[]>()
+      for (const option of attendanceResult.data as AttendanceOptionRow[]) {
+        const current = attendanceMap.get(option.question_id)
+        if (current) current.push(option)
+        else attendanceMap.set(option.question_id, [option])
+      }
+      for (const weeklyClass of baseById.values()) {
+        for (const question of weeklyClass.questions ?? []) {
+          question.attendance_options = attendanceMap.get(question.id) ?? []
+        }
+      }
+    }
+  } else {
+    logWeeklyClassesHealth('separate_relation_fetches_no_questions', { classCount: rows.length })
+  }
+
+  logWeeklyClassesHealth('separate_relation_fetches_complete', {
+    classCount: rows.length,
+    questionCount: questionIds.length,
+    mezmursFetched: mezmursResult.error ? 0 : mezmursResult.data?.length ?? 0,
+    questionsFetched: questionsResult.error ? 0 : questionsResult.data?.length ?? 0,
+  })
+
+  return rows.map((row) => baseById.get(row.id) ?? ({ ...row } as WeeklyClassHydratedRow))
 }
 
 const WEEKLY_KNOWLEDGE_TYPES = new Set([
@@ -270,63 +611,7 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     return []
   }
 
-  const { data: classes, error: classesError } = await supabase
-    .from('weekly_classes')
-    .select(`
-      *,
-      mezmurs (
-        id,
-        title,
-        title_en,
-        title_am,
-        transliteration,
-        lyrics,
-        lyrics_en,
-        lyrics_am,
-        note_en,
-        note_am,
-        youtube_url,
-        audio_url,
-        order_index
-      ),
-      questions (
-        id,
-        type,
-        prompt,
-        prompt_en,
-        prompt_am,
-        helper_text,
-        helper_text_en,
-        helper_text_am,
-        placeholder,
-        placeholder_en,
-        placeholder_am,
-        correct_index,
-        explanation,
-        explanation_en,
-        explanation_am,
-        order_index,
-        multiple_choice_options (
-          option_text,
-          option_text_en,
-          option_text_am,
-          option_index
-        ),
-        attendance_options (
-          value,
-          label,
-          label_en,
-          label_am,
-          option_index
-        )
-      )
-    `)
-    .order('date', { ascending: false })
-
-  if (classesError) {
-    console.error('Error fetching weekly classes:', classesError)
-    throw classesError
-  }
+  const classes = await fetchWeeklyClassRowsWithFallback()
 
   // Transform database format to TypeScript types
   const transformed = classes.map(transformWeeklyClass)
@@ -350,66 +635,9 @@ export async function getWeeklyClass(id: string): Promise<WeeklyClass | null> {
     return null
   }
 
-  const { data: classData, error } = await supabase
-    .from('weekly_classes')
-    .select(`
-      *,
-      mezmurs (
-        id,
-        title,
-        title_en,
-        title_am,
-        transliteration,
-        lyrics,
-        lyrics_en,
-        lyrics_am,
-        note_en,
-        note_am,
-        youtube_url,
-        audio_url,
-        order_index
-      ),
-      questions (
-        id,
-        type,
-        prompt,
-        prompt_en,
-        prompt_am,
-        helper_text,
-        helper_text_en,
-        helper_text_am,
-        placeholder,
-        placeholder_en,
-        placeholder_am,
-        correct_index,
-        explanation,
-        explanation_en,
-        explanation_am,
-        order_index,
-        multiple_choice_options (
-          option_text,
-          option_text_en,
-          option_text_am,
-          option_index
-        ),
-        attendance_options (
-          value,
-          label,
-          label_en,
-          label_am,
-          option_index
-        )
-      )
-    `)
-    .eq('id', id)
-    .single()
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null // Not found
-    }
-    console.error('Error fetching weekly class:', error)
-    throw error
+  const classData = await fetchWeeklyClassRowByIdWithFallback(id)
+  if (!classData) {
+    return null
   }
 
   return transformWeeklyClass(classData)
@@ -536,48 +764,56 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
   const normalizedStatus = normalizeWeeklyKnowledgeStatus(input.status)
   const normalizedIsActive = normalizedStatus === 'published' ? input.isActive : false
 
-  const titleEn = input.titleEn?.trim() || input.title.trim()
-  const titleAm = input.titleAm?.trim() || null
-  const subtitleEn = input.subtitleEn?.trim() || input.subtitle?.trim() || null
-  const subtitleAm = input.subtitleAm?.trim() || null
-  const contentEn = input.contentEn?.trim() || input.content.trim()
-  const contentAm = input.contentAm?.trim() || null
-  const extraNoteEn = input.extraNoteEn?.trim() || input.extraNote?.trim() || null
-  const extraNoteAm = input.extraNoteAm?.trim() || null
-  const buttonTextEn = input.buttonTextEn?.trim() || input.buttonText?.trim() || null
-  const buttonTextAm = input.buttonTextAm?.trim() || null
+  const titleEn = trimOrNull(input.titleEn) ?? trimOrNull(input.title)
+  const titleAm = trimOrNull(input.titleAm)
+  const subtitleEn = trimOrNull(input.subtitleEn) ?? trimOrNull(input.subtitle)
+  const subtitleAm = trimOrNull(input.subtitleAm)
+  const contentEn = trimOrNull(input.contentEn) ?? trimOrNull(input.content)
+  const contentAm = trimOrNull(input.contentAm)
+  const extraNoteEn = trimOrNull(input.extraNoteEn) ?? trimOrNull(input.extraNote)
+  const extraNoteAm = trimOrNull(input.extraNoteAm)
+  const buttonTextEn = trimOrNull(input.buttonTextEn) ?? trimOrNull(input.buttonText)
+  const buttonTextAm = trimOrNull(input.buttonTextAm)
+  const normalizedRow = {
+    id: input.id,
+    title: titleEn,
+    title_en: titleEn,
+    title_am: titleAm,
+    subtitle: subtitleEn,
+    subtitle_en: subtitleEn,
+    subtitle_am: subtitleAm,
+    content: contentEn,
+    content_en: contentEn,
+    content_am: contentAm,
+    extra_note: extraNoteEn,
+    extra_note_en: extraNoteEn,
+    extra_note_am: extraNoteAm,
+    image_url: sanitizeOptionalHttpUrl(input.imageUrl),
+    button_text: buttonTextEn,
+    button_text_en: buttonTextEn,
+    button_text_am: buttonTextAm,
+    button_link: sanitizeOptionalHttpUrl(input.buttonLink),
+    content_type: input.contentType,
+    status: normalizedStatus,
+    start_date: input.startDate || null,
+    end_date: input.endDate || null,
+    is_active: normalizedIsActive,
+  }
+  logAdminWrite('saveWeeklyKnowledgeEditor', 'payload_received', { payload: structuredClone(input) })
+  logAdminWrite('saveWeeklyKnowledgeEditor', 'payload_normalized', { normalizedRow: structuredClone(normalizedRow) })
 
   const { data, error } = await supabase
     .from('weekly_knowledge')
-    .upsert({
-      id: input.id,
-      title: titleEn,
-      title_en: titleEn,
-      title_am: titleAm,
-      subtitle: subtitleEn,
-      subtitle_en: subtitleEn,
-      subtitle_am: subtitleAm,
-      content: contentEn,
-      content_en: contentEn,
-      content_am: contentAm,
-      extra_note: extraNoteEn,
-      extra_note_en: extraNoteEn,
-      extra_note_am: extraNoteAm,
-      image_url: input.imageUrl?.trim() || null,
-      button_text: buttonTextEn,
-      button_text_en: buttonTextEn,
-      button_text_am: buttonTextAm,
-      button_link: input.buttonLink?.trim() || null,
-      content_type: input.contentType,
-      status: normalizedStatus,
-      start_date: input.startDate || null,
-      end_date: input.endDate || null,
-      is_active: normalizedIsActive,
-    })
+    .upsert(normalizedRow)
     .select('id')
     .single()
+  logAdminWrite('saveWeeklyKnowledgeEditor', 'supabase_response', {
+    returnedId: data?.id ?? null,
+    hasError: Boolean(error),
+  })
 
   if (error) {
+    logAdminWriteError('saveWeeklyKnowledgeEditor', 'weekly_knowledge_upsert', error)
     throw error
   }
 
@@ -588,8 +824,10 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
       .neq('id', data.id)
       .eq('is_active', true)
     if (deactivateOthersError) {
+      logAdminWriteError('saveWeeklyKnowledgeEditor', 'deactivate_other_active_rows', deactivateOthersError)
       throw deactivateOthersError
     }
+    logAdminWrite('saveWeeklyKnowledgeEditor', 'deactivate_other_active_rows_success', {})
   }
 
   invalidateDataCaches()
@@ -605,6 +843,7 @@ export async function setWeeklyKnowledgeStatus(
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('setWeeklyKnowledgeStatus', 'payload_received', { id, status, isActive })
   if (status === 'published' && isActive) {
     const { error: deactivateError } = await supabase
       .from('weekly_knowledge')
@@ -612,8 +851,10 @@ export async function setWeeklyKnowledgeStatus(
       .neq('id', id)
       .eq('is_active', true)
     if (deactivateError) {
+      logAdminWriteError('setWeeklyKnowledgeStatus', 'deactivate_other_active_rows', deactivateError)
       throw deactivateError
     }
+    logAdminWrite('setWeeklyKnowledgeStatus', 'deactivate_other_active_rows_success', {})
   }
 
   const { error } = await supabase
@@ -625,8 +866,10 @@ export async function setWeeklyKnowledgeStatus(
     .eq('id', id)
 
   if (error) {
+    logAdminWriteError('setWeeklyKnowledgeStatus', 'status_update', error)
     throw error
   }
+  logAdminWrite('setWeeklyKnowledgeStatus', 'status_update_success', { id, status, isActive })
 
   invalidateDataCaches()
 }
@@ -1053,17 +1296,105 @@ export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQues
   }
 }
 
+function trimOrNull(value: string | undefined | null): string | null {
+  const t = value?.trim()
+  return t ? t : null
+}
+
+type NormalizedEditorQuestion = EditorQuestionInput & { id: string; orderIndex: number }
+
+function buildQuestionUpsertRow(question: NormalizedEditorQuestion, weeklyClassId: string) {
+  const promptEn = trimOrNull(question.promptEn)
+  const promptAm = trimOrNull(question.promptAm)
+  const promptLegacy = trimOrNull(question.prompt) || promptEn || promptAm || null
+
+  const helperEn = trimOrNull(question.helperTextEn)
+  const helperAm = trimOrNull(question.helperTextAm)
+  const helperLegacy = trimOrNull(question.helperText) || helperEn || helperAm || null
+
+  const placeholderEn = trimOrNull(question.placeholderEn)
+  const placeholderAm = trimOrNull(question.placeholderAm)
+  const placeholderLegacy =
+    question.type !== 'multiple-choice' && question.type !== 'attendance'
+      ? trimOrNull(question.placeholder) || placeholderEn || placeholderAm || null
+      : null
+
+  const explanationEn = question.type === 'multiple-choice' ? trimOrNull(question.explanationEn) : null
+  const explanationAm = question.type === 'multiple-choice' ? trimOrNull(question.explanationAm) : null
+  const explanationLegacy =
+    question.type === 'multiple-choice'
+      ? trimOrNull(question.explanation) || explanationEn || explanationAm || null
+      : null
+
+  return {
+    id: question.id,
+    weekly_class_id: weeklyClassId,
+    type: question.type,
+    prompt: promptLegacy,
+    prompt_en: promptEn,
+    prompt_am: promptAm,
+    helper_text: helperLegacy,
+    helper_text_en: helperEn,
+    helper_text_am: helperAm,
+    placeholder: placeholderLegacy,
+    placeholder_en: placeholderEn,
+    placeholder_am: placeholderAm,
+    correct_index: question.type === 'multiple-choice' ? (question.correctIndex ?? 0) : null,
+    explanation: explanationLegacy,
+    explanation_en: explanationEn,
+    explanation_am: explanationAm,
+    order_index: question.orderIndex,
+  }
+}
+
 export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promise<string> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
   const normalizedId = data.id.trim() || data.date
-  const normalizedQuestions = data.questions.map((question, index) => ({
+  const normalizedQuestions: NormalizedEditorQuestion[] = data.questions.map((question, index) => ({
     ...question,
     id: question.id?.trim() || `${normalizedId}-q-${crypto.randomUUID()}`,
     orderIndex: index,
   }))
+
+  const englishSummary = data.englishSummary?.trim() || ''
+  const amharicSummary = data.amharicSummary?.trim() || ''
+  const classRow = {
+    id: normalizedId,
+    date: data.date,
+    topic: trimOrNull(data.topic) || trimOrNull(data.topicEn) || trimOrNull(data.topicAm) || null,
+    topic_en: trimOrNull(data.topicEn),
+    topic_am: trimOrNull(data.topicAm),
+    speaker: data.speaker?.trim() || ' ',
+    amharic_summary: amharicSummary || englishSummary || ' ',
+    english_summary: englishSummary || amharicSummary || ' ',
+    key_points: Array.isArray(data.keyPoints) ? data.keyPoints.map((p) => p.trim()).filter(Boolean) : [],
+    verses: Array.isArray(data.verses) ? data.verses.map((v) => v.trim()).filter(Boolean) : [],
+    youtube_url: sanitizeOptionalHttpUrl(data.youtubeUrl),
+    audio_url: sanitizeOptionalHttpUrl(data.audioUrl),
+    audio_title: trimOrNull(data.audioTitle),
+    audio_title_en: trimOrNull(data.audioTitleEn),
+    audio_title_am: trimOrNull(data.audioTitleAm),
+    audio_note: trimOrNull(data.audioNote),
+    audio_note_en: trimOrNull(data.audioNoteEn),
+    audio_note_am: trimOrNull(data.audioNoteAm),
+    lesson_media_enabled: data.lessonMediaEnabled ?? true,
+    teaching_notes: trimOrNull(data.teachingNotes),
+    teaching_notes_en: trimOrNull(data.teachingNotesEn),
+    teaching_notes_am: trimOrNull(data.teachingNotesAm),
+  }
+  logAdminWrite('saveWeeklyClassEditor', 'payload_received', { payload: structuredClone(data) })
+  logAdminWrite('saveWeeklyClassEditor', 'payload_normalized', {
+    classRow: structuredClone(classRow),
+    questionCount: normalizedQuestions.length,
+  })
+
+  if (import.meta.env.DEV) {
+    console.info('[saveWeeklyClassEditor] weekly_classes upsert', structuredClone(classRow))
+    console.info('[saveWeeklyClassEditor] questions', structuredClone(normalizedQuestions))
+  }
 
   const existingQuestions = await supabase
     .from('questions')
@@ -1071,7 +1402,8 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     .eq('weekly_class_id', normalizedId)
 
   if (existingQuestions.error) {
-    throw existingQuestions.error
+    logAdminWriteError('saveWeeklyClassEditor', 'existing_questions_select', existingQuestions.error)
+    throw new Error(formatUnknownError(existingQuestions.error))
   }
 
   const keptQuestionIds = new Set(normalizedQuestions.map((question) => question.id))
@@ -1079,29 +1411,12 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     .map((question) => question.id)
     .filter((questionId) => !keptQuestionIds.has(questionId))
 
-  const { error: classError } = await supabase
-    .from('weekly_classes')
-    .upsert({
-      id: normalizedId,
-      date: data.date,
-      topic: data.topic,
-      speaker: data.speaker,
-      amharic_summary: data.amharicSummary,
-      english_summary: data.englishSummary,
-      key_points: data.keyPoints,
-      verses: data.verses,
-      youtube_url: data.youtubeUrl || null,
-      audio_url: data.audioUrl || null,
-      audio_title: data.audioTitle || null,
-      audio_note: data.audioNote || null,
-      lesson_media_enabled: data.lessonMediaEnabled ?? true,
-      teaching_notes: data.teachingNotes || null,
-      feedback_summary: data.feedbackSummary || null,
-      attendance_summary: data.attendanceSummary || null,
-    })
+  const { error: classError } = await supabase.from('weekly_classes').upsert(classRow)
+  logAdminWrite('saveWeeklyClassEditor', 'weekly_classes_upsert_response', { hasError: Boolean(classError) })
 
   if (classError) {
-    throw classError
+    logAdminWriteError('saveWeeklyClassEditor', 'weekly_classes_upsert', classError)
+    throw new Error(formatUnknownError(classError))
   }
 
   const { error: deleteMezmursError } = await supabase
@@ -1110,45 +1425,59 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     .eq('weekly_class_id', normalizedId)
 
   if (deleteMezmursError) {
-    throw deleteMezmursError
+    logAdminWriteError('saveWeeklyClassEditor', 'mezmurs_delete_existing', deleteMezmursError)
+    throw new Error(formatUnknownError(deleteMezmursError))
   }
 
-  const { error: mezmursError } = await supabase
-    .from('mezmurs')
-    .insert(
-      data.mezmurs.map((mezmur, index) => ({
-        weekly_class_id: normalizedId,
-        title: mezmur.title,
-        transliteration: mezmur.transliteration || null,
-        lyrics: mezmur.lyrics || null,
-        youtube_url: mezmur.youtubeUrl || null,
-        audio_url: mezmur.audioUrl || null,
-        order_index: index,
-      })),
-    )
+  const mezmurRows = data.mezmurs.map((mezmur, index) => ({
+    weekly_class_id: normalizedId,
+    title:
+      mezmur.title?.trim() ||
+      mezmur.titleEn?.trim() ||
+      mezmur.titleAm?.trim() ||
+      'Untitled mezmur',
+    title_en: trimOrNull(mezmur.titleEn),
+    title_am: trimOrNull(mezmur.titleAm),
+    transliteration: trimOrNull(mezmur.transliteration),
+    lyrics: trimOrNull(mezmur.lyrics),
+    lyrics_en: trimOrNull(mezmur.lyricsEn),
+    lyrics_am: trimOrNull(mezmur.lyricsAm),
+    note_en: trimOrNull(mezmur.noteEn),
+    note_am: trimOrNull(mezmur.noteAm),
+    youtube_url: sanitizeOptionalHttpUrl(mezmur.youtubeUrl),
+    audio_url: sanitizeOptionalHttpUrl(mezmur.audioUrl),
+    order_index: index,
+  }))
+
+  if (import.meta.env.DEV) {
+    console.info('[saveWeeklyClassEditor] mezmurs insert', structuredClone(mezmurRows))
+  }
+
+  const { error: mezmursError } = await supabase.from('mezmurs').insert(mezmurRows)
+  logAdminWrite('saveWeeklyClassEditor', 'mezmurs_insert_response', {
+    rowCount: mezmurRows.length,
+    hasError: Boolean(mezmursError),
+  })
 
   if (mezmursError) {
-    throw mezmursError
+    logAdminWriteError('saveWeeklyClassEditor', 'mezmurs_insert', mezmursError)
+    throw new Error(formatUnknownError(mezmursError))
   }
 
-  const { error: questionsError } = await supabase
-    .from('questions')
-    .upsert(
-      normalizedQuestions.map((question) => ({
-        id: question.id,
-        weekly_class_id: normalizedId,
-        type: question.type,
-        prompt: question.prompt,
-        helper_text: question.helperText || null,
-        placeholder: question.placeholder || null,
-        correct_index: question.type === 'multiple-choice' ? (question.correctIndex ?? 0) : null,
-        explanation: question.type === 'multiple-choice' ? (question.explanation || null) : null,
-        order_index: question.orderIndex,
-      })),
-    )
+  const questionRows = normalizedQuestions.map((question) => buildQuestionUpsertRow(question, normalizedId))
+  logAdminWrite('saveWeeklyClassEditor', 'questions_payload_normalized', {
+    questionRows: structuredClone(questionRows),
+  })
+
+  const { error: questionsError } = await supabase.from('questions').upsert(questionRows)
+  logAdminWrite('saveWeeklyClassEditor', 'questions_upsert_response', {
+    rowCount: questionRows.length,
+    hasError: Boolean(questionsError),
+  })
 
   if (questionsError) {
-    throw questionsError
+    logAdminWriteError('saveWeeklyClassEditor', 'questions_upsert', questionsError)
+    throw new Error(formatUnknownError(questionsError))
   }
 
   for (const question of normalizedQuestions) {
@@ -1160,7 +1489,8 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       .eq('question_id', questionId)
 
     if (deleteChoiceError) {
-      throw deleteChoiceError
+      logAdminWriteError('saveWeeklyClassEditor', `delete_mc_options_${questionId}`, deleteChoiceError)
+      throw new Error(formatUnknownError(deleteChoiceError))
     }
 
     const { error: deleteAttendanceError } = await supabase
@@ -1169,7 +1499,8 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       .eq('question_id', questionId)
 
     if (deleteAttendanceError) {
-      throw deleteAttendanceError
+      logAdminWriteError('saveWeeklyClassEditor', `delete_attendance_options_${questionId}`, deleteAttendanceError)
+      throw new Error(formatUnknownError(deleteAttendanceError))
     }
 
     if (question.type === 'multiple-choice' && question.options && question.options.length > 0) {
@@ -1189,16 +1520,21 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
         )
 
       if (choiceError) {
-        throw choiceError
+        logAdminWriteError('saveWeeklyClassEditor', `insert_mc_options_${questionId}`, choiceError)
+        throw new Error(formatUnknownError(choiceError))
       }
+      logAdminWrite('saveWeeklyClassEditor', 'insert_mc_options_success', {
+        questionId,
+        optionCount: question.options.length,
+      })
     }
 
     if (question.type === 'attendance') {
       const attendanceOptions = question.attendanceOptions ?? [
-        { value: 'in-person', label: 'In person' },
-        { value: 'online', label: 'Online' },
-        { value: 'maybe', label: 'Maybe' },
-        { value: 'cannot-attend', label: 'Cannot attend' },
+        { value: 'in-person' as const, label: 'In person' },
+        { value: 'online' as const, label: 'Online' },
+        { value: 'maybe' as const, label: 'Maybe' },
+        { value: 'cannot-attend' as const, label: 'Cannot attend' },
       ]
 
       const { error: attendanceError } = await supabase
@@ -1207,14 +1543,21 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
           attendanceOptions.map((option, optionIndex) => ({
             question_id: questionId,
             value: option.value,
-            label: option.label,
+            label: trimOrNull(option.label),
+            label_en: trimOrNull(option.labelEn) || trimOrNull(option.label),
+            label_am: trimOrNull(option.labelAm),
             option_index: optionIndex,
           })),
         )
 
       if (attendanceError) {
-        throw attendanceError
+        logAdminWriteError('saveWeeklyClassEditor', `insert_attendance_options_${questionId}`, attendanceError)
+        throw new Error(formatUnknownError(attendanceError))
       }
+      logAdminWrite('saveWeeklyClassEditor', 'insert_attendance_options_success', {
+        questionId,
+        optionCount: attendanceOptions.length,
+      })
     }
   }
 
@@ -1225,9 +1568,14 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       .in('id', removedQuestionIds)
 
     if (removeQuestionsError) {
-      throw removeQuestionsError
+      logAdminWriteError('saveWeeklyClassEditor', 'remove_deleted_questions', removeQuestionsError)
+      throw new Error(formatUnknownError(removeQuestionsError))
     }
+    logAdminWrite('saveWeeklyClassEditor', 'remove_deleted_questions_success', {
+      removedCount: removedQuestionIds.length,
+    })
   }
+  logAdminWrite('saveWeeklyClassEditor', 'save_success', { weeklyClassId: normalizedId })
 
   invalidateDataCaches()
   return normalizedId
@@ -1248,8 +1596,14 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
       *,
       upcoming_mezmurs (
         title,
+        title_en,
+        title_am,
         transliteration,
         lyrics,
+        lyrics_en,
+        lyrics_am,
+        note_en,
+        note_am,
         youtube_url,
         audio_url,
         order_index
@@ -1271,8 +1625,14 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
         *,
         upcoming_mezmurs (
           title,
+          title_en,
+          title_am,
           transliteration,
           lyrics,
+          lyrics_en,
+          lyrics_am,
+          note_en,
+          note_am,
           order_index
         )
       `)
@@ -1296,11 +1656,29 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
 
   const sortedMezmurs = Array.isArray(row.upcoming_mezmurs)
     ? row.upcoming_mezmurs
-        .sort((a: any, b: any) => a.order_index - b.order_index)
-        .map((mezmur: any) => ({
+        .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
+        .map((mezmur: {
+          title: string
+          title_en?: string | null
+          title_am?: string | null
+          transliteration?: string | null
+          lyrics?: string | null
+          lyrics_en?: string | null
+          lyrics_am?: string | null
+          note_en?: string | null
+          note_am?: string | null
+          youtube_url?: string | null
+          audio_url?: string | null
+        }) => ({
           title: mezmur.title,
+          titleEn: mezmur.title_en || undefined,
+          titleAm: mezmur.title_am || undefined,
           transliteration: mezmur.transliteration || undefined,
           lyrics: mezmur.lyrics || undefined,
+          lyricsEn: mezmur.lyrics_en || undefined,
+          lyricsAm: mezmur.lyrics_am || undefined,
+          noteEn: mezmur.note_en || undefined,
+          noteAm: mezmur.note_am || undefined,
           youtubeUrl: mezmur.youtube_url || undefined,
           audioUrl: mezmur.audio_url || undefined,
         }))
@@ -1309,17 +1687,33 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   const result: UpcomingTimirtEditorInput = {
     id: row.id,
     scheduledDate: row.scheduled_date,
-    topicPreview: row.topic_preview,
-    note: row.note,
+    topicPreview: row.topic_preview ?? '',
+    topicPreviewEn: row.topic_preview_en || undefined,
+    topicPreviewAm: row.topic_preview_am || undefined,
+    note: row.note ?? '',
+    noteEn: row.note_en || undefined,
+    noteAm: row.note_am || undefined,
     lessonYoutubeUrl: row.lesson_youtube_url || undefined,
     lessonAudioUrl: row.lesson_audio_url || undefined,
     lessonAudioTitle: row.lesson_audio_title || undefined,
+    lessonAudioTitleEn: row.lesson_audio_title_en || undefined,
+    lessonAudioTitleAm: row.lesson_audio_title_am || undefined,
     lessonNote: row.lesson_note || undefined,
+    lessonNoteEn: row.lesson_note_en || undefined,
+    lessonNoteAm: row.lesson_note_am || undefined,
     weeklyKnowledgeContent: row.weekly_knowledge_content || undefined,
+    weeklyKnowledgeContentEn: row.weekly_knowledge_content_en || undefined,
+    weeklyKnowledgeContentAm: row.weekly_knowledge_content_am || undefined,
     weeklyKnowledgeImageUrl: row.weekly_knowledge_image_url || undefined,
     keyVerse: row.key_verse || undefined,
+    keyVerseEn: row.key_verse_en || undefined,
+    keyVerseAm: row.key_verse_am || undefined,
     organizerNote: row.organizer_note || undefined,
+    organizerNoteEn: row.organizer_note_en || undefined,
+    organizerNoteAm: row.organizer_note_am || undefined,
     classSummaryContent: row.class_summary_content || undefined,
+    classSummaryContentEn: row.class_summary_content_en || undefined,
+    classSummaryContentAm: row.class_summary_content_am || undefined,
     isActive: row.is_active ?? true,
     publicationStatus: row.publication_status === 'published' ? 'published' : 'draft',
     mezmurs: [
@@ -1335,35 +1729,105 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   return result
 }
 
+type UpcomingTimiritInsert = Database['public']['Tables']['upcoming_timirit']['Insert']
+type UpcomingMezmurInsert = Database['public']['Tables']['upcoming_mezmurs']['Insert']
+
+function buildUpcomingTimiritInsertRow(data: UpcomingTimirtEditorInput): UpcomingTimiritInsert {
+  const id = parseOptionalUuid(data.id)
+  const row: UpcomingTimiritInsert = {
+    scheduled_date: data.scheduledDate,
+    topic_preview: data.topicPreview?.trim() || null,
+    topic_preview_en: data.topicPreviewEn?.trim() || null,
+    topic_preview_am: data.topicPreviewAm?.trim() || null,
+    note: data.note?.trim() || null,
+    note_en: data.noteEn?.trim() || null,
+    note_am: data.noteAm?.trim() || null,
+    lesson_youtube_url: sanitizeOptionalHttpUrl(data.lessonYoutubeUrl),
+    lesson_audio_url: sanitizeOptionalHttpUrl(data.lessonAudioUrl),
+    lesson_audio_title: data.lessonAudioTitle?.trim() || null,
+    lesson_audio_title_en: data.lessonAudioTitleEn?.trim() || null,
+    lesson_audio_title_am: data.lessonAudioTitleAm?.trim() || null,
+    lesson_note: data.lessonNote?.trim() || null,
+    lesson_note_en: data.lessonNoteEn?.trim() || null,
+    lesson_note_am: data.lessonNoteAm?.trim() || null,
+    weekly_knowledge_content: data.weeklyKnowledgeContent?.trim() || null,
+    weekly_knowledge_content_en: data.weeklyKnowledgeContentEn?.trim() || null,
+    weekly_knowledge_content_am: data.weeklyKnowledgeContentAm?.trim() || null,
+    weekly_knowledge_image_url: sanitizeOptionalHttpUrl(data.weeklyKnowledgeImageUrl),
+    key_verse: data.keyVerse?.trim() || null,
+    key_verse_en: data.keyVerseEn?.trim() || null,
+    key_verse_am: data.keyVerseAm?.trim() || null,
+    organizer_note: data.organizerNote?.trim() || null,
+    organizer_note_en: data.organizerNoteEn?.trim() || null,
+    organizer_note_am: data.organizerNoteAm?.trim() || null,
+    class_summary_content: data.classSummaryContent?.trim() || null,
+    class_summary_content_en: data.classSummaryContentEn?.trim() || null,
+    class_summary_content_am: data.classSummaryContentAm?.trim() || null,
+    is_active: data.isActive,
+    publication_status: data.publicationStatus,
+  }
+  if (id) {
+    row.id = id
+  }
+  return row
+}
+
+function buildUpcomingMezmurRows(
+  upcomingId: string,
+  mezmurs: UpcomingTimirtEditorInput['mezmurs'],
+): UpcomingMezmurInsert[] {
+  return mezmurs.map((mezmur, index) => ({
+    upcoming_timirit_id: upcomingId,
+    title: mezmur.title?.trim() || 'Untitled mezmur',
+    title_en: mezmur.titleEn?.trim() || null,
+    title_am: mezmur.titleAm?.trim() || null,
+    transliteration: mezmur.transliteration?.trim() || null,
+    lyrics: mezmur.lyrics?.trim() || null,
+    lyrics_en: mezmur.lyricsEn?.trim() || null,
+    lyrics_am: mezmur.lyricsAm?.trim() || null,
+    note_en: mezmur.noteEn?.trim() || null,
+    note_am: mezmur.noteAm?.trim() || null,
+    youtube_url: sanitizeOptionalHttpUrl(mezmur.youtubeUrl),
+    audio_url: sanitizeOptionalHttpUrl(mezmur.audioUrl),
+    order_index: index,
+  }))
+}
+
 export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput): Promise<string> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
+  const insertRow = buildUpcomingTimiritInsertRow(data)
+  logAdminWrite('saveUpcomingTimirtEditor', 'payload_received', { payload: structuredClone(data) })
+  logAdminWrite('saveUpcomingTimirtEditor', 'payload_normalized', { insertRow: structuredClone(insertRow) })
+
+  if (import.meta.env.DEV) {
+    console.info('[saveUpcomingTimirtEditor] incoming form payload', structuredClone(data))
+    console.info('[saveUpcomingTimirtEditor] upcoming_timirit upsert row', structuredClone(insertRow))
+  }
+
   const { data: upcomingRecord, error: upcomingError } = await supabase
     .from('upcoming_timirit')
-    .upsert({
-      id: data.id,
-      scheduled_date: data.scheduledDate,
-      topic_preview: data.topicPreview,
-      note: data.note,
-      lesson_youtube_url: data.lessonYoutubeUrl || null,
-      lesson_audio_url: data.lessonAudioUrl || null,
-      lesson_audio_title: data.lessonAudioTitle || null,
-      lesson_note: data.lessonNote || null,
-      weekly_knowledge_content: data.weeklyKnowledgeContent || null,
-      weekly_knowledge_image_url: data.weeklyKnowledgeImageUrl || null,
-      key_verse: data.keyVerse || null,
-      organizer_note: data.organizerNote || null,
-      class_summary_content: data.classSummaryContent || null,
-      is_active: data.isActive,
-      publication_status: data.publicationStatus,
-    })
+    .upsert(insertRow)
     .select('id')
     .single()
 
+  if (import.meta.env.DEV) {
+    console.info('[saveUpcomingTimirtEditor] upcoming_timirit response', { upcomingRecord, upcomingError })
+  }
+  logAdminWrite('saveUpcomingTimirtEditor', 'upcoming_timirit_upsert_response', {
+    returnedId: upcomingRecord?.id ?? null,
+    hasError: Boolean(upcomingError),
+  })
+
   if (upcomingError) {
-    throw upcomingError
+    logAdminWriteError('saveUpcomingTimirtEditor', 'upcoming_timirit_upsert', upcomingError)
+    throw new Error(formatUnknownError(upcomingError))
+  }
+
+  if (!upcomingRecord?.id) {
+    throw new Error('Save did not return an upcoming Timirit id.')
   }
 
   const upcomingId = upcomingRecord.id
@@ -1374,41 +1838,38 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     .eq('upcoming_timirit_id', upcomingId)
 
   if (deleteMezmursError) {
-    throw deleteMezmursError
+    if (import.meta.env.DEV) {
+      console.error('[saveUpcomingTimirtEditor] delete upcoming_mezmurs', deleteMezmursError)
+    }
+    logAdminWriteError('saveUpcomingTimirtEditor', 'upcoming_mezmurs_delete_existing', deleteMezmursError)
+    throw new Error(formatUnknownError(deleteMezmursError))
   }
 
-  let { error: insertMezmursError } = await supabase
-    .from('upcoming_mezmurs')
-    .insert(
-      data.mezmurs.map((mezmur, index) => ({
-        upcoming_timirit_id: upcomingId,
-        title: mezmur.title,
-        transliteration: mezmur.transliteration || null,
-        lyrics: mezmur.lyrics || null,
-        youtube_url: mezmur.youtubeUrl || null,
-        audio_url: mezmur.audioUrl || null,
-        order_index: index,
-      })),
-    )
+  const mezmurRows = buildUpcomingMezmurRows(upcomingId, data.mezmurs)
+
+  if (import.meta.env.DEV) {
+    console.info('[saveUpcomingTimirtEditor] upcoming_mezmurs insert rows', structuredClone(mezmurRows))
+  }
+
+  let { error: insertMezmursError } = await supabase.from('upcoming_mezmurs').insert(mezmurRows)
 
   if (isMissingYoutubeUrlColumnError(insertMezmursError)) {
-    const fallbackInsert = await supabase
-      .from('upcoming_mezmurs')
-      .insert(
-        data.mezmurs.map((mezmur, index) => ({
-          upcoming_timirit_id: upcomingId,
-          title: mezmur.title,
-          transliteration: mezmur.transliteration || null,
-          lyrics: mezmur.lyrics || null,
-          order_index: index,
-        })),
-      )
+    const fallbackRows = mezmurRows.map(({ youtube_url: _y, ...rest }) => rest)
+    const fallbackInsert = await supabase.from('upcoming_mezmurs').insert(fallbackRows)
     insertMezmursError = fallbackInsert.error
   }
 
-  if (insertMezmursError) {
-    throw insertMezmursError
+  if (import.meta.env.DEV) {
+    console.info('[saveUpcomingTimirtEditor] upcoming_mezmurs insert result', { insertMezmursError })
   }
+
+  if (insertMezmursError) {
+    logAdminWriteError('saveUpcomingTimirtEditor', 'upcoming_mezmurs_insert', insertMezmursError)
+    throw new Error(formatUnknownError(insertMezmursError))
+  }
+  logAdminWrite('saveUpcomingTimirtEditor', 'upcoming_mezmurs_insert_success', {
+    rowCount: mezmurRows.length,
+  })
 
   invalidateDataCaches()
   return upcomingId
@@ -1468,6 +1929,7 @@ export async function setUpcomingTimiritActive(id: string, isActive: boolean): P
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('setUpcomingTimiritActive', 'payload_received', { id, isActive })
   const { error } = await supabase
     .from('upcoming_timirit')
     .update({
@@ -1477,8 +1939,10 @@ export async function setUpcomingTimiritActive(id: string, isActive: boolean): P
     .eq('id', id)
 
   if (error) {
+    logAdminWriteError('setUpcomingTimiritActive', 'upcoming_timirit_update', error)
     throw error
   }
+  logAdminWrite('setUpcomingTimiritActive', 'upcoming_timirit_update_success', { id, isActive })
 
   invalidateDataCaches()
 }
@@ -1488,6 +1952,7 @@ export async function deactivateUpcomingTimirt(id?: string): Promise<void> {
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('deactivateUpcomingTimirt', 'payload_received', { id: id ?? null })
   let query = supabase
     .from('upcoming_timirit')
     .update({ is_active: false, publication_status: 'draft' })
@@ -1499,8 +1964,10 @@ export async function deactivateUpcomingTimirt(id?: string): Promise<void> {
 
   const { error } = await query
   if (error) {
+    logAdminWriteError('deactivateUpcomingTimirt', 'deactivate_update', error)
     throw error
   }
+  logAdminWrite('deactivateUpcomingTimirt', 'deactivate_update_success', { id: id ?? null })
 
   invalidateDataCaches()
 }
@@ -1510,12 +1977,14 @@ export async function deleteUpcomingTimirt(id?: string): Promise<void> {
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('deleteUpcomingTimirt', 'payload_received', { id: id ?? null })
   if (id) {
     const { error } = await supabase
       .from('upcoming_timirit')
       .delete()
       .eq('id', id)
     if (error) {
+      logAdminWriteError('deleteUpcomingTimirt', 'delete_by_id', error)
       throw error
     }
   } else {
@@ -1526,6 +1995,7 @@ export async function deleteUpcomingTimirt(id?: string): Promise<void> {
       .limit(1)
 
     if (selectError) {
+      logAdminWriteError('deleteUpcomingTimirt', 'select_active_row', selectError)
       throw selectError
     }
 
@@ -1540,9 +2010,11 @@ export async function deleteUpcomingTimirt(id?: string): Promise<void> {
       .eq('id', activeId)
 
     if (deleteError) {
+      logAdminWriteError('deleteUpcomingTimirt', 'delete_active_row', deleteError)
       throw deleteError
     }
   }
+  logAdminWrite('deleteUpcomingTimirt', 'delete_success', { id: id ?? null })
 
   invalidateDataCaches()
 }
@@ -1561,29 +2033,46 @@ export async function createWeeklyClass(
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('createWeeklyClass', 'payload_received', { payload: structuredClone(data) })
+  const insertRow: Database['public']['Tables']['weekly_classes']['Insert'] = {
+    id: data.id,
+    date: data.date,
+    topic: trimOrNull(data.topic) ?? trimOrNull(data.topicEn) ?? trimOrNull(data.topicAm),
+    topic_en: trimOrNull(data.topicEn),
+    topic_am: trimOrNull(data.topicAm),
+    speaker: data.speaker?.trim() || ' ',
+    amharic_summary: data.amharicSummary?.trim() || data.englishSummary?.trim() || ' ',
+    english_summary: data.englishSummary?.trim() || data.amharicSummary?.trim() || ' ',
+    key_points: Array.isArray(data.keyPoints) ? data.keyPoints.map((p) => p.trim()).filter(Boolean) : [],
+    verses: Array.isArray(data.verses) ? data.verses.map((v) => v.trim()).filter(Boolean) : [],
+    youtube_url: sanitizeOptionalHttpUrl(data.youtubeUrl),
+    audio_url: sanitizeOptionalHttpUrl(data.audioUrl),
+    audio_title: trimOrNull(data.audioTitle),
+    audio_title_en: trimOrNull(data.audioTitleEn),
+    audio_title_am: trimOrNull(data.audioTitleAm),
+    audio_note: trimOrNull(data.audioNote),
+    audio_note_en: trimOrNull(data.audioNoteEn),
+    audio_note_am: trimOrNull(data.audioNoteAm),
+    lesson_media_enabled: data.lessonMediaEnabled ?? true,
+    teaching_notes: trimOrNull(data.teachingNotes),
+    teaching_notes_en: trimOrNull(data.teachingNotesEn),
+    teaching_notes_am: trimOrNull(data.teachingNotesAm),
+  }
+  logAdminWrite('createWeeklyClass', 'payload_normalized', { insertRow: structuredClone(insertRow) })
+
   const { data: result, error } = await supabase
     .from('weekly_classes')
-    .insert({
-      id: data.id,
-      date: data.date,
-      topic: data.topic,
-      speaker: data.speaker,
-      amharic_summary: data.amharicSummary,
-      english_summary: data.englishSummary,
-      key_points: data.keyPoints,
-      verses: data.verses || [],
-      youtube_url: data.youtubeUrl || null,
-      audio_url: data.audioUrl || null,
-      audio_title: data.audioTitle || null,
-      audio_note: data.audioNote || null,
-      lesson_media_enabled: data.lessonMediaEnabled ?? true,
-    })
+    .insert(insertRow)
     .select('id')
     .single()
+  logAdminWrite('createWeeklyClass', 'weekly_classes_insert_response', {
+    returnedId: result?.id ?? null,
+    hasError: Boolean(error),
+  })
 
   if (error) {
-    console.error('Error creating weekly class:', error)
-    throw error
+    logAdminWriteError('createWeeklyClass', 'weekly_classes_insert', error)
+    throw new Error(formatUnknownError(error))
   }
 
   invalidateDataCaches()
@@ -1601,31 +2090,42 @@ export async function updateWeeklyClass(
     throw new Error('Supabase is not configured.')
   }
 
-  const updateData: any = {}
+  logAdminWrite('updateWeeklyClass', 'payload_received', { id, payload: structuredClone(data) })
+  const updateData: Database['public']['Tables']['weekly_classes']['Update'] = {}
   
-  if (data.topic !== undefined) updateData.topic = data.topic
-  if (data.speaker !== undefined) updateData.speaker = data.speaker
-  if (data.amharicSummary !== undefined) updateData.amharic_summary = data.amharicSummary
-  if (data.englishSummary !== undefined) updateData.english_summary = data.englishSummary
-  if (data.keyPoints !== undefined) updateData.key_points = data.keyPoints
-  if (data.verses !== undefined) updateData.verses = data.verses
-  if (data.youtubeUrl !== undefined) updateData.youtube_url = data.youtubeUrl
-  if (data.audioUrl !== undefined) updateData.audio_url = data.audioUrl
-  if (data.audioTitle !== undefined) updateData.audio_title = data.audioTitle
-  if (data.audioNote !== undefined) updateData.audio_note = data.audioNote
+  if (data.topic !== undefined) updateData.topic = trimOrNull(data.topic)
+  if (data.topicEn !== undefined) updateData.topic_en = trimOrNull(data.topicEn)
+  if (data.topicAm !== undefined) updateData.topic_am = trimOrNull(data.topicAm)
+  if (data.speaker !== undefined) updateData.speaker = data.speaker.trim() || ' '
+  if (data.amharicSummary !== undefined) updateData.amharic_summary = data.amharicSummary.trim() || ' '
+  if (data.englishSummary !== undefined) updateData.english_summary = data.englishSummary.trim() || ' '
+  if (data.keyPoints !== undefined) updateData.key_points = data.keyPoints.map((p) => p.trim()).filter(Boolean)
+  if (data.verses !== undefined) updateData.verses = data.verses.map((v) => v.trim()).filter(Boolean)
+  if (data.youtubeUrl !== undefined) updateData.youtube_url = sanitizeOptionalHttpUrl(data.youtubeUrl)
+  if (data.audioUrl !== undefined) updateData.audio_url = sanitizeOptionalHttpUrl(data.audioUrl)
+  if (data.audioTitle !== undefined) updateData.audio_title = trimOrNull(data.audioTitle)
+  if (data.audioTitleEn !== undefined) updateData.audio_title_en = trimOrNull(data.audioTitleEn)
+  if (data.audioTitleAm !== undefined) updateData.audio_title_am = trimOrNull(data.audioTitleAm)
+  if (data.audioNote !== undefined) updateData.audio_note = trimOrNull(data.audioNote)
+  if (data.audioNoteEn !== undefined) updateData.audio_note_en = trimOrNull(data.audioNoteEn)
+  if (data.audioNoteAm !== undefined) updateData.audio_note_am = trimOrNull(data.audioNoteAm)
   if (data.lessonMediaEnabled !== undefined) updateData.lesson_media_enabled = data.lessonMediaEnabled
-  if (data.teachingNotes !== undefined) updateData.teaching_notes = data.teachingNotes
-  if (data.feedbackSummary !== undefined) updateData.feedback_summary = data.feedbackSummary
-  if (data.attendanceSummary !== undefined) updateData.attendance_summary = data.attendanceSummary
+  if (data.teachingNotes !== undefined) updateData.teaching_notes = trimOrNull(data.teachingNotes)
+  if (data.teachingNotesEn !== undefined) updateData.teaching_notes_en = trimOrNull(data.teachingNotesEn)
+  if (data.teachingNotesAm !== undefined) updateData.teaching_notes_am = trimOrNull(data.teachingNotesAm)
+  if (data.feedbackSummary !== undefined) updateData.feedback_summary = trimOrNull(data.feedbackSummary)
+  if (data.attendanceSummary !== undefined) updateData.attendance_summary = trimOrNull(data.attendanceSummary)
+  logAdminWrite('updateWeeklyClass', 'payload_normalized', { id, updateData: structuredClone(updateData) })
 
   const { error } = await supabase
     .from('weekly_classes')
     .update(updateData)
     .eq('id', id)
+  logAdminWrite('updateWeeklyClass', 'weekly_classes_update_response', { id, hasError: Boolean(error) })
 
   if (error) {
-    console.error('Error updating weekly class:', error)
-    throw error
+    logAdminWriteError('updateWeeklyClass', 'weekly_classes_update', error)
+    throw new Error(formatUnknownError(error))
   }
 
   invalidateDataCaches()
@@ -1639,15 +2139,17 @@ export async function deleteWeeklyClass(id: string): Promise<void> {
     throw new Error('Supabase is not configured.')
   }
 
+  logAdminWrite('deleteWeeklyClass', 'payload_received', { id })
   const { error } = await supabase
     .from('weekly_classes')
     .delete()
     .eq('id', id)
 
   if (error) {
-    console.error('Error deleting weekly class:', error)
-    throw error
+    logAdminWriteError('deleteWeeklyClass', 'weekly_classes_delete', error)
+    throw new Error(formatUnknownError(error))
   }
+  logAdminWrite('deleteWeeklyClass', 'weekly_classes_delete_success', { id })
 
   invalidateDataCaches()
 }
@@ -1663,11 +2165,29 @@ function transformWeeklyClass(data: any): WeeklyClass {
   // Sort mezmurs by order_index
   const sortedMezmurs = Array.isArray(data.mezmurs)
     ? data.mezmurs
-        .sort((a: any, b: any) => a.order_index - b.order_index)
-        .map((m: any) => ({
+        .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
+        .map((m: {
+          title: string
+          title_en?: string | null
+          title_am?: string | null
+          transliteration?: string | null
+          lyrics?: string | null
+          lyrics_en?: string | null
+          lyrics_am?: string | null
+          note_en?: string | null
+          note_am?: string | null
+          youtube_url?: string | null
+          audio_url?: string | null
+        }) => ({
           title: m.title,
+          titleEn: m.title_en || undefined,
+          titleAm: m.title_am || undefined,
           transliteration: m.transliteration || undefined,
           lyrics: m.lyrics || undefined,
+          lyricsEn: m.lyrics_en || undefined,
+          lyricsAm: m.lyrics_am || undefined,
+          noteEn: m.note_en || undefined,
+          noteAm: m.note_am || undefined,
           youtubeUrl: m.youtube_url || undefined,
           audioUrl: m.audio_url || undefined,
         }))
@@ -1688,18 +2208,26 @@ function transformWeeklyClass(data: any): WeeklyClass {
   return {
     id: data.id,
     date: data.date,
-    topic: data.topic,
-    speaker: data.speaker,
-    amharicSummary: data.amharic_summary,
-    englishSummary: data.english_summary,
+    topic: data.topic ?? data.topic_en ?? data.topic_am ?? '',
+    topicEn: data.topic_en || undefined,
+    topicAm: data.topic_am || undefined,
+    speaker: data.speaker ?? 'Organizer',
+    amharicSummary: data.amharic_summary ?? '',
+    englishSummary: data.english_summary ?? '',
     keyPoints: Array.isArray(data.key_points) ? data.key_points : [],
     verses: Array.isArray(data.verses) ? data.verses : undefined,
     youtubeUrl: data.youtube_url || undefined,
     audioUrl: data.audio_url || undefined,
     audioTitle: data.audio_title || undefined,
+    audioTitleEn: data.audio_title_en || undefined,
+    audioTitleAm: data.audio_title_am || undefined,
     audioNote: data.audio_note || undefined,
+    audioNoteEn: data.audio_note_en || undefined,
+    audioNoteAm: data.audio_note_am || undefined,
     lessonMediaEnabled: data.lesson_media_enabled ?? true,
     teachingNotes: data.teaching_notes || undefined,
+    teachingNotesEn: data.teaching_notes_en || undefined,
+    teachingNotesAm: data.teaching_notes_am || undefined,
     mezmurs,
     questions: sortedQuestions,
     feedbackSummary: data.feedback_summary || undefined,
@@ -1710,12 +2238,41 @@ function transformWeeklyClass(data: any): WeeklyClass {
 /**
  * Transform database question row to Question type
  */
-function transformQuestion(data: any): Question {
+function trimU(value: string | null | undefined): string | undefined {
+  const t = value?.trim()
+  return t ? t : undefined
+}
+
+function transformQuestion(data: {
+  id: string
+  type: string
+  prompt?: string | null
+  prompt_en?: string | null
+  prompt_am?: string | null
+  helper_text?: string | null
+  helper_text_en?: string | null
+  helper_text_am?: string | null
+  placeholder?: string | null
+  placeholder_en?: string | null
+  placeholder_am?: string | null
+  correct_index?: number | null
+  explanation?: string | null
+  explanation_en?: string | null
+  explanation_am?: string | null
+  multiple_choice_options?: unknown
+  attendance_options?: unknown
+}): Question {
+  const promptEn = trimU(data.prompt_en) ?? trimU(data.prompt)
+  const promptAm = trimU(data.prompt_am)
   const baseQuestion = {
     id: data.id,
     type: data.type as QuestionType,
-    prompt: data.prompt,
-    helperText: data.helper_text || undefined
+    prompt: pickLocalized('en', data.prompt_en, data.prompt_am, data.prompt) || '',
+    promptEn,
+    promptAm,
+    helperText: pickLocalized('en', data.helper_text_en, data.helper_text_am, data.helper_text) || undefined,
+    helperTextEn: trimU(data.helper_text_en) ?? trimU(data.helper_text),
+    helperTextAm: trimU(data.helper_text_am),
   }
 
   switch (data.type) {
@@ -1739,26 +2296,36 @@ function transformQuestion(data: any): Question {
         ...baseQuestion,
         type: 'multiple-choice',
         options: sortedOptions,
-        correctIndex: data.correct_index,
-        explanation: data.explanation,
+        correctIndex: data.correct_index ?? 0,
+        explanation: pickLocalized('en', data.explanation_en, data.explanation_am, data.explanation) || '',
+        explanationEn: trimU(data.explanation_en) ?? trimU(data.explanation),
+        explanationAm: trimU(data.explanation_am),
       }
     }
 
-    case 'attendance':
+    case 'attendance': {
       const sortedAttendanceOptions = Array.isArray(data.attendance_options)
         ? data.attendance_options
-            .sort((a: any, b: any) => a.option_index - b.option_index)
-            .map((opt: any) => ({
+            .sort((a: { option_index: number }, b: { option_index: number }) => a.option_index - b.option_index)
+            .map((opt: {
+              value: AttendanceChoice
+              label?: string | null
+              label_en?: string | null
+              label_am?: string | null
+            }) => ({
               value: opt.value as AttendanceChoice,
-              label: opt.label
+              label: pickLocalized('en', opt.label_en, opt.label_am, opt.label) || '',
+              labelEn: trimU(opt.label_en) ?? trimU(opt.label),
+              labelAm: trimU(opt.label_am),
             }))
         : []
-      
+
       return {
         ...baseQuestion,
         type: 'attendance',
-        options: sortedAttendanceOptions
+        options: sortedAttendanceOptions,
       }
+    }
 
     case 'short-answer':
     case 'reflection':
@@ -1766,7 +2333,9 @@ function transformQuestion(data: any): Question {
       return {
         ...baseQuestion,
         type: data.type,
-        placeholder: data.placeholder || undefined
+        placeholder: pickLocalized('en', data.placeholder_en, data.placeholder_am, data.placeholder) || undefined,
+        placeholderEn: trimU(data.placeholder_en) ?? trimU(data.placeholder),
+        placeholderAm: trimU(data.placeholder_am),
       } as Question
 
     default:

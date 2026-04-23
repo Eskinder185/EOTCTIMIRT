@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
 import type {
   WeeklyKnowledgeContentType,
   WeeklyKnowledgeEditorInput,
@@ -69,6 +70,12 @@ export function AdminWeeklyKnowledgePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [devDiagnostics, setDevDiagnostics] = useState<{
+    action: string
+    validationRule?: string
+    normalizedPayload?: unknown
+    errorDetails?: unknown
+  } | null>(null)
 
   const loadItems = async () => {
     try {
@@ -77,7 +84,7 @@ export function AdminWeeklyKnowledgePage() {
       setItems(await listWeeklyKnowledgeForAdmin())
     } catch (loadError) {
       console.error('Failed to load weekly knowledge:', loadError)
-      setError(loadError instanceof Error ? loadError.message : 'Could not load weekly knowledge entries.')
+      setError(`Could not load weekly knowledge entries. ${formatUnknownError(loadError)}`)
     } finally {
       setLoading(false)
     }
@@ -113,26 +120,31 @@ export function AdminWeeklyKnowledgePage() {
       })
     } catch (selectError) {
       console.error('Failed to load selected weekly knowledge:', selectError)
-      setError(selectError instanceof Error ? selectError.message : 'Could not load this entry.')
+      setError(`Could not load this entry. ${formatUnknownError(selectError)}`)
     } finally {
       setLoading(false)
     }
   }
 
-  const validate = () => {
-    if (!form.title.trim() || !form.content.trim()) {
-      setError('Please provide a title and main content.')
+  const validate = (status: WeeklyKnowledgeStatus) => {
+    const isPublishing = status === 'published'
+    if (isPublishing && !form.title.trim() && !form.content.trim()) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.title_or_content_required_for_publish' })
+      setError('Add at least a title or main content before publishing.')
       return false
     }
     if (!isValidUrl(form.imageUrl) || !isValidUrl(form.buttonLink)) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.optional_url_invalid' })
       setError('Please enter valid image/button links or leave them empty.')
       return false
     }
     if (form.buttonLink?.trim() && !form.buttonText?.trim()) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge.button_text_required_when_link_present' })
       setError('Please add button text when using a button link.')
       return false
     }
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action: 'save', validationRule: 'weekly_knowledge_date_range_invalid' })
       setError('End date should be on or after the start date.')
       return false
     }
@@ -140,18 +152,22 @@ export function AdminWeeklyKnowledgePage() {
   }
 
   const saveAs = async (status: WeeklyKnowledgeStatus, forceActive = false) => {
-    if (!validate()) {
+    if (!validate(status)) {
       return
     }
     try {
       setSaving(true)
       setError(null)
       setNotice(null)
-      const id = await saveWeeklyKnowledgeEditor({
+      const payload: WeeklyKnowledgeEditorInput = {
         ...form,
         status,
         isActive: status === 'published' ? (forceActive ? true : form.isActive) : false,
-      })
+      }
+      if (import.meta.env.DEV) {
+        setDevDiagnostics({ action: `save_${status}`, normalizedPayload: structuredClone(payload) })
+      }
+      const id = await saveWeeklyKnowledgeEditor(payload)
       setForm((current) => ({
         ...current,
         id,
@@ -166,7 +182,15 @@ export function AdminWeeklyKnowledgePage() {
       )
     } catch (saveError) {
       console.error('Failed to save weekly knowledge:', saveError)
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this entry.')
+      if (import.meta.env.DEV) {
+        setDevDiagnostics((current) => ({
+          action: current?.action ?? `save_${status}`,
+          validationRule: current?.validationRule,
+          normalizedPayload: current?.normalizedPayload,
+          errorDetails: extractErrorDebugDetails(saveError),
+        }))
+      }
+      setError(formatUnknownError(saveError))
     } finally {
       setSaving(false)
     }
@@ -194,7 +218,13 @@ export function AdminWeeklyKnowledgePage() {
       )
     } catch (statusError) {
       console.error('Failed to update weekly knowledge status:', statusError)
-      setError(statusError instanceof Error ? statusError.message : 'Could not update status.')
+      if (import.meta.env.DEV) {
+        setDevDiagnostics({
+          action: `status_change_${status}`,
+          errorDetails: extractErrorDebugDetails(statusError),
+        })
+      }
+      setError(formatUnknownError(statusError))
     } finally {
       setSaving(false)
     }
@@ -212,6 +242,12 @@ export function AdminWeeklyKnowledgePage() {
 
       {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {notice ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
+      {import.meta.env.DEV && devDiagnostics ? (
+        <div className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-xs text-slate-800">
+          <p className="font-semibold">Dev diagnostics</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(devDiagnostics, null, 2)}</pre>
+        </div>
+      ) : null}
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -45,6 +45,11 @@ export function hasLocalizedText(value: LocalizedText | null | undefined): boole
   return Boolean(n.en || n.am)
 }
 
+/** True if any argument has non-whitespace text (for “at least one language” checks on separate fields). */
+export function hasAnyTrimmedText(...values: Array<string | null | undefined>): boolean {
+  return values.some((v) => Boolean(v?.trim()))
+}
+
 /**
  * Accepts `{ en, am }`, a legacy plain string, or empty input — for API/JSON/draft payloads.
  */

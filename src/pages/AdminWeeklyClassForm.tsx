@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-import type { AttendanceChoice, LocalizedText, QuestionType } from '../data/types'
+import type { AttendanceChoice, LocalizedText, Question, QuestionType } from '../data/types'
+import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
 import {
   coerceLocalizedText,
   compactLocalizedOptionsForSave,
   emptyLocalizedText,
+  hasAnyTrimmedText,
   hasLocalizedText,
   normalizeLocalizedText,
 } from '../lib/localizedText'
+import { isNonEmptyInvalidHttpUrl } from '../lib/optionalUrl'
 import { getWeeklyClass, saveWeeklyClassEditor, type EditorQuestionInput, type WeeklyClassEditorInput } from '../lib/supabaseData'
 
 type FormState = WeeklyClassEditorInput
@@ -17,18 +20,99 @@ function migrateWeeklyClassFormState(form: WeeklyClassEditorInput): WeeklyClassE
   return {
     ...form,
     questions: form.questions.map((q) => {
-      if (q.type !== 'multiple-choice') {
-        return q
+      const baseCommon = {
+        ...q,
+        promptEn: q.promptEn ?? '',
+        promptAm: q.promptAm ?? '',
+        helperTextEn: q.helperTextEn ?? '',
+        helperTextAm: q.helperTextAm ?? '',
+      }
+      if (q.type === 'multiple-choice') {
+        return {
+          ...baseCommon,
+          type: 'multiple-choice' as const,
+          explanation: q.explanation ?? '',
+          explanationEn: q.explanationEn ?? '',
+          explanationAm: q.explanationAm ?? '',
+          correctIndex: q.correctIndex ?? 0,
+          options: (q.options ?? []).map((opt) => coerceLocalizedText(opt)),
+        } satisfies EditorQuestionInput
+      }
+      if (q.type === 'attendance') {
+        return {
+          ...baseCommon,
+          type: 'attendance' as const,
+          attendanceOptions: q.attendanceOptions ?? defaultAttendanceOptions,
+        } satisfies EditorQuestionInput
       }
       return {
-        ...q,
-        options: (q.options ?? []).map((opt) => coerceLocalizedText(opt)),
-      }
+        ...baseCommon,
+        type: q.type,
+        placeholder: q.placeholder ?? '',
+        placeholderEn: q.placeholderEn ?? '',
+        placeholderAm: q.placeholderAm ?? '',
+      } satisfies EditorQuestionInput
     }),
   }
 }
 
-const defaultAttendanceOptions: Array<{ value: AttendanceChoice; label: string }> = [
+function questionFromDomain(question: Question): EditorQuestionInput {
+  if (question.type === 'multiple-choice') {
+    return {
+      id: question.id,
+      type: 'multiple-choice',
+      prompt: question.prompt,
+      promptEn: question.promptEn ?? '',
+      promptAm: question.promptAm ?? '',
+      helperText: question.helperText ?? '',
+      helperTextEn: question.helperTextEn ?? '',
+      helperTextAm: question.helperTextAm ?? '',
+      explanation: question.explanation,
+      explanationEn: question.explanationEn ?? '',
+      explanationAm: question.explanationAm ?? '',
+      correctIndex: question.correctIndex,
+      options: question.options.map((opt) => coerceLocalizedText(opt)),
+    }
+  }
+  if (question.type === 'attendance') {
+    return {
+      id: question.id,
+      type: 'attendance',
+      prompt: question.prompt,
+      promptEn: question.promptEn ?? '',
+      promptAm: question.promptAm ?? '',
+      helperText: question.helperText ?? '',
+      helperTextEn: question.helperTextEn ?? '',
+      helperTextAm: question.helperTextAm ?? '',
+      attendanceOptions: question.options.map((o) => ({
+        value: o.value,
+        label: o.label,
+        labelEn: o.labelEn,
+        labelAm: o.labelAm,
+      })),
+    }
+  }
+  return {
+    id: question.id,
+    type: question.type,
+    prompt: question.prompt,
+    promptEn: question.promptEn ?? '',
+    promptAm: question.promptAm ?? '',
+    helperText: question.helperText ?? '',
+    helperTextEn: question.helperTextEn ?? '',
+    helperTextAm: question.helperTextAm ?? '',
+    placeholder: question.placeholder ?? '',
+    placeholderEn: question.placeholderEn ?? '',
+    placeholderAm: question.placeholderAm ?? '',
+  }
+}
+
+const defaultAttendanceOptions: Array<{
+  value: AttendanceChoice
+  label: string
+  labelEn?: string
+  labelAm?: string
+}> = [
   { value: 'in-person', label: 'In person' },
   { value: 'online', label: 'Online' },
   { value: 'maybe', label: 'Maybe' },
@@ -48,9 +132,15 @@ function createEmptyQuestion(type: QuestionType): EditorQuestionInput {
     return {
       type,
       prompt: '',
+      promptEn: '',
+      promptAm: '',
       helperText: '',
+      helperTextEn: '',
+      helperTextAm: '',
       correctIndex: 0,
       explanation: '',
+      explanationEn: '',
+      explanationAm: '',
       options: [
         emptyLocalizedText(),
         emptyLocalizedText(),
@@ -64,7 +154,11 @@ function createEmptyQuestion(type: QuestionType): EditorQuestionInput {
     return {
       type,
       prompt: '',
+      promptEn: '',
+      promptAm: '',
       helperText: '',
+      helperTextEn: '',
+      helperTextAm: '',
       attendanceOptions: defaultAttendanceOptions,
     }
   }
@@ -72,8 +166,14 @@ function createEmptyQuestion(type: QuestionType): EditorQuestionInput {
   return {
     type,
     prompt: '',
+    promptEn: '',
+    promptAm: '',
     helperText: '',
+    helperTextEn: '',
+    helperTextAm: '',
     placeholder: '',
+    placeholderEn: '',
+    placeholderAm: '',
   }
 }
 
@@ -82,6 +182,8 @@ function createEmptyForm(): FormState {
     id: '',
     date: getNextTuesday(),
     topic: '',
+    topicEn: '',
+    topicAm: '',
     speaker: '',
     amharicSummary: '',
     englishSummary: '',
@@ -90,9 +192,15 @@ function createEmptyForm(): FormState {
     youtubeUrl: '',
     audioUrl: '',
     audioTitle: '',
+    audioTitleEn: '',
+    audioTitleAm: '',
     audioNote: '',
+    audioNoteEn: '',
+    audioNoteAm: '',
     lessonMediaEnabled: true,
     teachingNotes: '',
+    teachingNotesEn: '',
+    teachingNotesAm: '',
     mezmurs: [
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
@@ -103,17 +211,17 @@ function createEmptyForm(): FormState {
   }
 }
 
-function isValidUrl(value: string) {
-  if (!value.trim()) {
+function editorQuestionShouldSave(q: EditorQuestionInput): boolean {
+  if (q.type === 'attendance') {
     return true
   }
-
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
+  if (hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt)) {
+    return true
   }
+  if (q.type === 'multiple-choice' && (q.options ?? []).some((opt) => hasLocalizedText({ ...emptyLocalizedText(), ...opt }))) {
+    return true
+  }
+  return false
 }
 
 export function AdminWeeklyClassForm() {
@@ -127,6 +235,12 @@ export function AdminWeeklyClassForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [devDiagnostics, setDevDiagnostics] = useState<{
+    action: string
+    validationRule?: string
+    normalizedPayload?: unknown
+    errorDetails?: unknown
+  } | null>(null)
 
   useEffect(() => {
     const savedDraft = localStorage.getItem(draftKey)
@@ -158,6 +272,8 @@ export function AdminWeeklyClassForm() {
           id: weeklyClass.id,
           date: weeklyClass.date,
           topic: weeklyClass.topic,
+          topicEn: weeklyClass.topicEn || '',
+          topicAm: weeklyClass.topicAm || '',
           speaker: weeklyClass.speaker,
           amharicSummary: weeklyClass.amharicSummary,
           englishSummary: weeklyClass.englishSummary,
@@ -166,12 +282,20 @@ export function AdminWeeklyClassForm() {
           youtubeUrl: weeklyClass.youtubeUrl || '',
           audioUrl: weeklyClass.audioUrl || '',
           audioTitle: weeklyClass.audioTitle || '',
+          audioTitleEn: weeklyClass.audioTitleEn || '',
+          audioTitleAm: weeklyClass.audioTitleAm || '',
           audioNote: weeklyClass.audioNote || '',
+          audioNoteEn: weeklyClass.audioNoteEn || '',
+          audioNoteAm: weeklyClass.audioNoteAm || '',
           lessonMediaEnabled: weeklyClass.lessonMediaEnabled ?? true,
           teachingNotes: weeklyClass.teachingNotes || '',
+          teachingNotesEn: weeklyClass.teachingNotesEn || '',
+          teachingNotesAm: weeklyClass.teachingNotesAm || '',
           mezmurs: [
             {
               title: weeklyClass.mezmurs[0]?.title || '',
+              titleEn: weeklyClass.mezmurs[0]?.titleEn || '',
+              titleAm: weeklyClass.mezmurs[0]?.titleAm || '',
               transliteration: weeklyClass.mezmurs[0]?.transliteration || '',
               lyrics: weeklyClass.mezmurs[0]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[0]?.youtubeUrl || '',
@@ -179,43 +303,15 @@ export function AdminWeeklyClassForm() {
             },
             {
               title: weeklyClass.mezmurs[1]?.title || '',
+              titleEn: weeklyClass.mezmurs[1]?.titleEn || '',
+              titleAm: weeklyClass.mezmurs[1]?.titleAm || '',
               transliteration: weeklyClass.mezmurs[1]?.transliteration || '',
               lyrics: weeklyClass.mezmurs[1]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[1]?.youtubeUrl || '',
               audioUrl: weeklyClass.mezmurs[1]?.audioUrl || '',
             },
           ],
-          questions: weeklyClass.questions.map((question) => {
-            if (question.type === 'multiple-choice') {
-              return {
-                id: question.id,
-                type: question.type,
-                prompt: question.prompt,
-                helperText: question.helperText || '',
-                correctIndex: question.correctIndex,
-                explanation: question.explanation,
-                options: question.options.map((opt) => coerceLocalizedText(opt)),
-              }
-            }
-
-            if (question.type === 'attendance') {
-              return {
-                id: question.id,
-                type: question.type,
-                prompt: question.prompt,
-                helperText: question.helperText || '',
-                attendanceOptions: [...question.options],
-              }
-            }
-
-            return {
-              id: question.id,
-              type: question.type,
-              prompt: question.prompt,
-              helperText: question.helperText || '',
-              placeholder: question.placeholder || '',
-            }
-          }),
+          questions: weeklyClass.questions.map(questionFromDomain),
           feedbackSummary: weeklyClass.feedbackSummary || '',
           attendanceSummary: weeklyClass.attendanceSummary || '',
         }
@@ -227,8 +323,10 @@ export function AdminWeeklyClassForm() {
           setForm(nextForm)
         }
       } catch (loadError) {
-        console.error('Failed to load weekly class editor:', loadError)
-        setError('The weekly editor could not be loaded. Please try again.')
+        if (import.meta.env.DEV) {
+          console.error('[AdminWeeklyClassForm] load failed', loadError)
+        }
+        setError(`The weekly editor could not be loaded. ${formatUnknownError(loadError)}`)
       } finally {
         setLoading(false)
       }
@@ -265,35 +363,56 @@ export function AdminWeeklyClassForm() {
   }
 
   const publishUpdate = async () => {
-    if (!form.date || !form.topic || !form.speaker || !form.amharicSummary || !form.englishSummary) {
-      setError('Please complete the date, topic, speaker, and both summaries before publishing.')
+    const action = isEditing ? 'publish_update' : 'publish_create'
+    if (!form.date?.trim()) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.date_required' })
+      setError('Please set the class date.')
+      return
+    }
+    if (!hasAnyTrimmedText(form.topic, form.topicEn, form.topicAm)) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.topic_required_any_language' })
+      setError('Add a topic in English, Amharic, or the combined topic line (at least one).')
+      return
+    }
+    if (isNonEmptyInvalidHttpUrl(form.youtubeUrl) || isNonEmptyInvalidHttpUrl(form.audioUrl)) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.lesson_media_url_invalid' })
+      setError('Lesson YouTube or audio link is not valid. Clear the field or use a full https:// URL.')
+      return
+    }
+    if (
+      form.mezmurs.some(
+        (mezmur) => isNonEmptyInvalidHttpUrl(mezmur.youtubeUrl) || isNonEmptyInvalidHttpUrl(mezmur.audioUrl),
+      )
+    ) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.mezmur_media_url_invalid' })
+      setError('A mezmur YouTube or audio link is not valid. Clear the field or use a full https:// URL.')
       return
     }
 
-    if (!form.mezmurs[0].title || !form.mezmurs[1].title) {
-      setError('Please enter both weekly mezmur titles before publishing.')
+    const badMc = form.questions.find((q) => {
+      if (q.type !== 'multiple-choice') {
+        return false
+      }
+      if (!hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt)) {
+        return false
+      }
+      const rawOptions = (q.options ?? []).map((opt) => ({ ...emptyLocalizedText(), ...opt }))
+      return !rawOptions.some(hasLocalizedText)
+    })
+    if (badMc) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.multiple_choice_requires_options' })
+      setError(
+        'A multiple-choice question has a prompt but no answer choices. Add at least one choice in English or Amharic, or remove the prompt.',
+      )
       return
     }
 
-    if (!isValidUrl(form.youtubeUrl || '') || !isValidUrl(form.audioUrl || '')) {
-      setError('Please enter valid YouTube/audio links or leave them empty.')
-      return
-    }
-    const hasInvalidMezmurLink = form.mezmurs.some(
-      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
-    )
-    if (hasInvalidMezmurLink) {
-      setError('Please enter valid mezmur audio/video links or leave them empty.')
-      return
-    }
-
-    const emptyMc = form.questions.find(
-      (q) =>
-        q.type === 'multiple-choice' &&
-        !(q.options ?? []).some((opt) => hasLocalizedText({ ...emptyLocalizedText(), ...opt })),
-    )
-    if (emptyMc) {
-      setError('Each multiple-choice question needs at least one answer option in English or Amharic.')
+    const questionMissingPrompt = form.questions
+      .filter(editorQuestionShouldSave)
+      .find((q) => !hasAnyTrimmedText(q.promptEn, q.promptAm, q.prompt))
+    if (questionMissingPrompt) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'weekly_class.question_prompt_required_any_language' })
+      setError('Each included question needs a prompt in English, Amharic, or the base prompt field.')
       return
     }
 
@@ -305,12 +424,27 @@ export function AdminWeeklyClassForm() {
       const normalized: WeeklyClassEditorInput = {
         ...form,
         id: form.id.trim() || form.date,
+        topic: form.topic?.trim() || form.topicEn?.trim() || form.topicAm?.trim() || '',
+        topicEn: form.topicEn?.trim() || undefined,
+        topicAm: form.topicAm?.trim() || undefined,
+        englishSummary: form.englishSummary?.trim() || form.amharicSummary?.trim() || ' ',
+        amharicSummary: form.amharicSummary?.trim() || form.englishSummary?.trim() || ' ',
+        speaker: form.speaker?.trim() || ' ',
         keyPoints: form.keyPoints.map((point) => point.trim()).filter(Boolean),
         verses: form.verses.map((verse) => verse.trim()).filter(Boolean),
-        audioTitle: form.audioTitle?.trim() || '',
-        audioNote: form.audioNote?.trim() || '',
-        teachingNotes: form.teachingNotes?.trim() || '',
+        audioTitle: form.audioTitle?.trim() || undefined,
+        audioTitleEn: form.audioTitleEn?.trim() || undefined,
+        audioTitleAm: form.audioTitleAm?.trim() || undefined,
+        audioNote: form.audioNote?.trim() || undefined,
+        audioNoteEn: form.audioNoteEn?.trim() || undefined,
+        audioNoteAm: form.audioNoteAm?.trim() || undefined,
+        teachingNotes: form.teachingNotes?.trim() || undefined,
+        teachingNotesEn: form.teachingNotesEn?.trim() || undefined,
+        teachingNotesAm: form.teachingNotesAm?.trim() || undefined,
+        feedbackSummary: form.feedbackSummary?.trim() || undefined,
+        attendanceSummary: form.attendanceSummary?.trim() || undefined,
         questions: form.questions
+          .filter(editorQuestionShouldSave)
           .map((question) => {
             if (question.type === 'multiple-choice') {
               const rawOptions = (question.options ?? []).map((opt) => ({
@@ -325,38 +459,70 @@ export function AdminWeeklyClassForm() {
                 ...question,
                 options: compacted.map((opt) => normalizeLocalizedText(opt)),
                 correctIndex: nextCorrect,
+                prompt: question.prompt?.trim() || '',
+                promptEn: question.promptEn?.trim() || undefined,
+                promptAm: question.promptAm?.trim() || undefined,
+                helperText: question.helperText?.trim() || undefined,
+                helperTextEn: question.helperTextEn?.trim() || undefined,
+                helperTextAm: question.helperTextAm?.trim() || undefined,
                 explanation: question.explanation?.trim() || '',
+                explanationEn: question.explanationEn?.trim() || undefined,
+                explanationAm: question.explanationAm?.trim() || undefined,
               }
             }
 
             if (question.type === 'attendance') {
               return {
                 ...question,
+                prompt: question.prompt?.trim() || '',
+                promptEn: question.promptEn?.trim() || undefined,
+                promptAm: question.promptAm?.trim() || undefined,
+                helperText: question.helperText?.trim() || undefined,
+                helperTextEn: question.helperTextEn?.trim() || undefined,
+                helperTextAm: question.helperTextAm?.trim() || undefined,
                 attendanceOptions: (question.attendanceOptions ?? defaultAttendanceOptions).map((option) => ({
                   value: option.value,
                   label: option.label.trim(),
+                  labelEn: option.labelEn?.trim() || undefined,
+                  labelAm: option.labelAm?.trim() || undefined,
                 })),
               }
             }
 
             return {
               ...question,
-              placeholder: question.placeholder?.trim() || '',
+              prompt: question.prompt?.trim() || '',
+              promptEn: question.promptEn?.trim() || undefined,
+              promptAm: question.promptAm?.trim() || undefined,
+              helperText: question.helperText?.trim() || undefined,
+              helperTextEn: question.helperTextEn?.trim() || undefined,
+              helperTextAm: question.helperTextAm?.trim() || undefined,
+              placeholder: question.placeholder?.trim() || undefined,
+              placeholderEn: question.placeholderEn?.trim() || undefined,
+              placeholderAm: question.placeholderAm?.trim() || undefined,
             }
-          })
-          .filter((question) => question.prompt.trim()),
+          }),
+      }
+
+      if (import.meta.env.DEV) {
+        console.info('[AdminWeeklyClassForm] publish → saveWeeklyClassEditor', structuredClone(normalized))
+        setDevDiagnostics({ action, normalizedPayload: structuredClone(normalized) })
       }
 
       const savedId = await saveWeeklyClassEditor(normalized)
       localStorage.removeItem(draftKey)
       navigate(`/admin/weekly-classes/${savedId}`)
     } catch (publishError) {
-      console.error('Failed to publish weekly class:', publishError)
-      setError(
-        publishError instanceof Error
-          ? publishError.message
-          : 'The weekly content could not be published. Please try again.',
-      )
+      if (import.meta.env.DEV) {
+        console.error('[AdminWeeklyClassForm] publish failed', publishError)
+        setDevDiagnostics((current) => ({
+          action,
+          validationRule: current?.validationRule,
+          normalizedPayload: current?.normalizedPayload,
+          errorDetails: extractErrorDebugDetails(publishError),
+        }))
+      }
+      setError(formatUnknownError(publishError))
     } finally {
       setSaving(false)
     }
@@ -383,11 +549,20 @@ export function AdminWeeklyClassForm() {
         </p>
       </div>
 
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm wrap-break-word text-red-700">{error}</div>
+      ) : null}
       {notice ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
+      {import.meta.env.DEV && devDiagnostics ? (
+        <div className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-xs text-slate-800">
+          <p className="font-semibold">Dev diagnostics</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(devDiagnostics, null, 2)}</pre>
+        </div>
+      ) : null}
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-brand-900">1. Weekly class form</h2>
+        <p className="mt-1 text-xs text-brand-600">Only date and topic (any language) are required to publish. Other fields are optional.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">Class ID
             <input type="text" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="2026-04-22" />
@@ -395,14 +570,22 @@ export function AdminWeeklyClassForm() {
           <label className="text-sm font-medium text-brand-900">Date
             <input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Speaker
+          <label className="text-sm font-medium text-brand-900">Speaker <span className="font-normal text-brand-500">(optional)</span>
             <input type="text" value={form.speaker} onChange={(event) => setForm({ ...form, speaker: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Dn. Daniel T., Memhir Kidan, Fr. Michael Z." />
           </label>
         </div>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Topic
-          <input type="text" value={form.topic} onChange={(event) => setForm({ ...form, topic: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Theosis through liturgical life" />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Topic — English <span className="font-normal text-brand-500">(optional if other filled)</span>
+            <input type="text" value={form.topicEn || ''} onChange={(event) => setForm({ ...form, topicEn: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Theosis through liturgical life" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Topic — Amharic <span className="font-normal text-brand-500">(optional)</span>
+            <input type="text" value={form.topicAm || ''} onChange={(event) => setForm({ ...form, topicAm: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+        </div>
+        <label className="mt-3 block text-sm font-medium text-brand-900">Topic — combined / legacy <span className="font-normal text-brand-500">(optional)</span>
+          <input type="text" value={form.topic} onChange={(event) => setForm({ ...form, topic: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Single-line display fallback" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link
+        <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link <span className="font-normal text-brand-500">(optional)</span>
           <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
         </label>
         <label className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-brand-200 px-4 text-sm font-medium text-brand-900">
@@ -414,23 +597,47 @@ export function AdminWeeklyClassForm() {
           Enable lesson media on the public lesson page
         </label>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Audio lesson link
+          <label className="text-sm font-medium text-brand-900">Audio lesson link <span className="font-normal text-brand-500">(optional)</span>
             <input type="url" value={form.audioUrl || ''} onChange={(event) => setForm({ ...form, audioUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://example.com/lesson.mp3" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Audio title (optional)
-            <input type="text" value={form.audioTitle || ''} onChange={(event) => setForm({ ...form, audioTitle: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Week 12 audio lesson" />
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Audio title — English <span className="font-normal text-brand-500">(optional)</span>
+            <input type="text" value={form.audioTitleEn || ''} onChange={(event) => setForm({ ...form, audioTitleEn: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Audio title — Amharic <span className="font-normal text-brand-500">(optional)</span>
+            <input type="text" value={form.audioTitleAm || ''} onChange={(event) => setForm({ ...form, audioTitleAm: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
           </label>
         </div>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Audio note (optional)
-          <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Use headphones for clearer listening in public spaces." />
+        <label className="mt-3 block text-sm font-medium text-brand-900">Audio title — legacy <span className="font-normal text-brand-500">(optional)</span>
+          <input type="text" value={form.audioTitle || ''} onChange={(event) => setForm({ ...form, audioTitle: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Week 12 audio lesson" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Teaching notes / transcript (optional)
-          <textarea value={form.teachingNotes || ''} onChange={(event) => setForm({ ...form, teachingNotes: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Optional transcript highlights or teaching notes for catch-up readers." />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Audio note — English <span className="font-normal text-brand-500">(optional)</span>
+            <textarea value={form.audioNoteEn || ''} onChange={(event) => setForm({ ...form, audioNoteEn: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Audio note — Amharic <span className="font-normal text-brand-500">(optional)</span>
+            <textarea value={form.audioNoteAm || ''} onChange={(event) => setForm({ ...form, audioNoteAm: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+        </div>
+        <label className="mt-3 block text-sm font-medium text-brand-900">Audio note — legacy <span className="font-normal text-brand-500">(optional)</span>
+          <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">Teaching notes — English <span className="font-normal text-brand-500">(optional)</span>
+            <textarea value={form.teachingNotesEn || ''} onChange={(event) => setForm({ ...form, teachingNotesEn: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+          <label className="text-sm font-medium text-brand-900">Teaching notes — Amharic <span className="font-normal text-brand-500">(optional)</span>
+            <textarea value={form.teachingNotesAm || ''} onChange={(event) => setForm({ ...form, teachingNotesAm: event.target.value })} rows={4} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+          </label>
+        </div>
+        <label className="mt-3 block text-sm font-medium text-brand-900">Teaching notes — legacy <span className="font-normal text-brand-500">(optional)</span>
+          <textarea value={form.teachingNotes || ''} onChange={(event) => setForm({ ...form, teachingNotes: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">Amharic summary <span className="font-normal text-brand-500">(at least one summary required)</span>
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">English summary
+        <label className="mt-4 block text-sm font-medium text-brand-900">English summary <span className="font-normal text-brand-500">(at least one summary required)</span>
           <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -462,11 +669,21 @@ export function AdminWeeklyClassForm() {
             <div key={`mezmur-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
               <h3 className="text-base font-semibold text-brand-900">Mezmur {index + 1}</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <input type="text" value={mezmur.title} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, title: event.target.value }; setForm({ ...form, mezmurs }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur title" />
-                <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Transliteration" />
+                <label className="text-sm font-medium text-brand-900">Title — English <span className="font-normal text-brand-500">(optional)</span>
+                  <input type="text" value={mezmur.titleEn || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, titleEn: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                </label>
+                <label className="text-sm font-medium text-brand-900">Title — Amharic <span className="font-normal text-brand-500">(optional)</span>
+                  <input type="text" value={mezmur.titleAm || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, titleAm: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                </label>
               </div>
-              <input type="url" value={mezmur.youtubeUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="YouTube practice link" />
-              <input type="url" value={mezmur.audioUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, audioUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Audio practice link" />
+              <label className="mt-3 block text-sm font-medium text-brand-900">Title — legacy / display <span className="font-normal text-brand-500">(optional)</span>
+                <input type="text" value={mezmur.title} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, title: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur title" />
+              </label>
+              <label className="mt-3 block text-sm font-medium text-brand-900">Transliteration <span className="font-normal text-brand-500">(optional)</span>
+                <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+              </label>
+              <input type="url" value={mezmur.youtubeUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="YouTube (optional)" />
+              <input type="url" value={mezmur.audioUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, audioUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Audio link (optional)" />
               <textarea value={mezmur.lyrics || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, lyrics: event.target.value }; setForm({ ...form, mezmurs }) }} rows={4} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur lyrics" />
             </div>
           ))}
@@ -518,8 +735,24 @@ export function AdminWeeklyClassForm() {
                   </label>
                 </div>
 
-                <textarea value={question.prompt} onChange={(event) => updateQuestion(index, { ...question, prompt: event.target.value })} rows={2} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Question prompt" />
-                <input type="text" value={question.helperText || ''} onChange={(event) => updateQuestion(index, { ...question, helperText: event.target.value })} className="mt-3 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Helper text for parish readers" />
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-brand-600">Question text</p>
+                <div className="mt-1 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-brand-900">Prompt — English <span className="font-normal text-brand-500">(optional)</span>
+                    <textarea value={question.promptEn || ''} onChange={(event) => updateQuestion(index, { ...question, promptEn: event.target.value })} rows={2} className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                  </label>
+                  <label className="text-sm font-medium text-brand-900">Prompt — Amharic <span className="font-normal text-brand-500">(optional)</span>
+                    <textarea value={question.promptAm || ''} onChange={(event) => updateQuestion(index, { ...question, promptAm: event.target.value })} rows={2} className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                  </label>
+                </div>
+                <label className="mt-2 block text-sm font-medium text-brand-900">Prompt — legacy <span className="font-normal text-brand-500">(optional)</span>
+                  <textarea value={question.prompt} onChange={(event) => updateQuestion(index, { ...question, prompt: event.target.value })} rows={2} className="mt-1 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Single-line fallback" />
+                </label>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-600">Helper text <span className="font-normal text-brand-500">(optional)</span></p>
+                <div className="mt-1 grid gap-3 sm:grid-cols-2">
+                  <textarea value={question.helperTextEn || ''} onChange={(event) => updateQuestion(index, { ...question, helperTextEn: event.target.value })} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
+                  <textarea value={question.helperTextAm || ''} onChange={(event) => updateQuestion(index, { ...question, helperTextAm: event.target.value })} rows={2} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
+                </div>
+                <textarea value={question.helperText || ''} onChange={(event) => updateQuestion(index, { ...question, helperText: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Helper — legacy (optional)" />
 
                 {question.type === 'multiple-choice' ? (
                   <div className="mt-4 space-y-4">
@@ -591,7 +824,12 @@ export function AdminWeeklyClassForm() {
                         </button>
                       ) : null}
                     </div>
-                    <textarea value={question.explanation || ''} onChange={(event) => updateQuestion(index, { ...question, explanation: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Explanation shown in recap analytics" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Explanation <span className="font-normal text-brand-500">(optional)</span></p>
+                    <div className="mt-1 grid gap-3 sm:grid-cols-2">
+                      <textarea value={question.explanationEn || ''} onChange={(event) => updateQuestion(index, { ...question, explanationEn: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
+                      <textarea value={question.explanationAm || ''} onChange={(event) => updateQuestion(index, { ...question, explanationAm: event.target.value })} rows={3} className="w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
+                    </div>
+                    <textarea value={question.explanation || ''} onChange={(event) => updateQuestion(index, { ...question, explanation: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Explanation — legacy (optional)" />
                   </div>
                 ) : null}
 
@@ -607,7 +845,14 @@ export function AdminWeeklyClassForm() {
                 ) : null}
 
                 {question.type !== 'multiple-choice' && question.type !== 'attendance' ? (
-                  <input type="text" value={question.placeholder || ''} onChange={(event) => updateQuestion(index, { ...question, placeholder: event.target.value })} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Optional response placeholder" />
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Response placeholder <span className="font-normal text-brand-500">(optional)</span></p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input type="text" value={question.placeholderEn || ''} onChange={(event) => updateQuestion(index, { ...question, placeholderEn: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="English" />
+                      <input type="text" value={question.placeholderAm || ''} onChange={(event) => updateQuestion(index, { ...question, placeholderAm: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Amharic" />
+                    </div>
+                    <input type="text" value={question.placeholder || ''} onChange={(event) => updateQuestion(index, { ...question, placeholder: event.target.value })} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Legacy placeholder (optional)" />
+                  </div>
                 ) : null}
               </div>
             ))

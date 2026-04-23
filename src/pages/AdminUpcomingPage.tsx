@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
+import { hasAnyTrimmedText } from '../lib/localizedText'
+import { isNonEmptyInvalidHttpUrl } from '../lib/optionalUrl'
 import {
   deactivateUpcomingTimirt,
   deleteUpcomingTimirt,
@@ -10,6 +13,7 @@ import {
   type UpcomingTimirtListItem,
   type UpcomingTimirtEditorInput,
 } from '../lib/supabaseData'
+import { parseOptionalUuid } from '../lib/uuid'
 
 type FormState = UpcomingTimirtEditorInput
 
@@ -44,17 +48,12 @@ function createEmptyForm(): FormState {
   }
 }
 
-function isValidUrl(value: string) {
-  if (!value.trim()) {
-    return true
+function normalizeDraftFromStorage(parsed: Partial<FormState>): Partial<FormState> {
+  const copy = { ...parsed }
+  if (copy.id != null && String(copy.id).trim() !== '' && !parseOptionalUuid(copy.id)) {
+    delete copy.id
   }
-
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
+  return copy
 }
 
 export function AdminUpcomingPage() {
@@ -70,6 +69,12 @@ export function AdminUpcomingPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [devDiagnostics, setDevDiagnostics] = useState<{
+    action: string
+    validationRule?: string
+    normalizedPayload?: unknown
+    errorDetails?: unknown
+  } | null>(null)
 
   useEffect(() => {
     const savedDraft = localStorage.getItem(draftKey)
@@ -83,7 +88,7 @@ export function AdminUpcomingPage() {
         const upcoming = defaultId ? await getUpcomingTimirtForAdmin(defaultId) : null
         setSelectedUpcomingId(defaultId)
         if (savedDraft) {
-          const parsed = JSON.parse(savedDraft) as Partial<FormState>
+          const parsed = normalizeDraftFromStorage(JSON.parse(savedDraft) as Partial<FormState>)
           setForm({
             ...createEmptyForm(),
             ...parsed,
@@ -99,12 +104,10 @@ export function AdminUpcomingPage() {
           setForm(upcoming)
         }
       } catch (loadError) {
-        console.error('Failed to load upcoming editor:', loadError)
-        setError(
-          loadError instanceof Error
-            ? `The upcoming Timirit form could not be loaded. ${loadError.message}`
-            : 'The upcoming Timirit form could not be loaded.',
-        )
+        if (import.meta.env.DEV) {
+          console.error('[AdminUpcomingPage] loadUpcoming failed', loadError)
+        }
+        setError(`The upcoming Timirit form could not be loaded. ${formatUnknownError(loadError)}`)
       } finally {
         setLoading(false)
       }
@@ -114,26 +117,14 @@ export function AdminUpcomingPage() {
   }, [draftKey, selectedUpcomingId])
 
   const saveDraft = async () => {
-    if (!form.topicPreview || !form.note) {
-      setError('Please complete the date, topic, and preview note before saving a draft.')
-      return
-    }
-    if (!isValidUrl(form.lessonYoutubeUrl || '') || !isValidUrl(form.lessonAudioUrl || '') || !isValidUrl(form.weeklyKnowledgeImageUrl || '')) {
-      setError('Please enter valid links for lesson media and knowledge image URLs.')
-      return
-    }
-    const hasInvalidMezmurLink = form.mezmurs.some(
-      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
-    )
-    if (hasInvalidMezmurLink) {
-      setError('Please enter valid upcoming mezmur audio/video links or leave them empty.')
-      return
-    }
+    const action = 'save_draft'
     if ((form.lessonAudioTitle || '').trim().length > 120) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.lesson_audio_title_max_120' })
       setError('Audio title should be 120 characters or fewer.')
       return
     }
     if ((form.keyVerse || '').trim().length > 180) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.key_verse_max_180' })
       setError('Key verse should be 180 characters or fewer.')
       return
     }
@@ -143,8 +134,13 @@ export function AdminUpcomingPage() {
       setNotice(null)
       const draftToSave: FormState = {
         ...form,
+        id: parseOptionalUuid(form.id),
         isActive: false,
         publicationStatus: 'draft',
+      }
+      if (import.meta.env.DEV) {
+        console.info('[AdminUpcomingPage] saveDraft → saveUpcomingTimirtEditor', structuredClone(draftToSave))
+        setDevDiagnostics({ action, normalizedPayload: structuredClone(draftToSave) })
       }
       const savedId = await saveUpcomingTimirtEditor(draftToSave)
       setForm((current) => ({
@@ -158,27 +154,50 @@ export function AdminUpcomingPage() {
       localStorage.removeItem(draftKey)
       setNotice('Draft saved. It is private until you publish.')
     } catch (saveError) {
-      console.error('Failed to save upcoming draft:', saveError)
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this draft right now.')
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] saveDraft failed', saveError)
+        setDevDiagnostics((current) => ({
+          action,
+          validationRule: current?.validationRule,
+          normalizedPayload: current?.normalizedPayload,
+          errorDetails: extractErrorDebugDetails(saveError),
+        }))
+      }
+      setError(formatUnknownError(saveError))
     } finally {
       setSaving(false)
     }
   }
 
   const publishUpcoming = async () => {
-    if (!form.topicPreview || !form.note || !form.weeklyKnowledgeContent || !form.classSummaryContent || !form.mezmurs[0].title || !form.mezmurs[1].title) {
-      setError('Please complete topic, preview note, weekly knowledge, class summary, and both mezmur titles before publishing.')
+    const action = 'publish'
+    if (!form.scheduledDate?.trim()) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.scheduled_date_required' })
+      setError('Please set the session date before publishing.')
       return
     }
-    if (!isValidUrl(form.lessonYoutubeUrl || '') || !isValidUrl(form.lessonAudioUrl || '') || !isValidUrl(form.weeklyKnowledgeImageUrl || '')) {
-      setError('Please enter valid links for lesson media and knowledge image URLs.')
+    if (!hasAnyTrimmedText(form.topicPreview, form.topicPreviewEn, form.topicPreviewAm)) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.topic_required_any_language' })
+      setError('Add a topic preview in English, Amharic, or the combined topic line (at least one).')
       return
     }
-    const hasInvalidMezmurLink = form.mezmurs.some(
-      (mezmur) => !isValidUrl(mezmur.youtubeUrl || '') || !isValidUrl(mezmur.audioUrl || ''),
+    if (
+      isNonEmptyInvalidHttpUrl(form.lessonYoutubeUrl) ||
+      isNonEmptyInvalidHttpUrl(form.lessonAudioUrl) ||
+      isNonEmptyInvalidHttpUrl(form.weeklyKnowledgeImageUrl)
+    ) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.media_or_image_url_invalid' })
+      setError(
+        'One of the media or image links is not a valid https address. Leave optional links blank or fix the URL.',
+      )
+      return
+    }
+    const badMezmurMedia = form.mezmurs.some(
+      (mezmur) => isNonEmptyInvalidHttpUrl(mezmur.youtubeUrl) || isNonEmptyInvalidHttpUrl(mezmur.audioUrl),
     )
-    if (hasInvalidMezmurLink) {
-      setError('Please enter valid upcoming mezmur audio/video links or leave them empty.')
+    if (badMezmurMedia) {
+      if (import.meta.env.DEV) setDevDiagnostics({ action, validationRule: 'upcoming.mezmur_media_url_invalid' })
+      setError('A mezmur YouTube or audio link is not valid. Clear the field or paste a full https:// URL.')
       return
     }
 
@@ -188,8 +207,13 @@ export function AdminUpcomingPage() {
       setNotice(null)
       const payload: FormState = {
         ...form,
+        id: parseOptionalUuid(form.id),
         isActive: true,
         publicationStatus: 'published',
+      }
+      if (import.meta.env.DEV) {
+        console.info('[AdminUpcomingPage] publishUpcoming → saveUpcomingTimirtEditor', structuredClone(payload))
+        setDevDiagnostics({ action, normalizedPayload: structuredClone(payload) })
       }
       const savedId = await saveUpcomingTimirtEditor(payload)
       setForm((current) => ({
@@ -203,8 +227,16 @@ export function AdminUpcomingPage() {
       localStorage.removeItem(draftKey)
       setNotice('Upcoming Timirit published successfully and is now live.')
     } catch (publishError) {
-      console.error('Failed to publish upcoming Timirit:', publishError)
-      setError(publishError instanceof Error ? publishError.message : 'Could not publish the upcoming Timirit.')
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] publishUpcoming failed', publishError)
+        setDevDiagnostics((current) => ({
+          action,
+          validationRule: current?.validationRule,
+          normalizedPayload: current?.normalizedPayload,
+          errorDetails: extractErrorDebugDetails(publishError),
+        }))
+      }
+      setError(formatUnknownError(publishError))
     } finally {
       setSaving(false)
     }
@@ -220,12 +252,10 @@ export function AdminUpcomingPage() {
       setUpcomingList(await listUpcomingTimiritForAdmin())
       setNotice('Upcoming preview moved back to draft and is no longer public.')
     } catch (deactivateError) {
-      console.error('Failed to deactivate upcoming Timirit:', deactivateError)
-      setError(
-        deactivateError instanceof Error
-          ? deactivateError.message
-          : 'Could not deactivate the upcoming preview.',
-      )
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] deactivate failed', deactivateError)
+      }
+      setError(formatUnknownError(deactivateError))
     } finally {
       setDeactivating(false)
     }
@@ -244,12 +274,10 @@ export function AdminUpcomingPage() {
       setShowDeleteConfirm(false)
       setNotice('Upcoming preview and linked mezmurs were deleted permanently.')
     } catch (deleteError) {
-      console.error('Failed to delete upcoming Timirit:', deleteError)
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Could not delete the upcoming preview.',
-      )
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] delete failed', deleteError)
+      }
+      setError(formatUnknownError(deleteError))
     } finally {
       setDeleting(false)
     }
@@ -268,8 +296,10 @@ export function AdminUpcomingPage() {
       setUpcomingList(await listUpcomingTimiritForAdmin())
       setNotice('Upcoming preview is now active on the public site.')
     } catch (activateError) {
-      console.error('Failed to activate upcoming Timirit:', activateError)
-      setError(activateError instanceof Error ? activateError.message : 'Could not activate this upcoming preview.')
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] activate failed', activateError)
+      }
+      setError(formatUnknownError(activateError))
     } finally {
       setActivating(false)
     }
@@ -292,8 +322,10 @@ export function AdminUpcomingPage() {
       }
       setSelectedUpcomingId(id)
     } catch (loadError) {
-      console.error('Failed to load selected upcoming preview:', loadError)
-      setError(loadError instanceof Error ? loadError.message : 'Could not load this upcoming preview.')
+      if (import.meta.env.DEV) {
+        console.error('[AdminUpcomingPage] load selected failed', loadError)
+      }
+      setError(formatUnknownError(loadError))
     } finally {
       setLoading(false)
     }
@@ -318,8 +350,16 @@ export function AdminUpcomingPage() {
         </p>
       </div>
 
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm wrap-break-word text-red-700">{error}</div>
+      ) : null}
       {notice ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
+      {import.meta.env.DEV && devDiagnostics ? (
+        <div className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-xs text-slate-800">
+          <p className="font-semibold">Dev diagnostics</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(devDiagnostics, null, 2)}</pre>
+        </div>
+      ) : null}
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

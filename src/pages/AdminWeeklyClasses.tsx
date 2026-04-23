@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteWeeklyClass, getCachedWeeklyClasses, getWeeklyClasses } from '../lib/supabaseData'
+import { formatUnknownError } from '../lib/formatError'
 import { Button } from '../components/ui/Button'
 import type { WeeklyClass } from '../data/types'
 
@@ -27,7 +28,7 @@ export function AdminWeeklyClasses() {
       setClasses(data)
     } catch (err) {
       console.error('Failed to load classes:', err)
-      setError('Failed to load weekly classes. Please try again.')
+      setError(`Failed to load weekly classes. ${formatUnknownError(err)}`)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -58,7 +59,7 @@ export function AdminWeeklyClasses() {
       setClasses((current) => current.filter((item) => item.id !== weeklyClass.id))
     } catch (err) {
       console.error('Failed to delete weekly class:', err)
-      setError('Failed to delete class. Please try again.')
+      setError(`Failed to delete class. ${formatUnknownError(err)}`)
     } finally {
       setDeletingClassId(null)
     }
