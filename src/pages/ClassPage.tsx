@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useUiLanguage } from '../contexts/LanguageContext'
+import { LessonAudioBlock } from '../components/LessonAudioBlock'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
@@ -483,19 +484,13 @@ export function ClassPage() {
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teacher lesson media</p>
           {hasAudio ? (
-            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-              <h2 className="text-base font-semibold text-brand-900">Listen to the Lesson</h2>
-              <p className="mt-1 text-sm text-brand-700">
-                {week.audioTitle?.trim() || 'Audio lesson for mobile listening with headphones'}
-              </p>
-              {week.audioNote?.trim() ? (
-                <p className="mt-2 text-sm leading-relaxed text-brand-700">{week.audioNote}</p>
-              ) : null}
-              <audio controls preload="none" className="mt-3 w-full">
-                <source src={week.audioUrl} />
-                Your browser does not support audio playback.
-              </audio>
-            </div>
+            <LessonAudioBlock
+              audioUrl={week.audioUrl}
+              audioTitle={week.audioTitle || 'Audio lesson for mobile listening with headphones'}
+              audioNote={week.audioNote}
+              sectionTitle="Lesson Audio"
+              className="mt-3"
+            />
           ) : null}
           {hasVideo ? (
             <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">

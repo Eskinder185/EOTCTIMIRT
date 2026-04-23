@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
 import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
+import { LessonAudioBlock } from '../components/LessonAudioBlock'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import {
@@ -14,6 +15,7 @@ import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import type { WeeklyKnowledgeItem } from '../data/weeklyKnowledge'
 import { formatClassDate } from '../lib/formatDate'
 import { getActiveWeeklyKnowledge } from '../lib/supabaseData'
+import { getGoogleDriveDownloadUrl, isGoogleDriveLink } from '../lib/googleDrive'
 import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { useUiText } from '../lib/uiText'
 
@@ -80,6 +82,9 @@ export function HomePage() {
   const latestClass = recentClasses[0] ?? null
   const lessonPreviewAudio = upcoming?.lessonAudioUrl?.trim() ? upcoming.lessonAudioUrl : undefined
   const lessonPreviewVideo = toYouTubeEmbedUrl(upcoming?.lessonYoutubeUrl)
+  const lessonPreviewAudioActionUrl = isGoogleDriveLink(lessonPreviewAudio)
+    ? (getGoogleDriveDownloadUrl(lessonPreviewAudio) ?? lessonPreviewAudio)
+    : lessonPreviewAudio
 
   return (
     <div className="space-y-4">
@@ -162,15 +167,12 @@ export function HomePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teacher lesson media</p>
           <h2 className="mt-1 text-base font-semibold text-brand-900">Preview before Tuesday</h2>
           {lessonPreviewAudio ? (
-            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-              <p className="text-sm font-semibold text-brand-900">
-                {upcoming.lessonAudioTitle?.trim() || 'Listen to teaching'}
-              </p>
-              <audio controls preload="none" className="mt-2 w-full">
-                <source src={lessonPreviewAudio} />
-                Your browser does not support audio playback.
-              </audio>
-            </div>
+            <LessonAudioBlock
+              audioUrl={lessonPreviewAudio}
+              audioTitle={upcoming.lessonAudioTitle?.trim() || 'Listen to teaching'}
+              sectionTitle="Lesson Audio"
+              className="mt-3"
+            />
           ) : null}
           {lessonPreviewVideo ? (
             <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
@@ -203,14 +205,14 @@ export function HomePage() {
           <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
             Practice mezmurs
           </RouterLinkButton>
-          {lessonPreviewAudio ? (
+          {lessonPreviewAudioActionUrl ? (
             <a
-              href={lessonPreviewAudio}
+              href={lessonPreviewAudioActionUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
             >
-              Listen to teaching
+              {isGoogleDriveLink(lessonPreviewAudio) ? 'Download teaching audio' : 'Listen to teaching'}
             </a>
           ) : (
             <RouterLinkButton to="/upcoming" variant="secondary" className="w-full">

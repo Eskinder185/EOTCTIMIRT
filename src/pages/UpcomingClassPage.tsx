@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { WeeklyKnowledgeCard } from '../components/WeeklyKnowledgeCard'
 import { TeacherYoutubeChannelCard } from '../components/TeacherYoutubeChannelCard'
+import { LessonAudioBlock } from '../components/LessonAudioBlock'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
 import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
@@ -144,16 +145,12 @@ export function UpcomingClassPage() {
           <h2 className="text-base font-semibold text-brand-900">Teacher lesson media</h2>
           <div className="mt-3 space-y-3">
             {hasPreviewAudio ? (
-              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-                <p className="text-sm font-semibold text-brand-900">
-                  {upcoming.lessonAudioTitle?.trim() || 'Listen to the Lesson'}
-                </p>
-                <p className="mt-1 text-sm text-brand-700">Best for mobile listening with headphones.</p>
-                <audio controls preload="none" className="mt-2 w-full">
-                  <source src={upcoming.lessonAudioUrl} />
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
+              <LessonAudioBlock
+                audioUrl={upcoming.lessonAudioUrl}
+                audioTitle={upcoming.lessonAudioTitle}
+                audioNote="Best for mobile listening with headphones."
+                sectionTitle="Lesson Audio"
+              />
             ) : null}
             {hasPreviewVideo ? (
               <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
