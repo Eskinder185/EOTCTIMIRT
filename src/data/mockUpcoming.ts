@@ -27,8 +27,6 @@ export interface UpcomingTimirtPreview {
   weeklyKnowledgeContentAm?: string
   weeklyKnowledgeImageUrl?: string
   keyVerse?: string
-  keyVerseEn?: string
-  keyVerseAm?: string
   organizerNote?: string
   organizerNoteEn?: string
   organizerNoteAm?: string

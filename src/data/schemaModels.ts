@@ -1,5 +1,5 @@
 import type { QuestionType } from './types'
-import type { WeeklyKnowledgeContentType, WeeklyKnowledgeStatus } from './weeklyKnowledge'
+import type { WeeklyKnowledgeStatus } from './weeklyKnowledge'
 
 export interface WeeklyClassRecord {
   id: string
@@ -17,7 +17,6 @@ export interface WeeklyClassRecord {
   lessonMediaEnabled?: boolean
   teachingNotes?: string
   feedbackSummary?: string
-  attendanceSummary?: string
 }
 
 export interface MezmurRecord {
@@ -72,7 +71,6 @@ export interface WeeklyKnowledgeRecord {
   imageUrl?: string
   buttonText?: string
   buttonLink?: string
-  contentType: WeeklyKnowledgeContentType
   status: WeeklyKnowledgeStatus
   startDate?: string
   endDate?: string

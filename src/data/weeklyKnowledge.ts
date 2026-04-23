@@ -1,11 +1,3 @@
-export type WeeklyKnowledgeContentType =
-  | 'Knowledge'
-  | 'Fun Fact'
-  | 'Church Reminder'
-  | 'Weekly Greeting'
-  | 'Important Note'
-  | 'Vocabulary / Term of the Week'
-
 export type WeeklyKnowledgeStatus = 'draft' | 'published' | 'hidden'
 
 export interface WeeklyKnowledgeItem {
@@ -27,7 +19,6 @@ export interface WeeklyKnowledgeItem {
   buttonTextEn?: string
   buttonTextAm?: string
   buttonLink?: string
-  contentType: WeeklyKnowledgeContentType
   status: WeeklyKnowledgeStatus
   startDate?: string
   endDate?: string
@@ -55,7 +46,6 @@ export interface WeeklyKnowledgeEditorInput {
   buttonTextEn?: string
   buttonTextAm?: string
   buttonLink?: string
-  contentType: WeeklyKnowledgeContentType
   status: WeeklyKnowledgeStatus
   startDate?: string
   endDate?: string

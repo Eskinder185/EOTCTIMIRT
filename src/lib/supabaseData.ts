@@ -76,7 +76,6 @@ export interface WeeklyClassEditorInput {
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
   questions: EditorQuestionInput[]
   feedbackSummary?: string
-  attendanceSummary?: string
 }
 
 export interface UpcomingTimirtEditorInput {
@@ -101,8 +100,6 @@ export interface UpcomingTimirtEditorInput {
   weeklyKnowledgeContentAm?: string
   weeklyKnowledgeImageUrl?: string
   keyVerse?: string
-  keyVerseEn?: string
-  keyVerseAm?: string
   organizerNote?: string
   organizerNoteEn?: string
   organizerNoteAm?: string
@@ -234,7 +231,7 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     teachingNotesEn: trim(row.teaching_notes_en), teachingNotesAm: trim(row.teaching_notes_am),
     mezmurs: [m[0] ?? { title: '' }, m[1] ?? { title: '' }],
     questions,
-    feedbackSummary: trim(row.feedback_summary), attendanceSummary: trim(row.attendance_summary),
+    feedbackSummary: trim(row.feedback_summary),
   }
 }
 
@@ -293,7 +290,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     weeklyKnowledgeContent: pickLocalized(row.weekly_knowledge_content_en, row.weekly_knowledge_content_am, row.weekly_knowledge_content),
     weeklyKnowledgeContentEn: trim(row.weekly_knowledge_content_en), weeklyKnowledgeContentAm: trim(row.weekly_knowledge_content_am),
     weeklyKnowledgeImageUrl: trim(row.weekly_knowledge_image_url),
-    keyVerse: pickLocalized(row.key_verse_en, row.key_verse_am, row.key_verse), keyVerseEn: trim(row.key_verse_en), keyVerseAm: trim(row.key_verse_am),
+    keyVerse: trim(row.key_verse),
     organizerNote: pickLocalized(row.organizer_note_en, row.organizer_note_am, row.organizer_note), organizerNoteEn: trim(row.organizer_note_en), organizerNoteAm: trim(row.organizer_note_am),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
@@ -305,12 +302,12 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
 
 function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
   return {
-    id: row.id, title: trim(row.title) ?? '', titleEn: trim(row.title), titleAm: undefined,
-    subtitle: trim(row.subtitle), subtitleEn: trim(row.subtitle), subtitleAm: undefined,
-    content: trim(row.content) ?? '', contentEn: trim(row.content), contentAm: undefined,
-    extraNote: trim(row.extra_note), extraNoteEn: trim(row.extra_note), extraNoteAm: undefined,
+    id: row.id, title: pickLocalized(row.title_en, row.title_am, row.title) ?? '', titleEn: trim(row.title_en), titleAm: trim(row.title_am),
+    subtitle: pickLocalized(row.subtitle_en, row.subtitle_am, row.subtitle), subtitleEn: trim(row.subtitle_en), subtitleAm: trim(row.subtitle_am),
+    content: pickLocalized(row.content_en, row.content_am, row.content) ?? '', contentEn: trim(row.content_en), contentAm: trim(row.content_am),
+    extraNote: pickLocalized(row.extra_note_en, row.extra_note_am, row.extra_note), extraNoteEn: trim(row.extra_note_en), extraNoteAm: trim(row.extra_note_am),
     imageUrl: trim(row.image_url), buttonText: trim(row.button_text), buttonTextEn: trim(row.button_text), buttonTextAm: undefined,
-    buttonLink: trim(row.button_link), contentType: (trim(row.content_type) as WeeklyKnowledgeItem['contentType']) ?? 'Knowledge',
+    buttonLink: trim(row.button_link),
     status: (trim(row.status) as WeeklyKnowledgeStatus) ?? 'draft', startDate: trim(row.start_date), endDate: trim(row.end_date),
     isActive: row.is_active, createdAt: row.created_at, updatedAt: row.updated_at,
   }
@@ -334,12 +331,19 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
     id: input.id,
     title: trim(input.titleEn) ?? trim(input.titleAm) ?? trim(input.title) ?? null,
     subtitle: trim(input.subtitleEn) ?? trim(input.subtitleAm) ?? trim(input.subtitle) ?? null,
+    title_en: trim(input.titleEn) ?? null,
+    title_am: trim(input.titleAm) ?? null,
+    subtitle_en: trim(input.subtitleEn) ?? null,
+    subtitle_am: trim(input.subtitleAm) ?? null,
     content: trim(input.contentEn) ?? trim(input.contentAm) ?? trim(input.content) ?? null,
+    content_en: trim(input.contentEn) ?? null,
+    content_am: trim(input.contentAm) ?? null,
     extra_note: trim(input.extraNoteEn) ?? trim(input.extraNoteAm) ?? trim(input.extraNote) ?? null,
+    extra_note_en: trim(input.extraNoteEn) ?? null,
+    extra_note_am: trim(input.extraNoteAm) ?? null,
     image_url: trim(input.imageUrl) ?? null,
     button_text: trim(input.buttonTextEn) ?? trim(input.buttonTextAm) ?? trim(input.buttonText) ?? null,
     button_link: trim(input.buttonLink) ?? null,
-    content_type: trim(input.contentType) ?? 'Knowledge',
     status: trim(input.status) ?? 'draft',
     start_date: trim(input.startDate) ?? null,
     end_date: trim(input.endDate) ?? null,
@@ -395,7 +399,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     audio_title: trim(data.audioTitle) ?? null, audio_title_en: trim(data.audioTitleEn) ?? null, audio_title_am: trim(data.audioTitleAm) ?? null,
     audio_note: trim(data.audioNote) ?? null, lesson_media_enabled: data.lessonMediaEnabled ?? true,
     teaching_notes: trim(data.teachingNotes) ?? null, teaching_notes_en: trim(data.teachingNotesEn) ?? null, teaching_notes_am: trim(data.teachingNotesAm) ?? null,
-    feedback_summary: trim(data.feedbackSummary) ?? null, attendance_summary: trim(data.attendanceSummary) ?? null,
+    feedback_summary: trim(data.feedbackSummary) ?? null,
   }
   const { error } = await supabase.from('weekly_classes').upsert(row)
   assertNoError('upsert weekly_classes', error, { weeklyClassId: id, payload: row })
@@ -518,7 +522,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     lessonYoutubeUrl: trim(row.lesson_youtube_url), lessonAudioUrl: trim(row.lesson_audio_url), lessonAudioTitle: pickLocalized(row.lesson_audio_title_en, row.lesson_audio_title_am, row.lesson_audio_title), lessonAudioTitleEn: trim(row.lesson_audio_title_en), lessonAudioTitleAm: trim(row.lesson_audio_title_am),
     lessonNote: pickLocalized(row.lesson_note_en, row.lesson_note_am, row.lesson_note), lessonNoteEn: trim(row.lesson_note_en), lessonNoteAm: trim(row.lesson_note_am),
     weeklyKnowledgeContent: pickLocalized(row.weekly_knowledge_content_en, row.weekly_knowledge_content_am, row.weekly_knowledge_content), weeklyKnowledgeContentEn: trim(row.weekly_knowledge_content_en), weeklyKnowledgeContentAm: trim(row.weekly_knowledge_content_am), weeklyKnowledgeImageUrl: trim(row.weekly_knowledge_image_url),
-    keyVerse: pickLocalized(row.key_verse_en, row.key_verse_am, row.key_verse), keyVerseEn: trim(row.key_verse_en), keyVerseAm: trim(row.key_verse_am),
+    keyVerse: trim(row.key_verse),
     organizerNote: pickLocalized(row.organizer_note_en, row.organizer_note_am, row.organizer_note), organizerNoteEn: trim(row.organizer_note_en), organizerNoteAm: trim(row.organizer_note_am),
     isActive: row.is_active ?? true, status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
@@ -539,7 +543,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     lesson_note: trim(data.lessonNote) ?? null, lesson_note_en: trim(data.lessonNoteEn) ?? null, lesson_note_am: trim(data.lessonNoteAm) ?? null,
     weekly_knowledge_content: trim(data.weeklyKnowledgeContent) ?? null, weekly_knowledge_content_en: trim(data.weeklyKnowledgeContentEn) ?? null, weekly_knowledge_content_am: trim(data.weeklyKnowledgeContentAm) ?? null,
     weekly_knowledge_image_url: trim(data.weeklyKnowledgeImageUrl) ?? null,
-    key_verse: trim(data.keyVerse) ?? null, key_verse_en: trim(data.keyVerseEn) ?? null, key_verse_am: trim(data.keyVerseAm) ?? null,
+    key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null, organizer_note_en: trim(data.organizerNoteEn) ?? null, organizer_note_am: trim(data.organizerNoteAm) ?? null,
     is_active: data.isActive, status: data.status,
   }
@@ -589,7 +593,7 @@ export async function deleteUpcomingTimirt(id?: string): Promise<void> {
   throwSupabaseWriteError('delete active', 'upcoming_timirit', error, { id: activeId })
 }
 
-export async function createWeeklyClass(data: Omit<WeeklyClass, 'questions' | 'mezmurs' | 'feedbackSummary' | 'attendanceSummary'>): Promise<string> { return saveWeeklyClassEditor({ ...data, keyPoints: data.keyPoints ?? [], verses: data.verses ?? [], mezmurs: [{ title: '' }, { title: '' }], questions: [] }) }
+export async function createWeeklyClass(data: Omit<WeeklyClass, 'questions' | 'mezmurs' | 'feedbackSummary'>): Promise<string> { return saveWeeklyClassEditor({ ...data, keyPoints: data.keyPoints ?? [], verses: data.verses ?? [], mezmurs: [{ title: '' }, { title: '' }], questions: [] }) }
 export async function updateWeeklyClass(id: string, data: Partial<Omit<WeeklyClass, 'questions' | 'mezmurs' | 'id'>>): Promise<void> { const existing = await getWeeklyClass(id); if (!existing) return; await saveWeeklyClassEditor({ ...existing, ...data, id, keyPoints: data.keyPoints ?? existing.keyPoints, verses: data.verses ?? existing.verses ?? [], mezmurs: existing.mezmurs, questions: existing.questions as EditorQuestionInput[] }) }
 export async function deleteWeeklyClass(id: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured.')
@@ -607,5 +611,5 @@ export async function submitUserResponses(weeklyClassId: string, responses: Arra
 
 export async function getOrganizerAnalytics(): Promise<OrganizerSnapshot[]> { const weeks = await getWeeklyClasses(); return weeks.map((w, i) => ({ weekId: w.id, weekLabel: w.date, totalResponses: 0, reviewedOrWatched: 0, mostMissedQuestionId: w.questions[0]?.id ?? '', mostMissedQuestionLabel: w.questions[0]?.prompt ?? '', missRatePercent: 0, topUnclearTopics: w.feedbackSummary ? [w.feedbackSummary] : [], languageDifficultyAvg: i % 2 === 0 ? 2.8 : 3.1 })) }
 export async function getAttendanceSummary(_weekId: string): Promise<AttendanceSlice[]> { return [{ label: 'In person', value: 0, fill: '#5c7c6a' }, { label: 'Online', value: 0, fill: '#6b8cae' }, { label: 'Maybe', value: 0, fill: '#c6a24a' }, { label: 'Cannot attend', value: 0, fill: '#a89b8f' }] }
-export async function getRecapSuggestions(weekId: string): Promise<RecapSuggestion[]> { const w = await getWeeklyClass(weekId); if (!w) return []; const s: RecapSuggestion[] = []; if (w.feedbackSummary) s.push({ title: 'Review feedback summary', detail: w.feedbackSummary }); if (w.attendanceSummary) s.push({ title: 'Attendance follow-up', detail: w.attendanceSummary }); return s }
+export async function getRecapSuggestions(weekId: string): Promise<RecapSuggestion[]> { const w = await getWeeklyClass(weekId); if (!w) return []; const s: RecapSuggestion[] = []; if (w.feedbackSummary) s.push({ title: 'Review feedback summary', detail: w.feedbackSummary }); return s }
 export async function getWeeklyQuestionStats(weekId: string): Promise<WeeklyQuestionStatsReport | null> { const w = await getWeeklyClass(weekId); if (!w) return null; const qs: WeeklyQuestionStat[] = w.questions.filter((q) => q.type === 'multiple-choice').map((q) => ({ questionId: q.id, prompt: q.prompt, totalResponses: 0, correctResponses: 0, incorrectResponses: 0, percentCorrect: 0, percentIncorrect: 0, correctOptionIndex: q.correctIndex, correctOptionText: q.options[q.correctIndex]?.en ?? q.options[q.correctIndex]?.am ?? 'Correct answer', optionDistribution: q.options.map((o, i) => ({ optionIndex: i, optionText: o.en ?? o.am ?? `Option ${i + 1}`, responses: 0, percentage: 0 })) })); return { weekId, totalRespondents: 0, totalAnswersSubmitted: 0, averagePerformance: 0, mostMissedQuestionId: qs[0]?.questionId ?? null, mostMissedQuestionPrompt: qs[0]?.prompt ?? null, mostMissedQuestionMissRate: 0, questionStats: qs, commonWeakAreas: [] } }

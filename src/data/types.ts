@@ -121,8 +121,6 @@ export interface WeeklyClass {
   questions: Question[]
   /** Optional organizer-facing sentence distilled from open feedback (mock / future API). */
   feedbackSummary?: string
-  /** Optional organizer-facing sentence about attendance signals (mock / future API). */
-  attendanceSummary?: string
 }
 
 /** Aggregated analytics for the organizer dashboard (mock for now). */

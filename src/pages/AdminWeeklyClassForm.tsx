@@ -212,7 +212,6 @@ function createEmptyForm(): FormState {
     ],
     questions: [],
     feedbackSummary: '',
-    attendanceSummary: '',
   }
 }
 
@@ -328,7 +327,6 @@ export function AdminWeeklyClassForm() {
           ],
           questions: weeklyClass.questions.map(questionFromDomain),
           feedbackSummary: weeklyClass.feedbackSummary || '',
-          attendanceSummary: weeklyClass.attendanceSummary || '',
         }
 
         if (savedDraft) {
@@ -405,7 +403,6 @@ export function AdminWeeklyClassForm() {
         teachingNotesEn: form.teachingNotesEn?.trim() || undefined,
         teachingNotesAm: form.teachingNotesAm?.trim() || undefined,
         feedbackSummary: form.feedbackSummary?.trim() || undefined,
-        attendanceSummary: form.attendanceSummary?.trim() || undefined,
         questions: form.questions.map((question) => {
             if (question.type === 'multiple-choice') {
               const rawOptions = (question.options ?? []).map((opt) => ({
@@ -656,9 +653,6 @@ export function AdminWeeklyClassForm() {
         </div>
         <label className="mt-4 block text-sm font-medium text-brand-900">Feedback summary
           <textarea value={form.feedbackSummary || ''} onChange={(event) => setForm({ ...form, feedbackSummary: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Short organizer summary of unclear points or follow-up needs" />
-        </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Attendance summary
-          <textarea value={form.attendanceSummary || ''} onChange={(event) => setForm({ ...form, attendanceSummary: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Short organizer summary of attendance signals" />
         </label>
       </section>
 

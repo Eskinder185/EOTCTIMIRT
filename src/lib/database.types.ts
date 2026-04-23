@@ -296,8 +296,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           key_verse: string | null
-          key_verse_am: string | null
-          key_verse_en: string | null
           lesson_audio_title: string | null
           lesson_audio_title_am: string | null
           lesson_audio_title_en: string | null
@@ -329,8 +327,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_verse?: string | null
-          key_verse_am?: string | null
-          key_verse_en?: string | null
           lesson_audio_title?: string | null
           lesson_audio_title_am?: string | null
           lesson_audio_title_en?: string | null
@@ -362,8 +358,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_verse?: string | null
-          key_verse_am?: string | null
-          key_verse_en?: string | null
           lesson_audio_title?: string | null
           lesson_audio_title_am?: string | null
           lesson_audio_title_en?: string | null
@@ -490,7 +484,6 @@ export type Database = {
           audio_title_am: string | null
           audio_title_en: string | null
           audio_url: string | null
-          attendance_summary: string | null
           created_at: string
           created_by: string | null
           date: string
@@ -518,7 +511,6 @@ export type Database = {
           audio_title_am?: string | null
           audio_title_en?: string | null
           audio_url?: string | null
-          attendance_summary?: string | null
           created_at?: string
           created_by?: string | null
           date: string
@@ -546,7 +538,6 @@ export type Database = {
           audio_title_am?: string | null
           audio_title_en?: string | null
           audio_url?: string | null
-          attendance_summary?: string | null
           created_at?: string
           created_by?: string | null
           date?: string
@@ -589,54 +580,75 @@ export type Database = {
           button_link: string | null
           button_text: string | null
           content: string | null
-          content_type: string
+          content_am: string | null
+          content_en: string | null
           created_at: string
           created_by: string | null
           end_date: string | null
           extra_note: string | null
+          extra_note_am: string | null
+          extra_note_en: string | null
           id: string
           image_url: string | null
           is_active: boolean
           start_date: string | null
           status: string
           subtitle: string | null
+          subtitle_am: string | null
+          subtitle_en: string | null
           title: string | null
+          title_am: string | null
+          title_en: string | null
           updated_at: string
         }
         Insert: {
           button_link?: string | null
           button_text?: string | null
           content?: string | null
-          content_type?: string
+          content_am?: string | null
+          content_en?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
           extra_note?: string | null
+          extra_note_am?: string | null
+          extra_note_en?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           start_date?: string | null
           status?: string
           subtitle?: string | null
+          subtitle_am?: string | null
+          subtitle_en?: string | null
           title?: string | null
+          title_am?: string | null
+          title_en?: string | null
           updated_at?: string
         }
         Update: {
           button_link?: string | null
           button_text?: string | null
           content?: string | null
-          content_type?: string
+          content_am?: string | null
+          content_en?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
           extra_note?: string | null
+          extra_note_am?: string | null
+          extra_note_en?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           start_date?: string | null
           status?: string
           subtitle?: string | null
+          subtitle_am?: string | null
+          subtitle_en?: string | null
           title?: string | null
+          title_am?: string | null
+          title_en?: string | null
           updated_at?: string
         }
         Relationships: [

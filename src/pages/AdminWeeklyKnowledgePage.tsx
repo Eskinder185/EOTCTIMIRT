@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
 import type {
-  WeeklyKnowledgeContentType,
   WeeklyKnowledgeEditorInput,
   WeeklyKnowledgeItem,
   WeeklyKnowledgeStatus,
@@ -13,15 +12,6 @@ import {
   saveWeeklyKnowledgeEditor,
   setWeeklyKnowledgeStatus,
 } from '../lib/supabaseData'
-
-const contentTypes: WeeklyKnowledgeContentType[] = [
-  'Knowledge',
-  'Fun Fact',
-  'Church Reminder',
-  'Weekly Greeting',
-  'Important Note',
-  'Vocabulary / Term of the Week',
-]
 
 const statusOptions: Array<{ value: WeeklyKnowledgeStatus; label: string }> = [
   { value: 'draft', label: 'Draft' },
@@ -43,7 +33,6 @@ function createEmptyForm(): WeeklyKnowledgeEditorInput {
     imageUrl: '',
     buttonText: '',
     buttonLink: '',
-    contentType: 'Knowledge',
     status: 'draft',
     startDate: today,
     endDate: '',
@@ -111,7 +100,6 @@ export function AdminWeeklyKnowledgePage() {
         imageUrl: selected.imageUrl || '',
         buttonText: selected.buttonText || '',
         buttonLink: selected.buttonLink || '',
-        contentType: selected.contentType,
         status: selected.status,
         startDate: selected.startDate || '',
         endDate: selected.endDate || '',
@@ -249,7 +237,7 @@ export function AdminWeeklyKnowledgePage() {
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                    {item.contentType} · {formatStatusLabel(item.status)}
+                    {formatStatusLabel(item.status)}
                     {item.isActive ? ' · Active' : ''}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-brand-900">{item.title}</p>
@@ -312,20 +300,6 @@ export function AdminWeeklyKnowledgePage() {
               onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
             />
-          </label>
-          <label className="text-sm font-medium text-brand-900">
-            Content type
-            <select
-              value={form.contentType}
-              onChange={(event) => setForm({ ...form, contentType: event.target.value as WeeklyKnowledgeContentType })}
-              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            >
-              {contentTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
           </label>
           <label className="text-sm font-medium text-brand-900">
             Status
