@@ -291,7 +291,7 @@ export function UpcomingMezmursPage() {
         className={`mx-auto w-full ${
           isPresentationMode
             ? immersiveTouchPresentation
-              ? 'fixed inset-0 z-100 flex h-dvh max-h-dvh min-h-0 w-screen flex-col overflow-y-auto bg-slate-950 pt-[max(0.35rem,env(safe-area-inset-top))] pr-[max(0.6rem,env(safe-area-inset-right))] pb-[max(0.55rem,env(safe-area-inset-bottom))] pl-[max(0.6rem,env(safe-area-inset-left))] text-slate-50'
+              ? 'w-full max-w-none overflow-x-hidden bg-slate-950 pt-[max(0.35rem,env(safe-area-inset-top))] pr-[max(0.6rem,env(safe-area-inset-right))] pb-[max(0.7rem,env(safe-area-inset-bottom))] pl-[max(0.6rem,env(safe-area-inset-left))] text-slate-50'
               : 'max-w-none px-3 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6 fullscreen:h-dvh fullscreen:px-6 fullscreen:py-4'
             : 'max-w-480 px-4 py-4 sm:px-8 sm:py-8'
         }`}
@@ -300,7 +300,7 @@ export function UpcomingMezmursPage() {
           className={`${
             isPresentationMode
               ? immersiveTouchPresentation
-                ? 'shrink-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-2 shadow-none'
+                ? 'shrink-0 border-b border-slate-800/80 bg-slate-950/95 px-1.5 pb-2 pt-1 shadow-none'
                 : 'rounded-2xl border border-brand-200/80 bg-white/95 p-4 shadow-sm sm:p-6'
               : 'rounded-3xl border border-brand-200/90 bg-white/90 p-5 shadow-sm sm:p-8 lg:p-10'
           }`}
@@ -435,9 +435,7 @@ export function UpcomingMezmursPage() {
             className={`mt-5 ${
               isPresentationMode
                 ? immersiveTouchPresentation
-                  ? `mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60 ${
-                      isPhoneLandscapePresentation ? 'p-2' : 'p-3'
-                    } shadow-none`
+                  ? `mt-2 block ${isPhoneLandscapePresentation ? 'px-1 py-0' : 'px-1 py-1'}`
                   : 'rounded-2xl border border-brand-100 bg-white p-4 shadow-sm sm:p-6 lg:p-8 fullscreen:mt-3 fullscreen:flex fullscreen:h-[calc(100dvh-10rem)] fullscreen:flex-col fullscreen:overflow-auto fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-transparent fullscreen:p-0 fullscreen:shadow-none'
                 : 'rounded-3xl border border-brand-200 bg-white p-5 shadow-sm sm:p-8 lg:p-10'
             }`}
@@ -485,9 +483,7 @@ export function UpcomingMezmursPage() {
               className={`mt-6 ${
                 isPresentationMode
                   ? immersiveTouchPresentation
-                    ? `min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain rounded-2xl border border-slate-700 bg-slate-900/80 ${
-                        isPhoneLandscapePresentation ? 'mt-2 px-4 py-3' : 'mt-4 px-3 py-4'
-                      }`
+                    ? `${isPhoneLandscapePresentation ? 'mt-2 px-1 py-1' : 'mt-4 px-1 py-1'}`
                     : 'rounded-2xl border border-brand-100 bg-brand-50/80 p-5 sm:p-8 fullscreen:flex-1 fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-transparent fullscreen:p-0'
                   : 'rounded-2xl border border-brand-100 bg-brand-50/70 p-5 sm:p-8'
               }`}
