@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import { extractErrorDebugDetails, formatUnknownError } from '../lib/formatError'
 import type {
   WeeklyKnowledgeEditorInput,
   WeeklyKnowledgeItem,
   WeeklyKnowledgeStatus,
 } from '../data/weeklyKnowledge'
+import { displayBilingualLine } from '../lib/localizedText'
 import {
   deleteWeeklyKnowledge,
   getWeeklyKnowledgeForAdmin,
@@ -14,25 +16,32 @@ import {
   setWeeklyKnowledgeStatus,
 } from '../lib/supabaseData'
 
-const statusOptions: Array<{ value: WeeklyKnowledgeStatus; label: string }> = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'published', label: 'Published' },
-  { value: 'hidden', label: 'Hidden' },
-]
-
-function formatStatusLabel(status: WeeklyKnowledgeStatus) {
-  return statusOptions.find((option) => option.value === status)?.label ?? 'Draft'
+function formatStatusLabel(status: WeeklyKnowledgeStatus, isAm: boolean) {
+  const labels: Record<WeeklyKnowledgeStatus, string> = isAm
+    ? { draft: 'ረቂቅ', published: 'ታትሟል', hidden: 'የተደበቀ' }
+    : { draft: 'Draft', published: 'Published', hidden: 'Hidden' }
+  return labels[status] ?? labels.draft
 }
 
 function createEmptyForm(): WeeklyKnowledgeEditorInput {
   const today = new Date().toISOString().slice(0, 10)
   return {
     title: '',
+    titleEn: '',
+    titleAm: '',
     subtitle: '',
+    subtitleEn: '',
+    subtitleAm: '',
     content: '',
+    contentEn: '',
+    contentAm: '',
     extraNote: '',
+    extraNoteEn: '',
+    extraNoteAm: '',
     imageUrl: '',
     buttonText: '',
+    buttonTextEn: '',
+    buttonTextAm: '',
     buttonLink: '',
     status: 'draft',
     startDate: today,
@@ -43,7 +52,11 @@ function createEmptyForm(): WeeklyKnowledgeEditorInput {
 
 function buildSoftWarnings(form: WeeklyKnowledgeEditorInput) {
   const warnings: string[] = []
-  if (!form.title?.trim() && !form.content?.trim()) warnings.push('Title and content are both empty.')
+  const hasTitle =
+    Boolean(form.titleEn?.trim()) || Boolean(form.titleAm?.trim()) || Boolean(form.title?.trim())
+  const hasContent =
+    Boolean(form.contentEn?.trim()) || Boolean(form.contentAm?.trim()) || Boolean(form.content?.trim())
+  if (!hasTitle && !hasContent) warnings.push('Title and content are both empty (both languages).')
   if (!form.imageUrl?.trim()) warnings.push('No image link added yet.')
   if (!form.buttonLink?.trim()) warnings.push('No button link added yet.')
   if (form.startDate && form.endDate && form.startDate > form.endDate) {
@@ -53,6 +66,13 @@ function buildSoftWarnings(form: WeeklyKnowledgeEditorInput) {
 }
 
 export function AdminWeeklyKnowledgePage() {
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
+  const statusOptions: Array<{ value: WeeklyKnowledgeStatus; label: string }> = [
+    { value: 'draft', label: isAm ? 'ረቂቅ' : 'Draft' },
+    { value: 'published', label: isAm ? 'ታትሟል' : 'Published' },
+    { value: 'hidden', label: isAm ? 'የተደበቀ' : 'Hidden' },
+  ]
   const [items, setItems] = useState<WeeklyKnowledgeItem[]>([])
   const [form, setForm] = useState<WeeklyKnowledgeEditorInput>(createEmptyForm)
   const [loading, setLoading] = useState(true)
@@ -114,11 +134,21 @@ export function AdminWeeklyKnowledgePage() {
       setForm({
         id: selected.id,
         title: selected.title,
-        subtitle: selected.subtitle || '',
+        titleEn: selected.titleEn ?? selected.title ?? '',
+        titleAm: selected.titleAm ?? '',
+        subtitle: selected.subtitle,
+        subtitleEn: selected.subtitleEn ?? selected.subtitle ?? '',
+        subtitleAm: selected.subtitleAm ?? '',
         content: selected.content,
-        extraNote: selected.extraNote || '',
+        contentEn: selected.contentEn ?? selected.content ?? '',
+        contentAm: selected.contentAm ?? '',
+        extraNote: selected.extraNote,
+        extraNoteEn: selected.extraNoteEn ?? selected.extraNote ?? '',
+        extraNoteAm: selected.extraNoteAm ?? '',
         imageUrl: selected.imageUrl || '',
-        buttonText: selected.buttonText || '',
+        buttonText: selected.buttonText,
+        buttonTextEn: selected.buttonTextEn ?? selected.buttonText ?? '',
+        buttonTextAm: selected.buttonTextAm ?? '',
         buttonLink: selected.buttonLink || '',
         status: selected.status,
         startDate: selected.startDate || '',
@@ -254,10 +284,12 @@ export function AdminWeeklyKnowledgePage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Organizer editor</p>
-        <h1 className="text-2xl font-bold text-brand-900">Weekly Knowledge</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{isAm ? 'የአደራጅ አርታዒ' : 'Organizer editor'}</p>
+        <h1 className="text-2xl font-bold text-brand-900">{isAm ? 'ሳምንታዊ እውቀት' : 'Weekly Knowledge'}</h1>
         <p className="text-sm leading-relaxed text-brand-700">
-          Create one short weekly Orthodox insight card and publish it to the public site.
+          {isAm
+            ? 'አንድ አጭር ሳምንታዊ የኦርቶዶክስ እውቀት ካርድ ይፍጠሩ እና በሕዝብ ድር ጣቢያ ላይ ያትሙት።'
+            : 'Create one short weekly Orthodox insight card and publish it to the public site.'}
         </p>
       </div>
 
@@ -272,9 +304,9 @@ export function AdminWeeklyKnowledgePage() {
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-brand-900">Entries</h2>
+          <h2 className="text-lg font-semibold text-brand-900">{isAm ? 'ግቤቶች' : 'Entries'}</h2>
           <Button type="button" variant="secondary" onClick={() => setForm(createEmptyForm())}>
-            Create new entry
+            {isAm ? 'አዲስ ግቤት ይፍጠሩ' : 'Create New Entry'}
           </Button>
         </div>
         {loading ? (
@@ -294,10 +326,12 @@ export function AdminWeeklyKnowledgePage() {
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                    {formatStatusLabel(item.status)}
-                    {item.isActive ? ' · Active' : ''}
+                    {formatStatusLabel(item.status, isAm)}
+                    {item.isActive ? (isAm ? ' · ንቁ' : ' · Active') : ''}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-brand-900">{item.title}</p>
+                  <p className="mt-1 text-sm font-semibold text-brand-900">
+                    {displayBilingualLine(language, item.titleEn, item.titleAm, item.title).trim() || item.title}
+                  </p>
                 </button>
               ))
             )}
@@ -306,43 +340,92 @@ export function AdminWeeklyKnowledgePage() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <p className="text-sm font-semibold text-brand-900">
+          {isAm ? 'የካርድ ጽሑት (እንግሊዝኛ እና አማርኛ)' : 'Card text (English & Amharic)'}
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-brand-600">
+          {isAm
+            ? 'ለእያንዳንዱ ቋንቋ የተለዩ መስኮች። አንዱ ባዶ ከሆነ ሌላው በሕዝብ ገጹ ላይ ይጠቀማል።'
+            : 'Separate fields per language. If one side is empty, the public site uses the other as fallback.'}
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">
-            Title
+            {isAm ? 'ርእስ — እንግሊዝኛ' : 'Title — English'}
             <input
               type="text"
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
+              value={form.titleEn ?? ''}
+              onChange={(event) => setForm({ ...form, titleEn: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-              placeholder="This Week's Knowledge"
+              placeholder={isAm ? 'This Week’s Knowledge' : 'This Week’s Knowledge'}
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Subtitle (optional)
+            {isAm ? 'ርእስ — አማርኛ' : 'Title — Amharic'}
             <input
               type="text"
-              value={form.subtitle || ''}
-              onChange={(event) => setForm({ ...form, subtitle: event.target.value })}
+              value={form.titleAm ?? ''}
+              onChange={(event) => setForm({ ...form, titleAm: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder={isAm ? 'የዚህ ሳምንት እውቀት' : 'የዚህ ሳምንት እውቀት'}
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ንዑስ ርእስ — እንግሊዝኛ (አማራጭ)' : 'Subtitle — English (optional)'}
+            <input
+              type="text"
+              value={form.subtitleEn ?? ''}
+              onChange={(event) => setForm({ ...form, subtitleEn: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            />
+          </label>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ንዑስ ርእስ — አማርኛ (አማራጭ)' : 'Subtitle — Amharic (optional)'}
+            <input
+              type="text"
+              value={form.subtitleAm ?? ''}
+              onChange={(event) => setForm({ ...form, subtitleAm: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
             />
           </label>
         </div>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
-          Main content
+          {isAm ? 'ዋና ይዘት — እንግሊዝኛ' : 'Main Content — English'}
           <textarea
-            value={form.content}
-            onChange={(event) => setForm({ ...form, content: event.target.value })}
+            value={form.contentEn ?? ''}
+            onChange={(event) => setForm({ ...form, contentEn: event.target.value })}
+            rows={4}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+          />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'ዋና ይዘት — አማርኛ' : 'Main Content — Amharic'}
+          <textarea
+            value={form.contentAm ?? ''}
+            onChange={(event) => setForm({ ...form, contentAm: event.target.value })}
             rows={4}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
           />
         </label>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
-          Extra note (optional)
+          {isAm ? 'ተጨማሪ ማስታወሻ — እንግሊዝኛ (አማራጭ)' : 'Extra Note — English (optional)'}
           <textarea
-            value={form.extraNote || ''}
-            onChange={(event) => setForm({ ...form, extraNote: event.target.value })}
+            value={form.extraNoteEn ?? ''}
+            onChange={(event) => setForm({ ...form, extraNoteEn: event.target.value })}
+            rows={3}
+            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+          />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'ተጨማሪ ማስታወሻ — አማርኛ (አማራጭ)' : 'Extra Note — Amharic (optional)'}
+          <textarea
+            value={form.extraNoteAm ?? ''}
+            onChange={(event) => setForm({ ...form, extraNoteAm: event.target.value })}
             rows={3}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
           />
@@ -350,7 +433,28 @@ export function AdminWeeklyKnowledgePage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">
-            Image URL (optional)
+            {isAm ? 'የአዝራር ጽሑት — እንግሊዝኛ (አማራጭ)' : 'Button Text — English (optional)'}
+            <input
+              type="text"
+              value={form.buttonTextEn ?? ''}
+              onChange={(event) => setForm({ ...form, buttonTextEn: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            />
+          </label>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'የአዝራር ጽሑት — አማርኛ (አማራጭ)' : 'Button Text — Amharic (optional)'}
+            <input
+              type="text"
+              value={form.buttonTextAm ?? ''}
+              onChange={(event) => setForm({ ...form, buttonTextAm: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'የምስል አገናኝ (አማራጭ)' : 'Image URL (optional)'}
             <input
               type="url"
               value={form.imageUrl || ''}
@@ -359,7 +463,7 @@ export function AdminWeeklyKnowledgePage() {
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Status
+            {isAm ? 'ሁኔታ' : 'Status'}
             <select
               value={form.status}
               onChange={(event) => setForm({ ...form, status: event.target.value as WeeklyKnowledgeStatus })}
@@ -380,19 +484,10 @@ export function AdminWeeklyKnowledgePage() {
               disabled={form.status !== 'published'}
               className="h-4 w-4 rounded border-brand-300 text-accent-600 focus:ring-accent-600/40"
             />
-            Set as active (used on public pages)
+            {isAm ? 'እንደ ንቁ ያዘጋጁ (በሕዝብ ገጾች ላይ የሚታይ)' : 'Set as Active (used on public pages)'}
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Button text (optional)
-            <input
-              type="text"
-              value={form.buttonText || ''}
-              onChange={(event) => setForm({ ...form, buttonText: event.target.value })}
-              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            />
-          </label>
-          <label className="text-sm font-medium text-brand-900">
-            Button link (optional)
+            {isAm ? 'የአዝራር አገናኝ (አማራጭ)' : 'Button Link (optional)'}
             <input
               type="url"
               value={form.buttonLink || ''}
@@ -401,20 +496,22 @@ export function AdminWeeklyKnowledgePage() {
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Start date (optional)
+            {isAm ? 'የመጀመሪያ ቀን (አማራጭ)' : 'Start Date (optional)'}
             <input
               type="date"
               value={form.startDate || ''}
               onChange={(event) => setForm({ ...form, startDate: event.target.value })}
+              placeholder={isAm ? 'ወወ/ቀቀ/ዓዓዓዓ' : 'MM/DD/YYYY'}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            End date (optional)
+            {isAm ? 'የማብቂያ ቀን (አማራጭ)' : 'End Date (optional)'}
             <input
               type="date"
               value={form.endDate || ''}
               onChange={(event) => setForm({ ...form, endDate: event.target.value })}
+              placeholder={isAm ? 'ወወ/ቀቀ/ዓዓዓዓ' : 'MM/DD/YYYY'}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
             />
           </label>
@@ -422,9 +519,11 @@ export function AdminWeeklyKnowledgePage() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">Publish workflow</h2>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? 'የማተሚያ ሂደት' : 'Publishing Workflow'}</h2>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          Save drafts while preparing text. Publish when ready to make this week&apos;s knowledge visible.
+          {isAm
+            ? 'ጽሑፉን ሲያዘጋጁ ረቂቆችን ያስቀምጡ። የዚህ ሳምንት እውቀት በሕዝብ ድር ጣቢያ ላይ እንዲታይ ዝግጁ ሲሆኑ ያትሙ።'
+            : 'Save drafts while preparing the text. Publish when ready to make this week’s knowledge visible on the public site.'}
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={() => saveAs('draft')} disabled={saving}>

@@ -23,6 +23,7 @@ export function MezmurActionCard({
 }) {
   const t = useUiText()
   const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const titleDisplay = pickLocalized(language, mezmur.titleEn, mezmur.titleAm, mezmur.title)
   const youtube = mezmur.youtubeUrl?.trim()
   const hasYoutube = Boolean(youtube)
@@ -31,7 +32,7 @@ export function MezmurActionCard({
     <article className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Mezmur {slot}
+          {isAm ? `መዝሙር ${slot}` : `Mezmur ${slot}`}
         </p>
         {context ? (
           <span className="rounded-full bg-white/90 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-brand-600 ring-1 ring-brand-100">
@@ -40,7 +41,7 @@ export function MezmurActionCard({
         ) : null}
       </div>
       <h3 className="mt-1.5 text-base font-semibold leading-snug text-brand-900 sm:text-lg">
-        {titleDisplay.trim() || `Mezmur ${slot} (TBD)`}
+        {titleDisplay.trim() || (isAm ? `መዝሙር ${slot} (በቅርቡ)` : `Mezmur ${slot} (TBD)`)}
       </h3>
       {mezmur.transliteration?.trim() ? (
         <p className="mt-1.5 rounded-lg border border-brand-100 bg-white px-2 py-1.5 text-sm italic leading-relaxed text-brand-700">

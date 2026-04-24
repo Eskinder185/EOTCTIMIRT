@@ -10,6 +10,7 @@ import {
   normalizeLocalizedText,
 } from '../lib/localizedText'
 import { getWeeklyClass, saveWeeklyClassEditor, type EditorQuestionInput, type WeeklyClassEditorInput } from '../lib/supabaseData'
+import { useUiLanguage } from '../contexts/LanguageContext'
 
 type FormState = WeeklyClassEditorInput
 type SupabaseDebugError = {
@@ -55,7 +56,11 @@ function migrateWeeklyClassFormState(form: WeeklyClassEditorInput): WeeklyClassE
         return {
           ...baseCommon,
           type: 'attendance' as const,
-          attendanceOptions: q.attendanceOptions ?? defaultAttendanceOptions,
+          attendanceOptions: (q.attendanceOptions ?? defaultAttendanceOptions).map((o) => ({
+            ...o,
+            labelEn: o.labelEn ?? o.label,
+            labelAm: o.labelAm ?? '',
+          })),
         } satisfies EditorQuestionInput
       }
       return {
@@ -100,8 +105,8 @@ function questionFromDomain(question: Question): EditorQuestionInput {
       attendanceOptions: question.options.map((o) => ({
         value: o.value,
         label: o.label,
-        labelEn: o.labelEn,
-        labelAm: o.labelAm,
+        labelEn: o.labelEn ?? o.label,
+        labelAm: o.labelAm ?? '',
       })),
     }
   }
@@ -126,10 +131,10 @@ const defaultAttendanceOptions: Array<{
   labelEn?: string
   labelAm?: string
 }> = [
-  { value: 'in-person', label: 'In person' },
-  { value: 'online', label: 'Online' },
-  { value: 'maybe', label: 'Maybe' },
-  { value: 'cannot-attend', label: 'Cannot attend' },
+  { value: 'in-person', label: 'In person', labelEn: 'In person', labelAm: '' },
+  { value: 'online', label: 'Online', labelEn: 'Online', labelAm: '' },
+  { value: 'maybe', label: 'Maybe', labelEn: 'Maybe', labelAm: '' },
+  { value: 'cannot-attend', label: 'Cannot attend', labelEn: 'Cannot attend', labelAm: '' },
 ]
 
 function getNextTuesday() {
@@ -240,6 +245,8 @@ function buildSoftWarnings(form: FormState): string[] {
 }
 
 export function AdminWeeklyClassForm() {
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEditing = Boolean(id)
@@ -257,6 +264,39 @@ export function AdminWeeklyClassForm() {
     normalizedPayload?: unknown
     errorDetails?: unknown
   } | null>(null)
+
+  const addQuestionButtonLabel = (type: QuestionType) => {
+    if (isAm) {
+      switch (type) {
+        case 'multiple-choice':
+          return 'ባለብዙ ምርጫ ያክሉ'
+        case 'short-answer':
+          return 'አጭር መልስ ያክሉ'
+        case 'reflection':
+          return 'የማሰላሰል ጥያቄ ያክሉ'
+        case 'feedback-open':
+          return 'ክፍት ግብረ መልስ ያክሉ'
+        case 'attendance':
+          return 'መገኘት ያክሉ'
+        default:
+          return type
+      }
+    }
+    switch (type) {
+      case 'multiple-choice':
+        return 'Add Multiple-Choice'
+      case 'short-answer':
+        return 'Add Short-Answer'
+      case 'reflection':
+        return 'Add Reflection'
+      case 'feedback-open':
+        return 'Add Open Feedback'
+      case 'attendance':
+        return 'Add Attendance'
+      default:
+        return type
+    }
+  }
 
   useEffect(() => {
     const savedDraft = localStorage.getItem(draftKey)
@@ -280,7 +320,7 @@ export function AdminWeeklyClassForm() {
         const weeklyClass = await getWeeklyClass(id)
 
         if (!weeklyClass) {
-          setError('This weekly Timirit could not be found.')
+          setError(isAm ? 'ይህ ሳምንታዊ ትምህርት አልተገኘም።' : 'This weekly Timirt could not be found.')
           return
         }
 
@@ -341,7 +381,7 @@ export function AdminWeeklyClassForm() {
     }
 
     loadClass()
-  }, [draftKey, id, isEditing])
+  }, [draftKey, id, isEditing, isAm])
 
   const updateQuestion = (index: number, nextQuestion: EditorQuestionInput) => {
     setForm((current) => {
@@ -488,12 +528,17 @@ export function AdminWeeklyClassForm() {
                 helperText: question.helperText?.trim() || undefined,
                 helperTextEn: question.helperTextEn?.trim() || undefined,
                 helperTextAm: question.helperTextAm?.trim() || undefined,
-                attendanceOptions: (question.attendanceOptions ?? defaultAttendanceOptions).map((option) => ({
-                  value: option.value,
-                  label: option.label.trim(),
-                  labelEn: option.labelEn?.trim() || undefined,
-                  labelAm: option.labelAm?.trim() || undefined,
-                })),
+                attendanceOptions: (question.attendanceOptions ?? defaultAttendanceOptions).map((option) => {
+                  const labelEn = option.labelEn?.trim() || option.label?.trim() || ''
+                  const labelAm = option.labelAm?.trim() || ''
+                  const merged = labelEn || labelAm ? `${labelEn}${labelEn && labelAm ? ' · ' : ''}${labelAm}` : option.label.trim()
+                  return {
+                    value: option.value,
+                    label: merged || option.label.trim(),
+                    labelEn: labelEn || undefined,
+                    labelAm: labelAm || undefined,
+                  }
+                }),
               }
             }
 
@@ -580,7 +625,9 @@ export function AdminWeeklyClassForm() {
     return (
       <div className="rounded-2xl border border-brand-200 bg-white p-6 text-center shadow-sm">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-accent-600"></div>
-        <p className="text-sm text-brand-700">Loading the weekly editor...</p>
+        <p className="text-sm text-brand-700">
+          {isAm ? 'ሳምንታዊ አርታዒ በመጫን ላይ...' : 'Loading the weekly editor...'}
+        </p>
       </div>
     )
   }
@@ -588,12 +635,22 @@ export function AdminWeeklyClassForm() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Organizer editor</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          {isAm ? 'የአደራጅ አርታዒ' : 'Organizer Editor'}
+        </p>
         <h1 className="text-2xl font-bold text-brand-900">
-          {isEditing ? 'Edit weekly Timirit' : 'Create weekly Timirit'}
+          {isEditing
+            ? isAm
+              ? 'ሳምንታዊ ትምህርት ያርትሉ'
+              : 'Edit Weekly Timirt'
+            : isAm
+              ? 'ሳምንታዊ ትምህርት ይፍጠሩ'
+              : 'Create Weekly Timirt'}
         </h1>
         <p className="text-sm leading-relaxed text-brand-700">
-          Prepare the parish teaching page, the two weekly mezmurs, and the follow-up questions in one place.
+          {isAm
+            ? 'የፓሪሽ ትምህርት ገጹን፣ ሁለቱን የሳምንቱ መዝሙሮች እና የተከታታይ ጥያቄዎችን በአንድ ቦታ ያዘጋጁ።'
+            : 'Prepare the parish teaching page, the two weekly mezmurs, and the follow-up questions in one place.'}
         </p>
       </div>
 
@@ -609,59 +666,78 @@ export function AdminWeeklyClassForm() {
       ) : null}
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">1. Weekly class form</h2>
-        <p className="mt-1 text-xs text-brand-600">All fields are optional. Fill only what is ready this week.</p>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? '1. ሳምንታዊ ክፍል ቅጽ' : '1. Weekly Class Form'}</h2>
+        <p className="mt-1 text-xs text-brand-600">
+          {isAm ? 'ሁሉም መስኮች አማራጭ ናቸው። በዚህ ሳምንት ዝግጁ የሆነውን ብቻ ያስገቡ።' : 'All fields are optional. Fill in only what is ready this week.'}
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Class ID
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'የክፍል መለያ' : 'Class ID'}
             <input type="text" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="2026-04-22" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Date
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ቀን' : 'Date'}
             <input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Speaker <span className="font-normal text-brand-500">(optional)</span>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ተናጋሪ (አማራጭ)' : 'Speaker (optional)'}
             <input type="text" value={form.speaker} onChange={(event) => setForm({ ...form, speaker: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Dn. Daniel T., Memhir Kidan, Fr. Michael Z." />
           </label>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Topic — English <span className="font-normal text-brand-500">(optional if other filled)</span>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ርእስ — እንግሊዝኛ (ሌሎች መስኮች ከተሞሉ አማራጭ)' : 'Topic — English (optional if other fields are filled)'}
             <input type="text" value={form.topicEn || ''} onChange={(event) => setForm({ ...form, topicEn: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Theosis through liturgical life" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Topic — Amharic <span className="font-normal text-brand-500">(optional)</span>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ርእስ — አማርኛ (አማራጭ)' : 'Topic — Amharic (optional)'}
             <input type="text" value={form.topicAm || ''} onChange={(event) => setForm({ ...form, topicAm: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
           </label>
         </div>
-        <label className="mt-4 block text-sm font-medium text-brand-900">YouTube replay link <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'የዩቲዩብ የድጋሚ እይታ አገናኝ (አማራጭ)' : 'YouTube Replay Link (optional)'}
           <input type="url" value={form.youtubeUrl || ''} onChange={(event) => setForm({ ...form, youtubeUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://www.youtube.com/watch?v=..." />
         </label>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Audio lesson link <span className="font-normal text-brand-500">(optional)</span>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'የድምጽ ትምህርት አገናኝ (አማራጭ)' : 'Audio Lesson Link (optional)'}
             <input type="url" value={form.audioUrl || ''} onChange={(event) => setForm({ ...form, audioUrl: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="https://example.com/lesson.mp3" />
           </label>
         </div>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Audio title <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-3 block text-sm font-medium text-brand-900">
+          {isAm ? 'የድምጽ ርእስ (አማራጭ)' : 'Audio Title (optional)'}
           <input type="text" value={form.audioTitle || ''} onChange={(event) => setForm({ ...form, audioTitle: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Week 12 audio lesson" />
         </label>
-        <label className="mt-3 block text-sm font-medium text-brand-900">Audio note <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-3 block text-sm font-medium text-brand-900">
+          {isAm ? 'የድምጽ ማስታወሻ (አማራጭ)' : 'Audio Note (optional)'}
           <textarea value={form.audioNote || ''} onChange={(event) => setForm({ ...form, audioNote: event.target.value })} rows={2} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Short summary (Amharic) <span className="font-normal text-brand-500">(optional, 2-4 lines)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'አጭር ማጠቃለያ (አማርኛ) (አማራጭ፣ 2–4 መስመሮች)' : 'Short Summary (Amharic) (optional, 2–4 lines)'}
           <textarea value={form.amharicSummary} onChange={(event) => setForm({ ...form, amharicSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Short summary (English) <span className="font-normal text-brand-500">(optional, 2-4 lines)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'አጭር ማጠቃለያ (እንግሊዝኛ) (አማራጭ፣ 2–4 መስመሮች)' : 'Short Summary (English) (optional, 2–4 lines)'}
           <textarea value={form.englishSummary} onChange={(event) => setForm({ ...form, englishSummary: event.target.value })} rows={5} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
         <div className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
-          <h3 className="text-sm font-semibold text-brand-900">Main points (up to 4, optional)</h3>
+          <h3 className="text-sm font-semibold text-brand-900">
+            {isAm ? 'ዋና ነጥቦች (እስከ 4፣ አማራጭ)' : 'Main Points (up to 4, optional)'}
+          </h3>
           <p className="mt-1 text-xs text-brand-700">
-            Add any mix of English and Amharic. Leave blanks for points you do not need this week.
+            {isAm
+              ? 'የእንግሊዝኛና የአማርኛ ድብልቅ ማስገባት ይችላሉ። በዚህ ሳምንት የማያስፈልጉዎትን ነጥቦች ባዶ ይተዉ።'
+              : 'Add any mix of English and Amharic. Leave blank any points you do not need this week.'}
           </p>
           <div className="mt-3 space-y-3">
             {toMainPointSlots(form.mainPoints).map((point, index) => (
               <div key={`weekly-main-point-${index}`} className="rounded-xl border border-brand-100 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Main point {index + 1}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {isAm ? `ዋና ነጥብ ${index + 1}` : `Main Point ${index + 1}`}
+                </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <label className="text-sm font-medium text-brand-900">
-                    English
+                    {isAm ? 'እንግሊዝኛ' : 'English'}
                     <textarea
                       value={point.en ?? ''}
                       onChange={(event) => {
@@ -674,7 +750,7 @@ export function AdminWeeklyClassForm() {
                     />
                   </label>
                   <label className="text-sm font-medium text-brand-900">
-                    Amharic
+                    {isAm ? 'አማርኛ' : 'Amharic'}
                     <textarea
                       value={point.am ?? ''}
                       onChange={(event) => {
@@ -692,38 +768,88 @@ export function AdminWeeklyClassForm() {
           </div>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">Key verse <span className="font-normal text-brand-500">(optional)</span>
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ቁልፍ ጥቅስ (አማራጭ)' : 'Key Verse (optional)'}
             <input type="text" value={form.keyVerse || ''} onChange={(event) => setForm({ ...form, keyVerse: event.target.value })} className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="John 3:16" />
           </label>
-          <label className="text-sm font-medium text-brand-900">Status
-            <input type="text" value={form.status === 'published' ? 'published' : 'draft'} readOnly className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 bg-brand-50 px-3 text-base text-brand-700 outline-none" />
+          <label className="text-sm font-medium text-brand-900">
+            {isAm ? 'ሁኔታ' : 'Status'}
+            <input
+              type="text"
+              value={form.status === 'published' ? (isAm ? 'ታትሟል' : 'Published') : isAm ? 'ረቂቅ' : 'Draft'}
+              readOnly
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 bg-brand-50 px-3 text-base text-brand-700 outline-none"
+            />
           </label>
         </div>
-        <label className="mt-4 block text-sm font-medium text-brand-900">Organizer note <span className="font-normal text-brand-500">(optional)</span>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'የአደራጅ ማስታወሻ (አማራጭ)' : 'Organizer Note (optional)'}
           <textarea value={form.organizerNote || ''} onChange={(event) => setForm({ ...form, organizerNote: event.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
         </label>
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">2. Weekly mezmurs form</h2>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? '2. ሳምንታዊ መዝሙሮች ቅጽ' : '2. Weekly Mezmurs Form'}</h2>
         <div className="mt-4 space-y-4">
           {form.mezmurs.map((mezmur, index) => (
             <div key={`mezmur-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
-              <h3 className="text-base font-semibold text-brand-900">Mezmur {index + 1}</h3>
+              <h3 className="text-base font-semibold text-brand-900">{isAm ? `መዝሙር ${index + 1}` : `Mezmur ${index + 1}`}</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <label className="text-sm font-medium text-brand-900">Title — English <span className="font-normal text-brand-500">(optional)</span>
+                <label className="text-sm font-medium text-brand-900">
+                  {isAm ? 'ርእስ — እንግሊዝኛ (አማራጭ)' : 'Title — English (optional)'}
                   <input type="text" value={mezmur.titleEn || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, titleEn: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
                 </label>
-                <label className="text-sm font-medium text-brand-900">Title — Amharic <span className="font-normal text-brand-500">(optional)</span>
+                <label className="text-sm font-medium text-brand-900">
+                  {isAm ? 'ርእስ — አማርኛ (አማራጭ)' : 'Title — Amharic (optional)'}
                   <input type="text" value={mezmur.titleAm || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, titleAm: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
                 </label>
               </div>
-              <label className="mt-3 block text-sm font-medium text-brand-900">Transliteration <span className="font-normal text-brand-500">(optional)</span>
+              <label className="mt-3 block text-sm font-medium text-brand-900">
+                {isAm ? 'ትርጉም ፊደል አጻጻፍ (አማራጭ)' : 'Transliteration (optional)'}
                 <input type="text" value={mezmur.transliteration || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, transliteration: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
               </label>
-              <input type="url" value={mezmur.youtubeUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="YouTube (optional)" />
-              <input type="url" value={mezmur.audioUrl || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, audioUrl: event.target.value }; setForm({ ...form, mezmurs }) }} className="mt-4 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Audio link (optional)" />
-              <textarea value={mezmur.lyrics || ''} onChange={(event) => { const mezmurs = [...form.mezmurs] as FormState['mezmurs']; mezmurs[index] = { ...mezmur, lyrics: event.target.value }; setForm({ ...form, mezmurs }) }} rows={4} className="mt-4 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" placeholder="Mezmur lyrics" />
+              <label className="mt-4 block text-sm font-medium text-brand-900">
+                {isAm ? 'ዩቲዩብ (አማራጭ)' : 'YouTube (optional)'}
+                <input
+                  type="url"
+                  value={mezmur.youtubeUrl || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, youtubeUrl: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </label>
+              <label className="mt-4 block text-sm font-medium text-brand-900">
+                {isAm ? 'የድምጽ አገናኝ (አማራጭ)' : 'Audio Link (optional)'}
+                <input
+                  type="url"
+                  value={mezmur.audioUrl || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, audioUrl: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="mt-4 block text-sm font-medium text-brand-900">
+                {isAm ? 'የመዝሙር ግጥም' : 'Mezmur Lyrics'}
+                <textarea
+                  value={mezmur.lyrics || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, lyrics: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  rows={4}
+                  className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                  placeholder={isAm ? 'የመዝሙር ግጥም ወይም ለልምምድ ማስታወሻ' : 'Mezmur lyrics or rehearsal notes'}
+                />
+              </label>
             </div>
           ))}
         </div>
@@ -732,18 +858,31 @@ export function AdminWeeklyClassForm() {
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-brand-900">3. Weekly questions form</h2>
-            <p className="text-sm text-brand-700">Add, arrange, and refine the follow-up questions for the parish.</p>
+            <h2 className="text-lg font-semibold text-brand-900">{isAm ? '3. ሳምንታዊ ጥያቄዎች ቅጽ' : '3. Weekly Questions Form'}</h2>
+            <p className="text-sm text-brand-700">
+              {isAm ? 'ለፓሪሹ የተከታታይ ጥያቄዎችን ያክሉ፣ ያደራጁ እና ያሻሽሉ።' : 'Add, arrange, and refine the follow-up questions for the parish.'}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {(['multiple-choice', 'short-answer', 'reflection', 'feedback-open'] as QuestionType[]).map((type) => (
-              <button key={type} type="button" onClick={() => setForm({ ...form, questions: [...form.questions, createEmptyQuestion(type)] })} className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900 shadow-sm">Add {type}</button>
+              <button
+                key={type}
+                type="button"
+                onClick={() => setForm({ ...form, questions: [...form.questions, createEmptyQuestion(type)] })}
+                className="min-h-11 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-900 shadow-sm"
+              >
+                {addQuestionButtonLabel(type)}
+              </button>
             ))}
           </div>
         </div>
         <div className="mt-4 space-y-4">
           {form.questions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-4 py-6 text-sm text-brand-700">No questions yet. Add the ones needed for recap, reflection, attendance, or clarification.</div>
+            <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-4 py-6 text-sm text-brand-700">
+              {isAm
+                ? 'እስካሁን ምንም ጥያቄ የለም። ለማጠቃለያ፣ ለማሰላሰል፣ ለመገኘት ወይም ለማብራራት የሚያስፈልጉትን ያክሉ።'
+                : 'No questions yet. Add the ones needed for recap, reflection, attendance, or clarification.'}
+            </div>
           ) : (
             form.questions.map((question, index) => (
               <div key={question.id ?? `question-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
@@ -868,10 +1007,55 @@ export function AdminWeeklyClassForm() {
 
                 {question.type === 'attendance' ? (
                   <div className="mt-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+                      {isAm ? 'የመገኘት ምርጫዎች' : 'Attendance choice labels'}
+                    </p>
                     {(question.attendanceOptions ?? defaultAttendanceOptions).map((option, optionIndex) => (
-                      <div key={option.value} className="grid gap-2 sm:grid-cols-2">
-                        <input type="text" value={option.value} readOnly className="min-h-12 w-full rounded-xl border border-brand-200 bg-brand-50 px-3 text-base text-brand-700 outline-none" />
-                        <input type="text" value={option.label} onChange={(event) => { const attendanceOptions = [...(question.attendanceOptions ?? defaultAttendanceOptions)]; attendanceOptions[optionIndex] = { ...option, label: event.target.value }; updateQuestion(index, { ...question, attendanceOptions }) }} className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30" />
+                      <div key={option.value} className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+                        <input
+                          type="text"
+                          value={option.value}
+                          readOnly
+                          className="min-h-10 w-full rounded-lg border border-brand-200 bg-brand-50 px-3 text-sm text-brand-700 outline-none"
+                        />
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-brand-600">
+                            {isAm ? 'መለያ — እንግሊዝኛ' : 'Label — English'}
+                            <input
+                              type="text"
+                              value={option.labelEn ?? option.label ?? ''}
+                              onChange={(event) => {
+                                const attendanceOptions = [...(question.attendanceOptions ?? defaultAttendanceOptions)]
+                                const v = event.target.value
+                                attendanceOptions[optionIndex] = {
+                                  ...option,
+                                  labelEn: v,
+                                  label: v || option.labelAm?.trim() || option.label,
+                                }
+                                updateQuestion(index, { ...question, attendanceOptions })
+                              }}
+                              className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                            />
+                          </label>
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-brand-600">
+                            {isAm ? 'መለያ — አማርኛ' : 'Label — Amharic'}
+                            <input
+                              type="text"
+                              value={option.labelAm ?? ''}
+                              onChange={(event) => {
+                                const attendanceOptions = [...(question.attendanceOptions ?? defaultAttendanceOptions)]
+                                const v = event.target.value
+                                attendanceOptions[optionIndex] = {
+                                  ...option,
+                                  labelAm: v,
+                                  label: option.labelEn?.trim() || v || option.label,
+                                }
+                                updateQuestion(index, { ...question, attendanceOptions })
+                              }}
+                              className="mt-1 min-h-12 w-full rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                            />
+                          </label>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -893,12 +1077,35 @@ export function AdminWeeklyClassForm() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">5. Publish / save flow</h2>
-        <p className="mt-2 text-sm leading-relaxed text-brand-700">Drafts are saved on this device for working sessions. Publishing updates the local organizer repository used by the public site.</p>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? '5. የማስቀመጥ / የማተም ሂደት' : '5. Publish / Save Flow'}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-brand-700">
+          {isAm
+            ? 'ረቂቆች ለስራ ክፍለ ጊዜዎች በዚህ መሣሪያ ላይ ይቀመጣሉ። ማተም ደግሞ የሕዝብ ጣቢያው የሚጠቀምበትን የአካባቢ የአደራጅ ማከማቻ ያዘምናል።'
+            : 'Drafts are saved on this device for working sessions. Publishing updates the local organizer repository used by the public site.'}
+        </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="secondary" onClick={saveDraft} disabled={saving}>Save as draft</Button>
-          <Link to="/admin/weekly-classes" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-base font-semibold text-brand-900 shadow-sm">Back to previous weeks</Link>
-          <Button type="button" onClick={publishUpdate} disabled={saving}>{saving ? 'Publishing...' : isEditing ? 'Publish update' : 'Publish weekly class'}</Button>
+          <Button type="button" variant="secondary" onClick={saveDraft} disabled={saving}>
+            {isAm ? 'እንደ ረቂቅ አስቀምጥ' : 'Save as Draft'}
+          </Button>
+          <Link
+            to="/admin/weekly-classes"
+            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 px-4 text-base font-semibold text-brand-900 shadow-sm"
+          >
+            {isAm ? 'ወደ ቀደሙት ሳምንታት ተመለስ' : 'Back to Previous Weeks'}
+          </Link>
+          <Button type="button" onClick={publishUpdate} disabled={saving}>
+            {saving
+              ? isAm
+                ? 'በማተም ላይ...'
+                : 'Publishing...'
+              : isEditing
+                ? isAm
+                  ? 'ዝማኔውን ያትሙ'
+                  : 'Publish Update'
+                : isAm
+                  ? 'ሳምንታዊ ክፍል ያትሙ'
+                  : 'Publish Weekly Class'}
+          </Button>
         </div>
       </section>
     </div>

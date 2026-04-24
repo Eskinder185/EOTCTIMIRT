@@ -1,4 +1,6 @@
 import type { WeeklyKnowledgeItem } from '../data/weeklyKnowledge'
+import { useUiLanguage } from '../contexts/LanguageContext'
+import { displayBilingualLine } from '../lib/localizedText'
 import { Card } from './ui/Card'
 
 interface WeeklyKnowledgeCardProps {
@@ -6,6 +8,8 @@ interface WeeklyKnowledgeCardProps {
 }
 
 export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const isUsableHttpLink = (value?: string) => {
     if (!value?.trim()) return false
     try {
@@ -15,29 +19,39 @@ export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
       return false
     }
   }
-  const hasButton = Boolean(item.buttonText?.trim() && isUsableHttpLink(item.buttonLink))
-  const isExternalButton = Boolean(item.buttonLink?.trim()?.startsWith('http'))
+
+  const titleDisplay = displayBilingualLine(language, item.titleEn, item.titleAm, item.title).trim()
+  const subtitleDisplay = displayBilingualLine(language, item.subtitleEn, item.subtitleAm, item.subtitle).trim()
+  const contentDisplay = displayBilingualLine(language, item.contentEn, item.contentAm, item.content).trim()
+  const extraNoteDisplay = displayBilingualLine(language, item.extraNoteEn, item.extraNoteAm, item.extraNote).trim()
+  const buttonLabelDisplay = displayBilingualLine(language, item.buttonTextEn, item.buttonTextAm, item.buttonText).trim()
+
   const hasUsableImage = isUsableHttpLink(item.imageUrl)
+  const hasButton = Boolean(buttonLabelDisplay && isUsableHttpLink(item.buttonLink))
+  const isExternalButton = Boolean(item.buttonLink?.trim()?.startsWith('http'))
+
+  const hasTextBlock = Boolean(titleDisplay || subtitleDisplay || contentDisplay || extraNoteDisplay)
+  if (!hasTextBlock && !hasUsableImage && !hasButton) {
+    return null
+  }
 
   return (
     <Card>
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-        This Week&apos;s Knowledge
+        {isAm ? 'የዚህ ሳምንት እውቀት' : "This Week's Knowledge"}
       </p>
-      <h2 className="mt-1 text-lg font-semibold text-brand-900">{item.title}</h2>
-      {item.subtitle ? (
-        <p className="mt-1 text-sm text-brand-700">{item.subtitle}</p>
-      ) : null}
-      <p className="mt-3 text-sm leading-relaxed text-brand-800">{item.content}</p>
-      {item.extraNote ? (
+      {titleDisplay ? <h2 className="mt-1 text-lg font-semibold text-brand-900">{titleDisplay}</h2> : null}
+      {subtitleDisplay ? <p className="mt-1 text-sm text-brand-700">{subtitleDisplay}</p> : null}
+      {contentDisplay ? <p className="mt-3 text-sm leading-relaxed text-brand-800">{contentDisplay}</p> : null}
+      {extraNoteDisplay ? (
         <p className="mt-2 rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-700">
-          {item.extraNote}
+          {extraNoteDisplay}
         </p>
       ) : null}
       {hasUsableImage ? (
         <img
           src={item.imageUrl}
-          alt={item.title}
+          alt={titleDisplay || subtitleDisplay || "This week's knowledge"}
           className="mt-3 max-h-64 w-full rounded-xl border border-brand-100 object-cover"
           loading="lazy"
         />
@@ -49,7 +63,16 @@ export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
           rel={isExternalButton ? 'noopener noreferrer' : undefined}
           className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-accent-600 hover:bg-brand-50"
         >
-          {item.buttonText}
+          {buttonLabelDisplay}
+        </a>
+      ) : isUsableHttpLink(item.buttonLink) ? (
+        <a
+          href={item.buttonLink}
+          target={isExternalButton ? '_blank' : undefined}
+          rel={isExternalButton ? 'noopener noreferrer' : undefined}
+          className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-accent-600 hover:bg-brand-50"
+        >
+          {isAm ? 'ተጨማሪ ይመልከቱ' : 'Learn more'}
         </a>
       ) : null}
     </Card>

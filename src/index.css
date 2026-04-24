@@ -55,6 +55,78 @@ body {
   background-color: rgba(15, 23, 42, 0.92);
 }
 
+/* Deeper surfaces for layered cards (Tailwind opacity modifiers) */
+[data-theme='night'] .bg-brand-50\/40,
+[data-theme='night'] .bg-brand-50\/60,
+[data-theme='night'] .bg-brand-50\/80 {
+  background-color: rgba(15, 23, 42, 0.55);
+}
+
+[data-theme='night'] .bg-brand-100\/40,
+[data-theme='night'] .bg-brand-100\/60,
+[data-theme='night'] .bg-brand-100\/80,
+[data-theme='night'] .bg-brand-50\/70 {
+  background-color: rgba(30, 41, 59, 0.65);
+}
+
+[data-theme='night'] .shadow-sm {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+[data-theme='night'] .shadow-md,
+[data-theme='night'] .shadow-lg {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.45),
+    0 2px 4px -2px rgb(0 0 0 / 0.35);
+}
+
+[data-theme='night'] ::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme='night'] input:not([type='checkbox']):not([type='radio']),
+[data-theme='night'] textarea,
+[data-theme='night'] select {
+  color: var(--color-brand-900);
+}
+
+/*
+ * Organizer / legacy screens still use Tailwind gray-* utilities.
+ * Remap them in night mode so text stays on-token with the rest of the theme.
+ */
+[data-theme='night'] .text-gray-900 {
+  color: var(--color-brand-900);
+}
+[data-theme='night'] .text-gray-800 {
+  color: var(--color-brand-900);
+}
+[data-theme='night'] .text-gray-700 {
+  color: var(--color-brand-800);
+}
+[data-theme='night'] .text-gray-600 {
+  color: var(--color-brand-800);
+}
+[data-theme='night'] .text-gray-500 {
+  color: var(--color-brand-700);
+}
+[data-theme='night'] .text-gray-400 {
+  color: var(--color-brand-700);
+}
+[data-theme='night'] .bg-gray-50 {
+  background-color: rgba(15, 23, 42, 0.72);
+}
+[data-theme='night'] .bg-gray-100 {
+  background-color: rgba(30, 41, 59, 0.85);
+}
+[data-theme='night'] .border-gray-200 {
+  border-color: #475569;
+}
+[data-theme='night'] .hover\:bg-gray-50:hover {
+  background-color: rgba(30, 41, 59, 0.55);
+}
+
 /* Respect reduced motion for collapsibles / transitions */
 @media (prefers-reduced-motion: reduce) {
   html {

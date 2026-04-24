@@ -478,6 +478,8 @@ export type Database = {
         Row: {
           button_link: string | null
           button_text: string | null
+          button_text_am: string | null
+          button_text_en: string | null
           content: string | null
           content_am: string | null
           content_en: string | null
@@ -503,6 +505,8 @@ export type Database = {
         Insert: {
           button_link?: string | null
           button_text?: string | null
+          button_text_am?: string | null
+          button_text_en?: string | null
           content?: string | null
           content_am?: string | null
           content_en?: string | null
@@ -528,6 +532,8 @@ export type Database = {
         Update: {
           button_link?: string | null
           button_text?: string | null
+          button_text_am?: string | null
+          button_text_en?: string | null
           content?: string | null
           content_am?: string | null
           content_en?: string | null

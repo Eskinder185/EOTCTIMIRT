@@ -47,7 +47,7 @@ export default function App() {
             element={
               <Suspense
                 fallback={
-                  <div className="rounded-2xl border border-brand-200 bg-white p-6 text-center text-sm text-brand-700">
+                  <div className="rounded-2xl border border-brand-200 bg-white p-8 text-center text-sm font-medium text-brand-800 shadow-sm">
                     Loading organizer tools...
                   </div>
                 }

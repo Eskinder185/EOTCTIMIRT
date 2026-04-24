@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Card } from '../components/ui/Card'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import { listActiveUpcomingTimirit, type UpcomingTimirtListItem } from '../lib/supabaseData'
+import { displayBilingualLine } from '../lib/localizedText'
 import { formatClassDate } from '../lib/formatDate'
 
 export function UpcomingClassesPage() {
+  const { language } = useUiLanguage()
   const [items, setItems] = useState<UpcomingTimirtListItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -47,10 +50,15 @@ export function UpcomingClassesPage() {
           {items.map((item) => (
             <Card key={item.id}>
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                {formatClassDate(item.scheduledDate)}
+                {formatClassDate(item.scheduledDate, language)}
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-brand-900">{item.topicPreview}</h2>
-              <p className="mt-2 text-sm text-brand-700">{item.note}</p>
+              <h2 className="mt-1 text-lg font-semibold text-brand-900">
+                {displayBilingualLine(language, item.topicPreviewEn, item.topicPreviewAm, item.topicPreview).trim() ||
+                  item.topicPreview}
+              </h2>
+              <p className="mt-2 text-sm text-brand-700">
+                {displayBilingualLine(language, item.noteEn, item.noteAm, item.note).trim() || item.note}
+              </p>
             </Card>
           ))}
         </div>

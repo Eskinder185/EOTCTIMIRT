@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import { formatClassDate } from '../lib/formatDate'
 import { useUiText } from '../lib/uiText'
+import { displayWeeklyClassSpeaker, displayWeeklyClassTopic } from '../lib/weeklyClassDisplay'
 
 const PAGE_SIZE = 8
 
@@ -19,6 +21,8 @@ function summaryPreview(text: string, maxLength = 170) {
 
 export function PastClassesPage() {
   const t = useUiText()
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const [weeks, setWeeks] = useState<WeeklyClass[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -102,47 +106,51 @@ export function PastClassesPage() {
     <div className="space-y-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Archive
+          {isAm ? 'ማህደር' : 'Archive'}
         </p>
-        <h1 className="text-2xl font-bold text-brand-900 sm:text-3xl">Past Timirit classes</h1>
+        <h1 className="text-2xl font-bold text-brand-900 sm:text-3xl">
+          {isAm ? 'ያለፉ የትምህርት ክፍሎች' : 'Past Timirt Classes'}
+        </h1>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          Browse past classes like a library. Search by title, teacher, and summary keywords, then open each class to catch up with teaching, media, and review.
+          {isAm
+            ? 'ያለፉ የትምህርት ክፍሎችን እንደ ማህደር ወይም እንደ ቤተ መጻሕፍት ይመልከቱ። በርእስ፣ በመምህር፣ በርዕሰ ጉዳይ ወይም በማጠቃለያ ቁልፍ ቃላት ይፈልጉ፤ ከዚያም እያንዳንዱን ክፍል ከትምህርቱ፣ ከሚዲያ እና ከዋና ነጥቦቹ ጋር ለመከለስ ይክፈቱ።'
+            : 'Browse previous Timirt classes like a library. Search by title, teacher, topic, or summary keywords, then open each class to review the teaching, media, and key points.'}
         </p>
       </div>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="block text-sm font-semibold text-brand-900" htmlFor="search">
-            Search keywords
+            {isAm ? 'የፍለጋ ቁልፍ ቃላት' : 'Search keywords'}
             <input
               id="search"
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="title, teacher, summary..."
+              placeholder={isAm ? 'ርእስ፣ መምህር፣ ርዕሰ ጉዳይ፣ ማጠቃለያ...' : 'Title, teacher, topic, summary...'}
               className="mt-2 w-full min-h-12 rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none ring-accent-600/30 focus:ring-2"
             />
           </label>
           <label className="block text-sm font-semibold text-brand-900" htmlFor="topic-filter">
-            Topic filter
+            {isAm ? 'የርዕሰ ጉዳይ ማጣሪያ' : 'Topic filter'}
             <input
               id="topic-filter"
               type="search"
               value={topicFilter}
               onChange={(e) => setTopicFilter(e.target.value)}
-              placeholder="Theosis, Forgiveness..."
+              placeholder={isAm ? 'ተዋሕዶ፣ ይቅርታ...' : 'Theosis, Forgiveness...'}
               className="mt-2 w-full min-h-12 rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none ring-accent-600/30 focus:ring-2"
             />
           </label>
           <label className="block text-sm font-semibold text-brand-900" htmlFor="teacher-filter">
-            Teacher
+            {isAm ? 'መምህር' : 'Teacher'}
             <select
               id="teacher-filter"
               value={teacherFilter}
               onChange={(e) => setTeacherFilter(e.target.value)}
               className="mt-2 w-full min-h-12 rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none ring-accent-600/30 focus:ring-2"
             >
-              <option value="">All teachers</option>
+              <option value="">{isAm ? 'ሁሉም መምህራን' : 'All teachers'}</option>
               {teacherOptions.map((teacher) => (
                 <option key={teacher} value={teacher}>
                   {teacher}
@@ -151,36 +159,40 @@ export function PastClassesPage() {
             </select>
           </label>
           <label className="block text-sm font-semibold text-brand-900" htmlFor="from-date">
-            From date
+            {isAm ? 'ከቀን' : 'From date'}
             <input
               id="from-date"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
+              placeholder={isAm ? 'ወወ/ቀቀ/ዓዓዓዓ' : 'MM/DD/YYYY'}
               className="mt-2 w-full min-h-12 rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none ring-accent-600/30 focus:ring-2"
             />
           </label>
           <label className="block text-sm font-semibold text-brand-900" htmlFor="to-date">
-            To date
+            {isAm ? 'እስከ ቀን' : 'To date'}
             <input
               id="to-date"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
+              placeholder={isAm ? 'ወወ/ቀቀ/ዓዓዓዓ' : 'MM/DD/YYYY'}
               className="mt-2 w-full min-h-12 rounded-xl border border-brand-200 bg-white px-3 text-base text-brand-900 outline-none ring-accent-600/30 focus:ring-2"
             />
           </label>
         </div>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-brand-700">
-            Showing {filtered.length} {filtered.length === 1 ? 'class' : 'classes'}
+            {isAm
+              ? `${filtered.length} ${filtered.length === 1 ? 'ክፍል' : 'ክፍሎች'} በማሳየት ላይ`
+              : `Showing ${filtered.length} ${filtered.length === 1 ? 'class' : 'classes'}`}
           </p>
           <button
             type="button"
             onClick={clearFilters}
             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
           >
-            Clear search and filters
+            {isAm ? 'ፍለጋን እና ማጣሪያዎችን ያጽዱ' : 'Clear search and filters'}
           </button>
         </div>
       </section>
@@ -220,11 +232,15 @@ export function PastClassesPage() {
                   <p className="text-xs font-semibold uppercase text-brand-700">
                     {formatClassDate(week.date)}
                   </p>
-                  <h2 className="text-lg font-semibold text-brand-900">{week.topic}</h2>
-                  <p className="mt-1 text-sm text-brand-700">{week.speaker}</p>
+                  <h2 className="text-lg font-semibold text-brand-900">
+                    {displayWeeklyClassTopic(week, language)}
+                  </h2>
+                  <p className="mt-1 text-sm text-brand-700">{displayWeeklyClassSpeaker(week, language)}</p>
                   <StructuredLessonContent
                     className="mt-2"
-                    sectionTitle="Teaching recap"
+                    sectionTitle={isAm ? 'የማስተማር ማጠቃለያ' : 'Teaching recap'}
+                    summaryLabel={isAm ? 'አጭር ማጠቃለያ' : 'Short summary'}
+                    mainPointsLabel={isAm ? 'ዋና ነጥቦች' : 'Main points'}
                     summary={{
                       en: summaryPreview(week.englishSummary),
                       am: summaryPreview(week.amharicSummary),

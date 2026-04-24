@@ -1,12 +1,16 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { useUiLanguage } from '../contexts/LanguageContext'
 
 /**
  * Admin Login Page - Placeholder for future CMS integration
  * This will connect to Supabase authentication for organizer access
  */
 export function AdminLoginPage() {
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,6 +42,13 @@ export function AdminLoginPage() {
             Access the content management system
           </p>
         </div>
+
+        <Link
+          to="/"
+          className="flex min-h-12 w-full items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-3 text-center text-base font-semibold text-brand-800 shadow-sm ring-brand-100 transition hover:border-brand-300 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+        >
+          {isAm ? 'ወደ መነሻ ገጽ ተመለስ' : 'Back to Home'}
+        </Link>
 
         {/* Login Form */}
         <Card className="p-6">

@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import { Button } from '../components/ui/Button'
 
 export function OrganizerLoginPage() {
   const { signIn, isAuthenticated, loading, error } = useAuth()
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const location = useLocation()
   
   const [email, setEmail] = useState('')
@@ -44,6 +47,13 @@ export function OrganizerLoginPage() {
             EOTC Timirit Content Management
           </p>
         </div>
+
+        <Link
+          to="/"
+          className="mb-6 flex min-h-12 w-full items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-center text-base font-semibold text-gray-800 shadow-sm transition hover:border-amber-200 hover:bg-amber-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        >
+          {isAm ? 'ወደ መነሻ ገጽ ተመለስ' : 'Back to Home'}
+        </Link>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (

@@ -11,7 +11,9 @@ import {
   type UpcomingTimirtListItem,
   type UpcomingTimirtEditorInput,
 } from '../lib/supabaseData'
+import { displayBilingualLine } from '../lib/localizedText'
 import { parseOptionalUuid } from '../lib/uuid'
+import { useUiLanguage } from '../contexts/LanguageContext'
 
 type FormState = UpcomingTimirtEditorInput
 
@@ -34,8 +36,14 @@ function createEmptyForm(): FormState {
   return {
     scheduledDate: getNextTuesday(),
     topicPreview: '',
+    topicPreviewEn: '',
+    topicPreviewAm: '',
     note: '',
+    noteEn: '',
+    noteAm: '',
     classSummary: '',
+    classSummaryEn: '',
+    classSummaryAm: '',
     mainPoints: toMainPointSlots(),
     youtubeUrl: '',
     audioUrl: '',
@@ -45,10 +53,26 @@ function createEmptyForm(): FormState {
     isActive: true,
     status: 'draft',
     mezmurs: [
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
     ],
   }
+}
+
+function normalizeMezmurSlotsFromDraft(
+  slots: Partial<FormState['mezmurs']> | FormState['mezmurs'] | undefined,
+): FormState['mezmurs'] {
+  const empty = createEmptyForm().mezmurs
+  return ([0, 1] as const).map((i) => {
+    const slot = slots?.[i]
+    const merged = { ...empty[i], ...(slot ?? {}) }
+    let out = merged
+    if (!merged.titleEn?.trim() && !merged.titleAm?.trim() && merged.title?.trim()) {
+      out = { ...merged, titleEn: merged.title }
+    }
+    const title = (out.titleEn || out.titleAm || out.title || '').trim()
+    return { ...out, title }
+  }) as FormState['mezmurs']
 }
 
 function normalizeDraftFromStorage(parsed: Partial<FormState>): Partial<FormState> {
@@ -56,6 +80,16 @@ function normalizeDraftFromStorage(parsed: Partial<FormState>): Partial<FormStat
   if (copy.id != null && String(copy.id).trim() !== '' && !parseOptionalUuid(copy.id)) {
     delete copy.id
   }
+  if (!copy.noteEn?.trim() && !copy.noteAm?.trim() && copy.note?.trim()) {
+    copy.noteEn = copy.note
+  }
+  if (!copy.topicPreviewEn?.trim() && !copy.topicPreviewAm?.trim() && copy.topicPreview?.trim()) {
+    copy.topicPreviewEn = copy.topicPreview
+  }
+  if (!copy.classSummaryEn?.trim() && !copy.classSummaryAm?.trim() && copy.classSummary?.trim()) {
+    copy.classSummaryEn = copy.classSummary
+  }
+  copy.mezmurs = normalizeMezmurSlotsFromDraft(copy.mezmurs)
   return copy
 }
 
@@ -68,7 +102,7 @@ function buildSoftWarnings(form: FormState): string[] {
     warnings.push('Preview note is empty.')
   }
   if (!form.classSummary?.trim() && !form.classSummaryEn?.trim() && !form.classSummaryAm?.trim()) {
-    warnings.push('Short summary is empty.')
+    warnings.push('Short summary is empty (both languages).')
   }
   if (!form.mezmurs[0]?.title?.trim() && !form.mezmurs[0]?.titleEn?.trim() && !form.mezmurs[0]?.titleAm?.trim()) {
     warnings.push('First mezmur title is empty.')
@@ -99,6 +133,8 @@ function formatDevSupabaseError(error: unknown): string {
 }
 
 export function AdminUpcomingPage() {
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const draftKey = useMemo(() => 'admin-upcoming-draft', [])
   const [form, setForm] = useState<FormState>(createEmptyForm)
   const [upcomingList, setUpcomingList] = useState<UpcomingTimirtListItem[]>([])
@@ -136,10 +172,6 @@ export function AdminUpcomingPage() {
             ...createEmptyForm(),
             ...parsed,
             mainPoints: toMainPointSlots(parsed.mainPoints),
-            mezmurs: [
-              parsed.mezmurs?.[0] ?? createEmptyForm().mezmurs[0],
-              parsed.mezmurs?.[1] ?? createEmptyForm().mezmurs[1],
-            ],
           })
           setNotice('A local upcoming draft was restored on this device.')
           return
@@ -148,6 +180,7 @@ export function AdminUpcomingPage() {
           setForm({
             ...upcoming,
             mainPoints: toMainPointSlots(upcoming.mainPoints),
+            mezmurs: normalizeMezmurSlotsFromDraft(upcoming.mezmurs),
           })
         }
       } catch (loadError) {
@@ -353,7 +386,11 @@ export function AdminUpcomingPage() {
       setError(null)
       const selected = await getUpcomingTimirtForAdmin(id)
       if (selected) {
-        setForm(selected)
+        setForm({
+          ...selected,
+          mainPoints: toMainPointSlots(selected.mainPoints),
+          mezmurs: normalizeMezmurSlotsFromDraft(selected.mezmurs),
+        })
       }
       setSelectedUpcomingId(id)
     } catch (loadError) {
@@ -370,7 +407,9 @@ export function AdminUpcomingPage() {
     return (
       <div className="rounded-2xl border border-brand-200 bg-white p-6 text-center shadow-sm">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-accent-600"></div>
-        <p className="text-sm text-brand-700">Loading the upcoming Timirit editor...</p>
+        <p className="text-sm text-brand-700">
+          {isAm ? 'የሚቀጥለው ትምህርት አርታዒ በመጫን ላይ...' : 'Loading the upcoming Timirt editor...'}
+        </p>
       </div>
     )
   }
@@ -378,10 +417,16 @@ export function AdminUpcomingPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Organizer editor</p>
-        <h1 className="text-2xl font-bold text-brand-900">4. Upcoming Timirt form</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          {isAm ? 'የአደራጅ አርታዒ' : 'Organizer Editor'}
+        </p>
+        <h1 className="text-2xl font-bold text-brand-900">
+          {isAm ? '4. የቀጣይ ትምህርት ቅጽ' : '4. Upcoming Timirt Form'}
+        </h1>
         <p className="text-sm leading-relaxed text-brand-700">
-          Prepare the next Tuesday preview so organizers can update the public homepage without touching code or raw tables.
+          {isAm
+            ? 'አዘጋጆች ኮድ ወይም ጥሬ የውሂብ ጎታ ሰንጠረዦችን ሳይነኩ የሕዝብ መነሻ ገጽን ማዘመን እንዲችሉ የሚቀጥለውን የማክሰኞ ቅድመ እይታ ያዘጋጁ።'
+            : 'Prepare the next Tuesday preview so organizers can update the public homepage without touching code or raw database tables.'}
         </p>
       </div>
 
@@ -398,14 +443,14 @@ export function AdminUpcomingPage() {
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-brand-900">Upcoming classes</h2>
+          <h2 className="text-lg font-semibold text-brand-900">{isAm ? 'የሚቀጥሉ ክፍሎች' : 'Upcoming Classes'}</h2>
           <Button type="button" variant="secondary" onClick={handleCreateNewUpcoming}>
-            Add new upcoming class
+            {isAm ? 'አዲስ የሚቀጥል ክፍል ያክሉ' : 'Add New Upcoming Class'}
           </Button>
         </div>
         <div className="mt-3 grid gap-2">
           {upcomingList.length === 0 ? (
-            <p className="text-sm text-brand-700">No upcoming classes yet.</p>
+            <p className="text-sm text-brand-700">{isAm ? 'የሚቀጥሉ ክፍሎች እስካሁን የሉም።' : 'No upcoming classes yet.'}</p>
           ) : (
             upcomingList.map((item) => (
               <button
@@ -419,9 +464,12 @@ export function AdminUpcomingPage() {
                 }`}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                  {item.scheduledDate} {item.status === 'published' ? '· Published' : '· Draft'}
+                  {item.scheduledDate} {item.status === 'published' ? (isAm ? '· ታትሟል' : '· Published') : isAm ? '· ረቂቅ' : '· Draft'}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-brand-900">{item.topicPreview}</p>
+                <p className="mt-1 text-sm font-semibold text-brand-900">
+                  {displayBilingualLine(language, item.topicPreviewEn, item.topicPreviewAm, item.topicPreview).trim() ||
+                    item.topicPreview}
+                </p>
               </button>
             ))
           )}
@@ -429,24 +477,35 @@ export function AdminUpcomingPage() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">
-            Next session date
-            <input
-              type="date"
-              value={form.scheduledDate}
-              onChange={(event) => setForm({ ...form, scheduledDate: event.target.value })}
-              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            />
-          </label>
-          <label className="text-sm font-medium text-brand-900">
-            Next topic
+        <label className="block text-sm font-medium text-brand-900">
+          {isAm ? 'የሚቀጥለው ክፍለ ጊዜ ቀን' : 'Next Session Date'}
+          <input
+            type="date"
+            value={form.scheduledDate}
+            onChange={(event) => setForm({ ...form, scheduledDate: event.target.value })}
+            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30 sm:max-w-xs"
+          />
+        </label>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'ቀጣይ ርእስ — እንግሊዝኛ' : 'Next Topic — English'}
             <input
               type="text"
-              value={form.topicPreview}
-              onChange={(event) => setForm({ ...form, topicPreview: event.target.value })}
+              value={form.topicPreviewEn ?? ''}
+              onChange={(event) => setForm({ ...form, topicPreviewEn: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-              placeholder="The Mother of God in the life of the Church"
+              placeholder={isAm ? 'The Mother of God in the life of the Church' : 'The Mother of God in the life of the Church'}
+            />
+          </label>
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'ቀጣይ ርእስ — አማርኛ' : 'Next Topic — Amharic'}
+            <input
+              type="text"
+              value={form.topicPreviewAm ?? ''}
+              onChange={(event) => setForm({ ...form, topicPreviewAm: event.target.value })}
+              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder={isAm ? 'በቤተ ክርስቲያን ሕይወት ውስጥ እመቤታችን' : 'Optional Amharic title'}
             />
           </label>
         </div>
@@ -457,25 +516,37 @@ export function AdminUpcomingPage() {
             checked={form.isActive}
             onChange={(event) => setForm({ ...form, isActive: event.target.checked })}
           />
-          Mark this preview as active on the public site
+          {isAm ? 'ይህን ቅድመ እይታ በሕዝብ ጣቢያ ላይ ንቁ አድርግ' : 'Mark this preview as active on the public site'}
         </label>
         <p className="mt-2 text-xs text-brand-700">
-          Status: <span className="font-semibold">{form.status === 'published' ? 'Published' : 'Draft'}</span>
+          {isAm ? 'ሁኔታ፡' : 'Status:'}{' '}
+          <span className="font-semibold">{form.status === 'published' ? (isAm ? 'ታትሟል' : 'Published') : isAm ? 'ረቂቅ' : 'Draft'}</span>
         </p>
 
-        <label className="mt-4 block text-sm font-medium text-brand-900">
-          Preview note
-          <textarea
-            value={form.note}
-            onChange={(event) => setForm({ ...form, note: event.target.value })}
-            rows={5}
-            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-          />
-        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-1">
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'የቅድመ እይታ ማስታወሻ — እንግሊዝኛ' : 'Preview Note — English'}
+            <textarea
+              value={form.noteEn ?? ''}
+              onChange={(event) => setForm({ ...form, noteEn: event.target.value })}
+              rows={5}
+              className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            />
+          </label>
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'የቅድመ እይታ ማስታወሻ — አማርኛ' : 'Preview Note — Amharic'}
+            <textarea
+              value={form.noteAm ?? ''}
+              onChange={(event) => setForm({ ...form, noteAm: event.target.value })}
+              rows={5}
+              className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            />
+          </label>
+        </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">
-            YouTube link
+            {isAm ? 'የዩቲዩብ አገናኝ' : 'YouTube Link'}
             <input
               type="url"
               value={form.youtubeUrl || ''}
@@ -485,7 +556,7 @@ export function AdminUpcomingPage() {
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Audio link
+            {isAm ? 'የድምጽ አገናኝ' : 'Audio Link'}
             <input
               type="url"
               value={form.audioUrl || ''}
@@ -495,17 +566,17 @@ export function AdminUpcomingPage() {
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Audio title (optional)
+            {isAm ? 'የድምጽ ርእስ (አማራጭ)' : 'Audio Title (optional)'}
             <input
               type="text"
               value={form.audioTitle || ''}
               onChange={(event) => setForm({ ...form, audioTitle: event.target.value })}
               className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-              placeholder="Audio lesson title"
+              placeholder={isAm ? 'የድምጽ ትምህርት ርእስ' : 'Audio lesson title'}
             />
           </label>
           <label className="text-sm font-medium text-brand-900">
-            Key verse (optional)
+            {isAm ? 'ቁልፍ ጥቅስ (አማራጭ)' : 'Key Verse (optional)'}
             <input
               type="text"
               value={form.keyVerse || ''}
@@ -516,28 +587,50 @@ export function AdminUpcomingPage() {
           </label>
         </div>
 
-        <label className="mt-4 block text-sm font-medium text-brand-900">
-          Short summary
-          <textarea
-            value={form.classSummary || ''}
-            onChange={(event) => setForm({ ...form, classSummary: event.target.value })}
-            rows={4}
-            className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Share a short intro for the upcoming class (2-4 lines)"
-          />
-        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-1">
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'አጭር ማጠቃለያ — እንግሊዝኛ' : 'Short Summary — English'}
+            <textarea
+              value={form.classSummaryEn ?? ''}
+              onChange={(event) => setForm({ ...form, classSummaryEn: event.target.value })}
+              rows={4}
+              className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder={
+                isAm
+                  ? 'ለሚቀጥለው ክፍል አጭር መግቢያ ያጋሩ (2–4 መስመሮች)።'
+                  : 'Share a short introduction for the upcoming class (2–4 lines).'
+              }
+            />
+          </label>
+          <label className="block text-sm font-medium text-brand-900">
+            {isAm ? 'አጭር ማጠቃለያ — አማርኛ' : 'Short Summary — Amharic'}
+            <textarea
+              value={form.classSummaryAm ?? ''}
+              onChange={(event) => setForm({ ...form, classSummaryAm: event.target.value })}
+              rows={4}
+              className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+              placeholder={isAm ? '(አማራጭ)' : 'Optional Amharic summary'}
+            />
+          </label>
+        </div>
         <div className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
-          <h3 className="text-sm font-semibold text-brand-900">Main points (up to 4, optional)</h3>
+          <h3 className="text-sm font-semibold text-brand-900">
+            {isAm ? 'ዋና ነጥቦች (እስከ 4፣ አማራጭ)' : 'Main Points (up to 4, optional)'}
+          </h3>
           <p className="mt-1 text-xs text-brand-700">
-            Add each point one by one. English and Amharic are both optional for every point.
+            {isAm
+              ? 'እያንዳንዱን ነጥብ አንድ በአንድ ያክሉ። እንግሊዝኛም ሆነ አማርኛ ለእያንዳንዱ ነጥብ አማራጭ ናቸው።'
+              : 'Add each point one at a time. English and Amharic are both optional for every point.'}
           </p>
           <div className="mt-3 space-y-3">
             {toMainPointSlots(form.mainPoints).map((point, index) => (
               <div key={`upcoming-main-point-${index}`} className="rounded-xl border border-brand-100 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Main point {index + 1}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {isAm ? `ዋና ነጥብ ${index + 1}` : `Main Point ${index + 1}`}
+                </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <label className="text-sm font-medium text-brand-900">
-                    English
+                    {isAm ? `ዋና ነጥብ ${index + 1} — እንግሊዝኛ` : `Main Point ${index + 1} — English`}
                     <textarea
                       value={point.en ?? ''}
                       onChange={(event) => {
@@ -550,7 +643,7 @@ export function AdminUpcomingPage() {
                     />
                   </label>
                   <label className="text-sm font-medium text-brand-900">
-                    Amharic
+                    {isAm ? `ዋና ነጥብ ${index + 1} — አማርኛ` : `Main Point ${index + 1} — Amharic`}
                     <textarea
                       value={point.am ?? ''}
                       onChange={(event) => {
@@ -569,13 +662,13 @@ export function AdminUpcomingPage() {
         </div>
 
         <label className="mt-4 block text-sm font-medium text-brand-900">
-          Organizer note (optional)
+          {isAm ? 'የአደራጅ ማስታወሻ (አማራጭ)' : 'Organizer Note (optional)'}
           <textarea
             value={form.organizerNote || ''}
             onChange={(event) => setForm({ ...form, organizerNote: event.target.value })}
             rows={3}
             className="mt-2 w-full rounded-xl border border-brand-200 px-3 py-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="Internal or public organizer note"
+            placeholder={isAm ? 'ውስጣዊ ወይም ለሕዝብ የሚታይ የአደራጅ ማስታወሻ' : 'Internal or public organizer note'}
           />
         </label>
 
@@ -583,34 +676,58 @@ export function AdminUpcomingPage() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">Next week mezmurs</h2>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? 'የሚቀጥለው ሳምንት መዝሙሮች' : 'Next Week’s Mezmurs'}</h2>
         <div className="mt-4 space-y-4">
           {form.mezmurs.map((mezmur, index) => (
             <div key={`upcoming-mezmur-${index}`} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
-              <h3 className="text-base font-semibold text-brand-900">Upcoming mezmur {index + 1}</h3>
+              <h3 className="text-base font-semibold text-brand-900">
+                {isAm ? `የሚቀጥል መዝሙር ${index + 1}` : `Upcoming Mezmur ${index + 1}`}
+              </h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <input
-                  type="text"
-                  value={mezmur.title}
-                  onChange={(event) => {
-                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
-                    mezmurs[index] = { ...mezmur, title: event.target.value }
-                    setForm({ ...form, mezmurs })
-                  }}
-                  className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-                  placeholder="Mezmur title"
-                />
-                <input
-                  type="text"
-                  value={mezmur.transliteration || ''}
-                  onChange={(event) => {
-                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
-                    mezmurs[index] = { ...mezmur, transliteration: event.target.value }
-                    setForm({ ...form, mezmurs })
-                  }}
-                  className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-                  placeholder="Transliteration"
-                />
+                <label className="block text-sm font-medium text-brand-900 sm:col-span-2">
+                  {isAm ? `የመዝሙር ርእስ — እንግሊዝኛ (${index + 1})` : `Mezmur Title — English (${index + 1})`}
+                  <input
+                    type="text"
+                    value={mezmur.titleEn ?? ''}
+                    onChange={(event) => {
+                      const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                      const next = { ...mezmur, titleEn: event.target.value }
+                      mezmurs[index] = { ...next, title: next.titleEn || next.titleAm || next.title || '' }
+                      setForm({ ...form, mezmurs })
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    placeholder={isAm ? 'Optional English title' : 'English title (optional if Amharic only)'}
+                  />
+                </label>
+                <label className="block text-sm font-medium text-brand-900 sm:col-span-2">
+                  {isAm ? `የመዝሙር ርእስ — አማርኛ (${index + 1})` : `Mezmur Title — Amharic (${index + 1})`}
+                  <input
+                    type="text"
+                    value={mezmur.titleAm ?? ''}
+                    onChange={(event) => {
+                      const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                      const next = { ...mezmur, titleAm: event.target.value }
+                      mezmurs[index] = { ...next, title: next.titleEn || next.titleAm || next.title || '' }
+                      setForm({ ...form, mezmurs })
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    placeholder={isAm ? 'የመዝሙር ርእስ' : 'Amharic title'}
+                  />
+                </label>
+                <label className="block text-sm font-medium text-brand-900 sm:col-span-2">
+                  {isAm ? 'የቋንቋ ልይነት (ሮምን)' : 'Transliteration'}
+                  <input
+                    type="text"
+                    value={mezmur.transliteration || ''}
+                    onChange={(event) => {
+                      const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                      mezmurs[index] = { ...mezmur, transliteration: event.target.value }
+                      setForm({ ...form, mezmurs })
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    placeholder="Transliteration"
+                  />
+                </label>
                 <input
                   type="url"
                   value={mezmur.youtubeUrl || ''}
@@ -651,23 +768,29 @@ export function AdminUpcomingPage() {
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold text-brand-900">5. Publish / save flow</h2>
+        <h2 className="text-lg font-semibold text-brand-900">{isAm ? '5. የማስቀመጥ / የማተም ሂደት' : '5. Publish / Save Flow'}</h2>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          Save a local draft while preparing the next topic, then publish when the preview is ready for the parish site.
+          {isAm
+            ? 'ቀጣዩን ርእስ እያዘጋጁ ረቂቅ በአካባቢው ያስቀምጡ፤ ከዚያም ቅድመ እይታው ለፓሪሽ ድር ጣቢያ ዝግጁ ሲሆን ያትሙ።'
+            : 'Save a local draft while preparing the next topic, then publish when the preview is ready for the parish website.'}
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={saveDraft} disabled={saving}>
-            Save as draft
+            {isAm ? 'እንደ ረቂቅ አስቀምጥ' : 'Save as Draft'}
           </Button>
           <Button type="button" onClick={publishUpcoming} disabled={saving}>
-            {saving ? 'Publishing...' : 'Publish update'}
+            {saving ? (isAm ? 'በማተም ላይ...' : 'Publishing...') : isAm ? 'ዝማኔውን ያትሙ' : 'Publish Update'}
           </Button>
         </div>
 
         <div className="mt-6 border-t border-brand-100 pt-4">
-          <p className="text-sm font-semibold text-brand-900">Preview visibility controls</p>
+          <p className="text-sm font-semibold text-brand-900">
+            {isAm ? 'የቅድመ እይታ ታይነት መቆጣጠሪያዎች' : 'Preview Visibility Controls'}
+          </p>
           <p className="mt-1 text-sm text-brand-700">
-            Deactivate hides the preview from public pages without deleting it. Delete removes the preview and related upcoming mezmurs permanently.
+            {isAm
+              ? 'ያቦዝኑ ቅድመ እይታውን ከሕዝብ ገጾች ሳይሰርዝ ይደብቃል። ሰርዝ ደግሞ ቅድመ እይታውን እና ተዛማጅ የሚቀጥሉ መዝሙሮችን በቋሚነት ያስወግዳል።'
+              : 'Deactivate hides the preview from public pages without deleting it. Delete removes the preview and related upcoming mezmurs permanently.'}
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <Button
@@ -676,7 +799,7 @@ export function AdminUpcomingPage() {
               onClick={handleActivate}
               disabled={activating || deactivating || deleting || !form.id || form.isActive}
             >
-              {activating ? 'Activating...' : 'Activate'}
+              {activating ? (isAm ? 'በማግበር ላይ...' : 'Activating...') : isAm ? 'አግብር' : 'Activate'}
             </Button>
             <Button
               type="button"
@@ -684,7 +807,7 @@ export function AdminUpcomingPage() {
               onClick={handleDeactivate}
               disabled={deactivating || deleting || !form.id}
             >
-              {deactivating ? 'Deactivating...' : 'Deactivate'}
+              {deactivating ? (isAm ? 'በማቦዘን ላይ...' : 'Deactivating...') : isAm ? 'ያቦዝን' : 'Deactivate'}
             </Button>
             <Button
               type="button"
@@ -693,7 +816,7 @@ export function AdminUpcomingPage() {
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deactivating || deleting || !form.id}
             >
-              Delete Upcoming Class
+              {isAm ? 'የሚቀጥል ክፍል ሰርዝ' : 'Delete Upcoming Class'}
             </Button>
           </div>
         </div>

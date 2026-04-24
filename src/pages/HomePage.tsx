@@ -5,16 +5,26 @@ import { LessonAudioBlock } from '../components/LessonAudioBlock'
 import { StructuredLessonContent } from '../components/StructuredLessonContent'
 import { Card } from '../components/ui/Card'
 import { RouterLinkButton } from '../components/ui/RouterLinkButton'
+import { displayBilingualLine } from '../lib/localizedText'
+import { useUiLanguage } from '../contexts/LanguageContext'
 import {
   CHURCH_FULL_NAME,
-  TIMIRT_SCHEDULE_LABEL,
+  CHURCH_FULL_NAME_AM,
   TEACHER_INFO,
+  TEACHER_YOUTUBE_CHANNEL,
+  TIMIRT_SCHEDULE_LABEL,
+  TIMIRT_SCHEDULE_LABEL_AM,
 } from '../site/constants'
 import { getUpcomingPreview, listWeeks } from '../data/weeksRepo'
 import type { WeeklyClass } from '../data/types'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import type { WeeklyKnowledgeItem } from '../data/weeklyKnowledge'
 import { formatClassDate } from '../lib/formatDate'
+import {
+  displayWeeklyClassSpeaker,
+  displayWeeklyClassTopic,
+  recapCardFieldLabels,
+} from '../lib/weeklyClassDisplay'
 import { getActiveWeeklyKnowledge } from '../lib/supabaseData'
 import { getGoogleDriveDownloadUrl, isGoogleDriveLink } from '../lib/googleDrive'
 import { toYouTubeEmbedUrl } from '../lib/youtube'
@@ -31,6 +41,8 @@ function previewText(text: string, maxLength = 120) {
 
 export function HomePage() {
   const t = useUiText()
+  const { language } = useUiLanguage()
+  const isAm = language === 'am'
   const [recentClasses, setRecentClasses] = useState<WeeklyClass[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingTimirtPreview | null>(null)
   const [weeklyKnowledge, setWeeklyKnowledge] = useState<WeeklyKnowledgeItem | null>(null)
@@ -87,36 +99,42 @@ export function HomePage() {
     ? (getGoogleDriveDownloadUrl(lessonPreviewAudio) ?? lessonPreviewAudio)
     : lessonPreviewAudio
 
+  const churchHeroLine = isAm ? CHURCH_FULL_NAME_AM : CHURCH_FULL_NAME
+  const heroDescription = isAm
+    ? 'ለሚቀጥለው የማክሰኞ ክፍል፣ ለቅርብ ጊዜ ማጠቃለያዎች፣ ለሳምንታዊ መዝሙሮች እና ለደብር ድጋፍ የተዘጋጀ ቀላል የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ ትምህርት ማዕከል።'
+    : 'A simple Ethiopian Orthodox Tewahedo Timirt hub for the next Tuesday class, recent summaries, weekly mezmurs, and parish support.'
+
+  const scheduleLine = isAm ? TIMIRT_SCHEDULE_LABEL_AM : TIMIRT_SCHEDULE_LABEL
+  const nextClassDateLabel = upcoming ? formatClassDate(upcoming.scheduledDate, language) : scheduleLine
+  const recapLabels = recapCardFieldLabels(language)
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          {CHURCH_FULL_NAME}
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{churchHeroLine}</p>
         <h1 className="mt-1 text-xl font-bold text-brand-900">EOTC Timirt</h1>
-        <p className="mt-2 text-sm leading-relaxed text-brand-700">
-          A compact Ethiopian Orthodox Tewahedo Timirt hub for next Tuesday&apos;s class,
-          recent summaries, weekly mezmurs, and parish support.
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-brand-700">{heroDescription}</p>
         <div className="mt-3 flex flex-col gap-1 text-sm text-brand-800">
           <div className="flex items-center gap-2">
             <span className="text-lg">📚</span>
             <span className="flex flex-col">
               <span className="font-semibold">{t('nextClass')}</span>
-              <span className="text-xs text-brand-700">
-                {upcoming ? formatClassDate(upcoming.scheduledDate) : TIMIRT_SCHEDULE_LABEL}
-              </span>
-              <span className="text-brand-700">{TEACHER_INFO.name}</span>
+              <span className="text-xs text-brand-700">{nextClassDateLabel}</span>
+              <span className="text-brand-700">{isAm ? TEACHER_INFO.nameAmharic : TEACHER_INFO.name}</span>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg">⏰</span>
-            <span>{TIMIRT_SCHEDULE_LABEL}</span>
+            <span>{scheduleLine}</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <p className="rounded-2xl border border-accent-600/25 bg-accent-600/10 px-4 py-3 text-sm font-medium leading-snug text-brand-900 shadow-sm sm:hidden">
+        {t('mobileNavHint')}
+      </p>
+
+      <div className="grid grid-cols-2 gap-4">
         <RouterLinkButton to="/upcoming" className="h-14 text-sm font-semibold sm:text-base">
           📖 {t('nextClass')}
         </RouterLinkButton>
@@ -133,23 +151,24 @@ export function HomePage() {
           href="/resources/The%20Faith%20And%20Order%20Of%20The%20Church.pdf"
           target="_blank"
           rel="noopener noreferrer"
-          title="Opens the main Orthodox study PDF"
+          title={isAm ? 'ዋናው የኦርቶዶክስ ጥናት PDF ይከፈቱ' : 'Opens the main Orthodox study PDF'}
           className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-3 text-base font-medium text-brand-900 shadow-sm transition-all duration-200 hover:border-brand-300 hover:bg-brand-50"
         >
-          ☦️ Orthodox Resources
+          ☦️ {isAm ? 'የኦርቶዶክስ ጥናት ሰነዶች' : 'Orthodox Resources'}
         </a>
       </div>
 
       {upcoming ? (
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            {t('nextClass')}
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-brand-900">{upcoming.topicPreview}</h2>
-          <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate)}</p>
+          <h2 className="mt-1 text-lg font-semibold text-brand-900">
+            {displayBilingualLine(language, upcoming.topicPreviewEn, upcoming.topicPreviewAm, upcoming.topicPreview).trim() ||
+              upcoming.topicPreview}
+          </h2>
+          <p className="mt-1 text-sm text-brand-700">{formatClassDate(upcoming.scheduledDate, language)}</p>
           <StructuredLessonContent
             className="mt-3"
-            sectionTitle="Teaching preview"
+            sectionTitle={isAm ? 'የትምህርት ቅድመ እይታ' : 'Teaching Preview'}
+            summaryLabel={isAm ? 'አጭር ማጠቃለያ' : 'Short Summary'}
             summary={{
               en: upcoming.classSummaryEn ?? upcoming.classSummary ?? upcoming.noteEn ?? upcoming.note,
               am: upcoming.classSummaryAm ?? upcoming.noteAm,
@@ -159,10 +178,10 @@ export function HomePage() {
           />
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <RouterLinkButton to="/upcoming" className="w-full">
-              Prepare for Next Class
+              {isAm ? 'ለቀጣዩ ክፍል ዝግጁ ይሁኑ' : 'Prepare for Next Class'}
             </RouterLinkButton>
             <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
-              Practice Mezmurs
+              {isAm ? 'መዝሙሮችን ይለማመዱ' : 'Practice Mezmurs'}
             </RouterLinkButton>
           </div>
         </Card>
@@ -170,27 +189,38 @@ export function HomePage() {
 
       {weeklyKnowledge ? <WeeklyKnowledgeCard item={weeklyKnowledge} /> : null}
 
-      <TeacherYoutubeChannelCard eyebrow="Teacher teaching channel" />
+      <TeacherYoutubeChannelCard
+        eyebrow={isAm ? 'የመምህሩ ማስተማሪያ ቻናል' : 'Teacher Teaching Channel'}
+        title={isAm ? TEACHER_YOUTUBE_CHANNEL.titleAm : TEACHER_YOUTUBE_CHANNEL.title}
+        description={isAm ? TEACHER_YOUTUBE_CHANNEL.descriptionAm : TEACHER_YOUTUBE_CHANNEL.description}
+        buttonLabel={t('openYouTube')}
+      />
 
       {upcoming && (lessonPreviewAudio || lessonPreviewVideo) ? (
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Teacher lesson media</p>
-          <h2 className="mt-1 text-base font-semibold text-brand-900">Preview before Tuesday</h2>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+            {isAm ? 'የትምህርት ሚዲያ' : 'Lesson Media'}
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-brand-900">
+            {isAm ? 'ከማክሰኞ በፊት ቅድመ እይታ' : 'Preview Before Tuesday'}
+          </h2>
           {lessonPreviewAudio ? (
             <LessonAudioBlock
               audioUrl={lessonPreviewAudio}
-              audioTitle={upcoming.lessonAudioTitle?.trim() || 'Listen to teaching'}
-              sectionTitle="Lesson Audio"
+              audioTitle={upcoming.lessonAudioTitle?.trim() || (isAm ? 'ትምህርቱን ያድምጡ' : 'Listen to teaching')}
+              sectionTitle={isAm ? 'የትምህርት ድምፅ' : 'Lesson Audio'}
               className="mt-3"
             />
           ) : null}
           {lessonPreviewVideo ? (
             <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3">
-              <p className="text-sm font-semibold text-brand-900">Watch lesson preview</p>
+              <p className="text-sm font-semibold text-brand-900">
+                {isAm ? 'ቅድመ እይታ ቪዲዮ' : 'Watch Lesson Preview'}
+              </p>
               <div className="mt-2 overflow-hidden rounded-xl border border-brand-200 bg-black">
                 <iframe
                   src={lessonPreviewVideo}
-                  title="Homepage lesson preview video"
+                  title={isAm ? 'የመነሻ ገጽ ትምህርት ቅድመ እይታ' : 'Homepage lesson preview video'}
                   loading="lazy"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
@@ -206,14 +236,18 @@ export function HomePage() {
       ) : null}
 
       <Card>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Quick prepare</p>
-        <h2 className="mt-1 text-base font-semibold text-brand-900">Three simple steps</h2>
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          {isAm ? 'ፈጣን ዝግጅት' : 'Quick Preparation'}
+        </p>
+        <h2 className="mt-1 text-base font-semibold text-brand-900">
+          {isAm ? 'ሶስት ቀላል እርምጃዎች' : 'Three Simple Steps'}
+        </h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <RouterLinkButton to={latestClass ? `/class/${latestClass.id}` : '/past-timirit'} variant="secondary" className="w-full">
-            Review summary
+            {isAm ? 'ማጠቃለያውን ይመልከቱ' : 'Review Summary'}
           </RouterLinkButton>
           <RouterLinkButton to="/mezmurs" variant="secondary" className="w-full">
-            Practice mezmurs
+            {isAm ? 'መዝሙሮችን ይለማመዱ' : 'Practice Mezmurs'}
           </RouterLinkButton>
           {lessonPreviewAudioActionUrl ? (
             <a
@@ -222,11 +256,17 @@ export function HomePage() {
               rel="noopener noreferrer"
               className="inline-flex min-h-12 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50"
             >
-              {isGoogleDriveLink(lessonPreviewAudio) ? 'Download teaching audio' : 'Listen to teaching'}
+              {isGoogleDriveLink(lessonPreviewAudio)
+                ? isAm
+                  ? 'የትምህርት ድምፅ ያውርዱ'
+                  : 'Download Teaching Audio'
+                : isAm
+                  ? 'ትምህርቱን ያድምጡ'
+                  : 'Listen to Teaching'}
             </a>
           ) : (
             <RouterLinkButton to="/upcoming" variant="secondary" className="w-full">
-              Open next class
+              {isAm ? 'ቀጣዩን ክፍል ይክፈቱ' : 'Open Next Class'}
             </RouterLinkButton>
           )}
         </div>
@@ -234,12 +274,27 @@ export function HomePage() {
 
       {latestClass ? (
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Recent class highlight</p>
-          <h2 className="mt-1 text-base font-semibold text-brand-900">{latestClass.topic}</h2>
-          <p className="mt-1 text-sm text-brand-700">{formatClassDate(latestClass.date)} · {latestClass.speaker}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+            {isAm ? 'የቅርብ ጊዜ ክፍል ድምቀት' : 'Recent Class Highlight'}
+          </p>
+          <div className="mt-2 space-y-1.5 text-sm text-brand-800">
+            <p>
+              <span className="font-semibold text-brand-900">{recapLabels.date}</span>{' '}
+              <span className="text-brand-700">{formatClassDate(latestClass.date, language)}</span>
+            </p>
+            <p>
+              <span className="font-semibold text-brand-900">{recapLabels.topic}</span>{' '}
+              <span>{displayWeeklyClassTopic(latestClass, language)}</span>
+            </p>
+            <p>
+              <span className="font-semibold text-brand-900">{recapLabels.teacher}</span>{' '}
+              <span className="text-brand-700">{displayWeeklyClassSpeaker(latestClass, language)}</span>
+            </p>
+          </div>
           <StructuredLessonContent
             className="mt-2"
-            sectionTitle="Teaching recap"
+            sectionTitle={isAm ? 'የትምህርት ማጠቃለያ' : 'Teaching Recap'}
+            summaryLabel={isAm ? 'አጭር ማጠቃለያ' : 'Short Summary'}
             summary={{ en: latestClass.englishSummary, am: latestClass.amharicSummary }}
             mainPoints={
               latestClass.mainPoints && latestClass.mainPoints.length > 0
@@ -249,7 +304,7 @@ export function HomePage() {
             compact
           />
           <RouterLinkButton to={`/class/${latestClass.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
-            Catch up from this class
+            {isAm ? 'ይህን ክፍል ይከታተሉ' : 'Catch Up on This Class'}
           </RouterLinkButton>
         </Card>
       ) : null}
@@ -258,28 +313,42 @@ export function HomePage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-              Past Classes
+              {isAm ? 'ያለፉ ክፍሎች' : 'Past Classes'}
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-brand-900">Recent Timirit summaries</h2>
+            <h2 className="mt-1 text-lg font-semibold text-brand-900">
+              {isAm ? 'የቅርብ ጊዜ የትምህርት ማጠቃለያዎች' : 'Recent Timirt Summaries'}
+            </h2>
             <p className="mt-1 text-sm text-brand-700">
-              Open a recent class to review the summary, mezmurs, and quick follow-up.
+              {isAm
+                ? 'ማጠቃለያውን፣ መዝሙሮችን እና ፈጣን የክትትል ጥያቄዎችን ለመመልከት አንድ የቅርብ ጊዜ ክፍል ይክፈቱ።'
+                : 'Open a recent class to review the summary, mezmurs, and quick follow-up questions.'}
             </p>
           </div>
           <RouterLinkButton to="/past-timirit" variant="secondary" className="hidden sm:inline-flex">
-            See all
+            {isAm ? 'ሁሉንም' : 'See all'}
           </RouterLinkButton>
         </div>
         <div className="mt-4 space-y-3">
           {recentClasses.map((week) => (
             <div key={week.id} className="rounded-xl border border-brand-100 bg-brand-50/50 p-3">
-              <p className="text-xs font-semibold uppercase text-brand-700">
-                {formatClassDate(week.date)}
-              </p>
-              <h3 className="mt-1 text-base font-semibold text-brand-900">{week.topic}</h3>
-              <p className="mt-1 text-sm text-brand-700">{week.speaker}</p>
+              <div className="space-y-1.5 text-sm text-brand-800">
+                <p>
+                  <span className="font-semibold text-brand-900">{recapLabels.date}</span>{' '}
+                  <span className="text-brand-700">{formatClassDate(week.date, language)}</span>
+                </p>
+                <p>
+                  <span className="font-semibold text-brand-900">{recapLabels.topic}</span>{' '}
+                  <span className="text-base font-semibold text-brand-900">{displayWeeklyClassTopic(week, language)}</span>
+                </p>
+                <p>
+                  <span className="font-semibold text-brand-900">{recapLabels.teacher}</span>{' '}
+                  <span className="text-brand-700">{displayWeeklyClassSpeaker(week, language)}</span>
+                </p>
+              </div>
               <StructuredLessonContent
                 className="mt-2"
-                sectionTitle="Teaching recap"
+                sectionTitle={isAm ? 'የትምህርት ማጠቃለያ' : 'Teaching Recap'}
+                summaryLabel={isAm ? 'አጭር ማጠቃለያ' : 'Short Summary'}
                 summary={{ en: previewText(week.englishSummary), am: previewText(week.amharicSummary) }}
                 mainPoints={
                   week.mainPoints && week.mainPoints.length > 0
@@ -292,13 +361,13 @@ export function HomePage() {
                 compact
               />
               <RouterLinkButton to={`/class/${week.id}`} variant="secondary" className="mt-3 w-full sm:w-auto">
-                {t('viewSummary')}
+                {isAm ? 'ማጠቃለያውን ይመልከቱ' : 'Review Summary'}
               </RouterLinkButton>
             </div>
           ))}
         </div>
         <RouterLinkButton to="/past-timirit" variant="secondary" className="mt-4 w-full sm:hidden">
-          See all past classes
+          {isAm ? 'ሁሉንም ያለፉ ክፍሎች' : 'See all past classes'}
         </RouterLinkButton>
       </Card>
     </div>

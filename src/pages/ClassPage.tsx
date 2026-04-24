@@ -10,7 +10,7 @@ import { getWeekById } from '../data/weeksRepo'
 import type { Question, WeeklyClass } from '../data/types'
 import { getUserFingerprint } from '../lib/anonymousIdentity'
 import { formatClassDate } from '../lib/formatDate'
-import { getLocalizedText } from '../lib/localizedText'
+import { displayBilingualLine, getLocalizedText } from '../lib/localizedText'
 import { submitUserResponses } from '../lib/supabaseData'
 import { toYouTubeEmbedUrl } from '../lib/youtube'
 import { TEWAHEDO_DAILY_MEZMURS_URL } from '../site/tewahedoDaily'
@@ -73,7 +73,9 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
       } else {
         acc.incorrect += 1
         acc.missedQuestionIds.push(question.id)
-        acc.missedQuestionPrompts.push(question.prompt)
+        acc.missedQuestionPrompts.push(
+          displayBilingualLine(language, question.promptEn, question.promptAm, question.prompt),
+        )
       }
       return acc
     },
@@ -199,9 +201,13 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
                 Question {index + 1}
               </p>
-              <h3 className="mt-1 text-base font-semibold text-brand-900">{question.prompt}</h3>
-              {question.helperText ? (
-                <p className="mt-1 text-sm text-brand-700">{question.helperText}</p>
+              <h3 className="mt-1 text-base font-semibold text-brand-900">
+                {displayBilingualLine(language, question.promptEn, question.promptAm, question.prompt)}
+              </h3>
+              {displayBilingualLine(language, question.helperTextEn, question.helperTextAm, question.helperText) ? (
+                <p className="mt-1 text-sm text-brand-700">
+                  {displayBilingualLine(language, question.helperTextEn, question.helperTextAm, question.helperText)}
+                </p>
               ) : null}
               <div className="mt-3 grid gap-2">
                 {question.options.map((option, optionIndex) => {
@@ -247,7 +253,8 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
                   )}
                   <p className="mt-1">
                     <span className="font-semibold">Explanation:</span>{' '}
-                    {question.explanation?.trim() || 'A short explanation will be added soon.'}
+                    {displayBilingualLine(language, question.explanationEn, question.explanationAm, question.explanation)
+                      ?.trim() || 'A short explanation will be added soon.'}
                   </p>
                   {!isCorrect && hasValidCorrectIndex ? (
                     <p className="mt-1 font-medium">Review this point again before next class.</p>
@@ -264,11 +271,13 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
                 Question {index + 1}
               </p>
-              <h3 className="mt-1 text-base font-semibold text-brand-900">{question.prompt}</h3>
+              <h3 className="mt-1 text-base font-semibold text-brand-900">
+                {displayBilingualLine(language, question.promptEn, question.promptAm, question.prompt)}
+              </h3>
               <div className="mt-3 flex flex-wrap gap-2">
                 {question.options.map((option) => (
                   <span key={option.value} className="inline-flex min-h-10 items-center rounded-full border border-brand-200 px-3 text-sm text-brand-800">
-                    {option.label}
+                    {displayBilingualLine(language, option.labelEn, option.labelAm, option.label)}
                   </span>
                 ))}
               </div>
@@ -281,9 +290,13 @@ function QuickReview({ weekId, questions }: { weekId: string; questions: Questio
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
               Question {index + 1}
             </p>
-            <h3 className="mt-1 text-base font-semibold text-brand-900">{question.prompt}</h3>
-            {question.helperText ? (
-              <p className="mt-2 text-sm leading-relaxed text-brand-700">{question.helperText}</p>
+            <h3 className="mt-1 text-base font-semibold text-brand-900">
+              {displayBilingualLine(language, question.promptEn, question.promptAm, question.prompt)}
+            </h3>
+            {displayBilingualLine(language, question.helperTextEn, question.helperTextAm, question.helperText) ? (
+              <p className="mt-2 text-sm leading-relaxed text-brand-700">
+                {displayBilingualLine(language, question.helperTextEn, question.helperTextAm, question.helperText)}
+              </p>
             ) : null}
           </Card>
         )

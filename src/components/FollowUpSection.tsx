@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useUiLanguage } from '../contexts/LanguageContext'
 import type { Question, WeeklyClass } from '../data/types'
-import { getLocalizedText } from '../lib/localizedText'
+import { displayBilingualLine, getLocalizedText } from '../lib/localizedText'
 import { getSubmissionForWeek, saveClassSubmission } from '../lib/feedbackClient'
 import { getUserFingerprint } from '../lib/anonymousIdentity'
 import { submitUserResponses } from '../lib/supabaseData'
@@ -152,6 +152,13 @@ function QuestionField({
   onChange: (v: string) => void
 }) {
   const { language } = useUiLanguage()
+  const promptText = displayBilingualLine(language, question.promptEn, question.promptAm, question.prompt)
+  const helperText = displayBilingualLine(
+    language,
+    question.helperTextEn,
+    question.helperTextAm,
+    question.helperText,
+  )
 
   if (isMultipleChoice(question)) {
     const selected = value === '' ? undefined : Number.parseInt(value, 10)
@@ -161,10 +168,10 @@ function QuestionField({
     return (
       <fieldset className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
         <legend className="px-1 text-base font-semibold text-brand-900">
-          {question.prompt}
+          {promptText}
         </legend>
-        {question.helperText ? (
-          <p className="mb-3 text-sm text-brand-700">{question.helperText}</p>
+        {helperText ? (
+          <p className="mb-3 text-sm text-brand-700">{helperText}</p>
         ) : (
           <p className="mb-3 text-sm text-brand-700">
             Choose the option that feels closest.
@@ -216,7 +223,8 @@ function QuestionField({
                 {getLocalizedText(correctAnswer, language)}
               </p>
               <p className="mt-1">
-                <span className="font-semibold">Explanation:</span> {question.explanation}
+                <span className="font-semibold">Explanation:</span>{' '}
+                {displayBilingualLine(language, question.explanationEn, question.explanationAm, question.explanation)}
               </p>
               {!isCorrect ? (
                 <p className="mt-1 font-medium">Review this point again before next class.</p>
@@ -232,7 +240,7 @@ function QuestionField({
     return (
       <fieldset className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
         <legend className="px-1 text-base font-semibold text-brand-900">
-          {question.prompt}
+          {promptText}
         </legend>
         <p className="mb-3 text-sm text-brand-700">
           Helps stewards prepare chairs and technology — never a judgment on your soul.
@@ -241,6 +249,7 @@ function QuestionField({
           {question.options.map((opt) => {
             const id = `${question.id}-${opt.value}`
             const active = value === opt.value
+            const optionLabel = displayBilingualLine(language, opt.labelEn, opt.labelAm, opt.label)
             return (
               <label
                 key={opt.value}
@@ -259,7 +268,7 @@ function QuestionField({
                   checked={active}
                   onChange={() => onChange(opt.value)}
                 />
-                {opt.label}
+                {optionLabel}
               </label>
             )
           })}
@@ -272,23 +281,21 @@ function QuestionField({
     question.type === 'reflection' ||
     question.type === 'short-answer' ||
     question.type === 'feedback-open'
-      ? (question.placeholder ?? '')
+      ? displayBilingualLine(
+          language,
+          question.placeholderEn,
+          question.placeholderAm,
+          question.placeholder,
+        )
       : ''
-
-  const helper =
-    question.type === 'reflection' ||
-    question.type === 'short-answer' ||
-    question.type === 'feedback-open'
-      ? question.helperText
-      : undefined
 
   return (
     <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
       <label className="block text-base font-semibold text-brand-900" htmlFor={question.id}>
-        {question.prompt}
+        {promptText}
       </label>
-      {helper ? (
-        <p className="mt-1 text-sm text-brand-700">{helper}</p>
+      {helperText ? (
+        <p className="mt-1 text-sm text-brand-700">{helperText}</p>
       ) : null}
       <textarea
         id={question.id}

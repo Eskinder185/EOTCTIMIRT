@@ -79,6 +79,23 @@ export function legacySingleLineFromLocalized(value: LocalizedText | null | unde
 /**
  * Drop empty choices; remap `correctIndex` to the new list. If the marked correct row was empty, use the first choice.
  */
+/**
+ * Use split `*En` / `*Am` when present; otherwise fall back to merged legacy `base` string
+ * (from DB `pickLocalized` load order). Keeps older rows readable in both languages.
+ */
+export function displayBilingualLine(
+  language: UiLanguage,
+  en?: string | null,
+  am?: string | null,
+  base?: string | null,
+): string {
+  const fromSplit = getLocalizedText(normalizeLocalizedText({ en: en ?? undefined, am: am ?? undefined }), language)
+  if (fromSplit.trim()) {
+    return fromSplit
+  }
+  return (base ?? '').trim()
+}
+
 export function compactLocalizedOptionsForSave(
   options: LocalizedText[],
   correctIndex: number,

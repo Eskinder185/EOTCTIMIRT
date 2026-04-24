@@ -10,6 +10,7 @@ type BilingualText = {
 interface StructuredLessonContentProps {
   summary?: BilingualText | null
   mainPoints?: TeachingMainPoint[] | null
+  /** Omit to use UI-language default (English / Amharic). */
   sectionTitle?: string
   summaryLabel?: string
   mainPointsLabel?: string
@@ -20,13 +21,17 @@ interface StructuredLessonContentProps {
 export function StructuredLessonContent({
   summary,
   mainPoints,
-  sectionTitle = 'Teaching overview',
-  summaryLabel = 'Short summary',
-  mainPointsLabel = 'Main points',
+  sectionTitle,
+  summaryLabel,
+  mainPointsLabel,
   compact = false,
   className,
 }: StructuredLessonContentProps) {
   const { language } = useUiLanguage()
+  const isAm = language === 'am'
+  const resolvedSectionTitle = sectionTitle ?? (isAm ? 'የትምህርት አጠቃለይ እይታ' : 'Teaching overview')
+  const resolvedSummaryLabel = summaryLabel ?? (isAm ? 'አጭር ማጠቃለያ' : 'Short summary')
+  const resolvedMainPointsLabel = mainPointsLabel ?? (isAm ? 'ዋና ነጥቦች' : 'Main points')
   const summaryText = getLocalizedText(summary, language).trim()
   const visibleMainPoints = (mainPoints ?? [])
     .filter((point) => hasLocalizedText(point))
@@ -39,16 +44,16 @@ export function StructuredLessonContent({
 
   return (
     <section className={className}>
-      <h3 className={`font-semibold text-brand-900 ${compact ? 'text-sm' : 'text-base'}`}>{sectionTitle}</h3>
+      <h3 className={`font-semibold text-brand-900 ${compact ? 'text-sm' : 'text-base'}`}>{resolvedSectionTitle}</h3>
       {summaryText ? (
         <div className={compact ? 'mt-2' : 'mt-3'}>
-          <p className={`font-medium text-brand-800 ${compact ? 'text-xs' : 'text-sm'}`}>{summaryLabel}</p>
+          <p className={`font-medium text-brand-800 ${compact ? 'text-xs' : 'text-sm'}`}>{resolvedSummaryLabel}</p>
           <p className={`mt-1 leading-relaxed text-brand-800 ${compact ? 'text-sm' : 'text-sm'}`}>{summaryText}</p>
         </div>
       ) : null}
       {visibleMainPoints.length > 0 ? (
         <div className={compact ? 'mt-3' : 'mt-4'}>
-          <p className={`font-semibold text-brand-900 ${compact ? 'text-xs' : 'text-sm'}`}>{mainPointsLabel}</p>
+          <p className={`font-semibold text-brand-900 ${compact ? 'text-xs' : 'text-sm'}`}>{resolvedMainPointsLabel}</p>
           <ol className={`mt-2 space-y-2 ${compact ? 'text-sm' : 'text-sm'}`}>
             {visibleMainPoints.map((point, index) => (
               <li key={`${point}-${index}`} className="rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2 text-brand-800">

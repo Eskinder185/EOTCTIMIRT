@@ -1,8 +1,9 @@
-﻿import type { Database } from './database.types'
+import type { Database } from './database.types'
 import { supabase } from './supabase'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import type {
   AttendanceChoice,
+  AttendanceQuestion,
   AttendanceSlice,
   LocalizedText,
   Mezmur,
@@ -99,7 +100,11 @@ export interface UpcomingTimirtListItem {
   id: string
   scheduledDate: string
   topicPreview: string
+  topicPreviewEn?: string
+  topicPreviewAm?: string
   note: string
+  noteEn?: string
+  noteAm?: string
   isActive: boolean
   status: 'draft' | 'published'
 }
@@ -158,12 +163,39 @@ function toMainPointsJson(points?: TeachingMainPoint[] | null): Array<{ en: stri
   }))
 }
 
-const defaultAttendanceOptions = () => [
-  { value: 'in-person' as const, label: 'In person' },
-  { value: 'online' as const, label: 'Online' },
-  { value: 'maybe' as const, label: 'Maybe' },
-  { value: 'cannot-attend' as const, label: 'Cannot attend' },
+/** Fixed order for persisting attendance labels in `multiple_choice_options.option_index`. */
+const ATTENDANCE_OPTION_ORDER: readonly AttendanceChoice[] = ['in-person', 'online', 'maybe', 'cannot-attend']
+
+const defaultAttendanceOptions = (): AttendanceQuestion['options'] => [
+  { value: 'in-person', label: 'In person', labelEn: 'In person' },
+  { value: 'online', label: 'Online', labelEn: 'Online' },
+  { value: 'maybe', label: 'Maybe', labelEn: 'Maybe' },
+  { value: 'cannot-attend', label: 'Cannot attend', labelEn: 'Cannot attend' },
 ]
+
+function attendanceOptionsFromMcRows(rows: McOptionRow[]): AttendanceQuestion['options'] {
+  const sorted = [...rows].sort((a, b) => a.option_index - b.option_index)
+  if (sorted.length === 0) {
+    return defaultAttendanceOptions()
+  }
+  const defaults = defaultAttendanceOptions()
+  return ATTENDANCE_OPTION_ORDER.map((value, idx) => {
+    const row = sorted.find((r) => r.option_index === idx) ?? sorted[idx]
+    const fallback = defaults[idx]
+    if (!row) {
+      return fallback
+    }
+    const en = trim(row.option_text_en) ?? trim(row.option_text)
+    const am = trim(row.option_text_am)
+    const merged = pickLocalized(row.option_text_en, row.option_text_am, row.option_text) ?? fallback.label
+    return {
+      value,
+      label: merged,
+      labelEn: en ?? fallback.labelEn ?? fallback.label,
+      labelAm: am,
+    }
+  })
+}
 
 type SupabaseErrorLike = {
   message: string
@@ -250,7 +282,9 @@ function mapQuestion(q: QuestionRow, options: McOptionRow[]): Question {
       explanationAm: trim(q.explanation_am),
     }
   }
-  if (q.type === 'attendance') return { ...base, type: 'attendance', options: defaultAttendanceOptions() }
+  if (q.type === 'attendance') {
+    return { ...base, type: 'attendance', options: attendanceOptionsFromMcRows(options) }
+  }
   return {
     ...base,
     type: q.type as Extract<QuestionType, 'short-answer' | 'reflection' | 'feedback-open'>,
@@ -383,10 +417,14 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
   return {
     scheduledDate: row.scheduled_date,
     topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '',
-    topicPreviewEn: trim(row.topic_preview_en), topicPreviewAm: trim(row.topic_preview_am),
-    note: pickLocalized(row.note_en, row.note_am, row.note) ?? '', noteEn: trim(row.note_en), noteAm: trim(row.note_am),
+    topicPreviewEn: trim(row.topic_preview_en) ?? trim(row.topic_preview),
+    topicPreviewAm: trim(row.topic_preview_am),
+    note: pickLocalized(row.note_en, row.note_am, row.note) ?? '',
+    noteEn: trim(row.note_en) ?? trim(row.note),
+    noteAm: trim(row.note_am),
     classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
-    classSummaryEn: trim(row.class_summary_en), classSummaryAm: trim(row.class_summary_am),
+    classSummaryEn: trim(row.class_summary_en) ?? trim(row.class_summary),
+    classSummaryAm: trim(row.class_summary_am),
     mainPoints: parseMainPoints(row.main_points),
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     lessonYoutubeUrl: trim(row.youtube_url),
@@ -397,22 +435,54 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     organizerNote: trim(row.organizer_note),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
-      { title: pickLocalized(mezmurs?.[0]?.title_en, mezmurs?.[0]?.title_am, mezmurs?.[0]?.title) ?? '', titleEn: trim(mezmurs?.[0]?.title_en), titleAm: trim(mezmurs?.[0]?.title_am), transliteration: trim(mezmurs?.[0]?.transliteration), lyrics: trim(mezmurs?.[0]?.lyrics), youtubeUrl: trim(mezmurs?.[0]?.youtube_url), audioUrl: trim(mezmurs?.[0]?.audio_url) },
-      { title: pickLocalized(mezmurs?.[1]?.title_en, mezmurs?.[1]?.title_am, mezmurs?.[1]?.title) ?? '', titleEn: trim(mezmurs?.[1]?.title_en), titleAm: trim(mezmurs?.[1]?.title_am), transliteration: trim(mezmurs?.[1]?.transliteration), lyrics: trim(mezmurs?.[1]?.lyrics), youtubeUrl: trim(mezmurs?.[1]?.youtube_url), audioUrl: trim(mezmurs?.[1]?.audio_url) },
+      {
+        title: pickLocalized(mezmurs?.[0]?.title_en, mezmurs?.[0]?.title_am, mezmurs?.[0]?.title) ?? '',
+        titleEn: trim(mezmurs?.[0]?.title_en) ?? trim(mezmurs?.[0]?.title),
+        titleAm: trim(mezmurs?.[0]?.title_am),
+        transliteration: trim(mezmurs?.[0]?.transliteration),
+        lyrics: trim(mezmurs?.[0]?.lyrics),
+        youtubeUrl: trim(mezmurs?.[0]?.youtube_url),
+        audioUrl: trim(mezmurs?.[0]?.audio_url),
+      },
+      {
+        title: pickLocalized(mezmurs?.[1]?.title_en, mezmurs?.[1]?.title_am, mezmurs?.[1]?.title) ?? '',
+        titleEn: trim(mezmurs?.[1]?.title_en) ?? trim(mezmurs?.[1]?.title),
+        titleAm: trim(mezmurs?.[1]?.title_am),
+        transliteration: trim(mezmurs?.[1]?.transliteration),
+        lyrics: trim(mezmurs?.[1]?.lyrics),
+        youtubeUrl: trim(mezmurs?.[1]?.youtube_url),
+        audioUrl: trim(mezmurs?.[1]?.audio_url),
+      },
     ],
   }
 }
 
 function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
   return {
-    id: row.id, title: pickLocalized(row.title_en, row.title_am, row.title) ?? '', titleEn: trim(row.title_en), titleAm: trim(row.title_am),
-    subtitle: pickLocalized(row.subtitle_en, row.subtitle_am, row.subtitle), subtitleEn: trim(row.subtitle_en), subtitleAm: trim(row.subtitle_am),
-    content: pickLocalized(row.content_en, row.content_am, row.content) ?? '', contentEn: trim(row.content_en), contentAm: trim(row.content_am),
-    extraNote: pickLocalized(row.extra_note_en, row.extra_note_am, row.extra_note), extraNoteEn: trim(row.extra_note_en), extraNoteAm: trim(row.extra_note_am),
-    imageUrl: trim(row.image_url), buttonText: trim(row.button_text), buttonTextEn: trim(row.button_text), buttonTextAm: undefined,
+    id: row.id,
+    title: pickLocalized(row.title_en, row.title_am, row.title) ?? '',
+    titleEn: trim(row.title_en) ?? trim(row.title),
+    titleAm: trim(row.title_am),
+    subtitle: pickLocalized(row.subtitle_en, row.subtitle_am, row.subtitle),
+    subtitleEn: trim(row.subtitle_en) ?? trim(row.subtitle),
+    subtitleAm: trim(row.subtitle_am),
+    content: pickLocalized(row.content_en, row.content_am, row.content) ?? '',
+    contentEn: trim(row.content_en) ?? trim(row.content),
+    contentAm: trim(row.content_am),
+    extraNote: pickLocalized(row.extra_note_en, row.extra_note_am, row.extra_note),
+    extraNoteEn: trim(row.extra_note_en) ?? trim(row.extra_note),
+    extraNoteAm: trim(row.extra_note_am),
+    imageUrl: trim(row.image_url),
+    buttonText: pickLocalized(row.button_text_en, row.button_text_am, row.button_text),
+    buttonTextEn: trim(row.button_text_en) ?? trim(row.button_text),
+    buttonTextAm: trim(row.button_text_am),
     buttonLink: trim(row.button_link),
-    status: (trim(row.status) as WeeklyKnowledgeStatus) ?? 'draft', startDate: trim(row.start_date), endDate: trim(row.end_date),
-    isActive: row.is_active, createdAt: row.created_at, updatedAt: row.updated_at,
+    status: (trim(row.status) as WeeklyKnowledgeStatus) ?? 'draft',
+    startDate: trim(row.start_date),
+    endDate: trim(row.end_date),
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -445,7 +515,9 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
     extra_note_en: trim(input.extraNoteEn) ?? null,
     extra_note_am: trim(input.extraNoteAm) ?? null,
     image_url: trim(input.imageUrl) ?? null,
-    button_text: trim(input.buttonTextEn) ?? trim(input.buttonTextAm) ?? trim(input.buttonText) ?? null,
+    button_text: pickLocalized(input.buttonTextEn, input.buttonTextAm, input.buttonText) ?? null,
+    button_text_en: trim(input.buttonTextEn) ?? null,
+    button_text_am: trim(input.buttonTextAm) ?? null,
     button_link: trim(input.buttonLink) ?? null,
     status: trim(input.status) ?? 'draft',
     start_date: trim(input.startDate) ?? null,
@@ -602,12 +674,41 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     assertNoError('insert questions', qInsertError, { weeklyClassId: id, payloadCount: qRows.length })
   }
   for (const [i, q] of data.questions.entries()) {
-    if (q.type !== 'multiple-choice') continue
     const qid = resolvedQuestionIds[i]
-    const oRows = (q.options ?? []).map((o, oi) => ({ question_id: qid, option_index: oi, option_text: trim(o.en) ?? trim(o.am) ?? null, option_text_en: trim(o.en) ?? null, option_text_am: trim(o.am) ?? null }))
-    if (oRows.length > 0) {
-      const { error: optionsInsertError } = await supabase.from('multiple_choice_options').insert(oRows)
-      assertNoError('insert multiple_choice_options', optionsInsertError, {
+    if (q.type === 'multiple-choice') {
+      const oRows = (q.options ?? []).map((o, oi) => ({
+        question_id: qid,
+        option_index: oi,
+        option_text: trim(o.en) ?? trim(o.am) ?? null,
+        option_text_en: trim(o.en) ?? null,
+        option_text_am: trim(o.am) ?? null,
+      }))
+      if (oRows.length > 0) {
+        const { error: optionsInsertError } = await supabase.from('multiple_choice_options').insert(oRows)
+        assertNoError('insert multiple_choice_options', optionsInsertError, {
+          weeklyClassId: id,
+          questionId: qid,
+          payloadCount: oRows.length,
+        })
+      }
+      continue
+    }
+    if (q.type === 'attendance') {
+      const byValue = new Map((q.attendanceOptions ?? []).map((o) => [o.value, o]))
+      const oRows = ATTENDANCE_OPTION_ORDER.map((value, oi) => {
+        const opt = byValue.get(value)
+        const en = trim(opt?.labelEn) ?? trim(opt?.label)
+        const am = trim(opt?.labelAm)
+        return {
+          question_id: qid,
+          option_index: oi,
+          option_text: pickLocalized(en, am, opt?.label) ?? null,
+          option_text_en: en ?? null,
+          option_text_am: am ?? null,
+        }
+      })
+      const { error: attendanceOptionsError } = await supabase.from('multiple_choice_options').insert(oRows)
+      assertNoError('insert multiple_choice_options (attendance)', attendanceOptionsError, {
         weeklyClassId: id,
         questionId: qid,
         payloadCount: oRows.length,
@@ -623,7 +724,18 @@ export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListI
   if (!supabase) return []
   const { data, error } = await supabase.from('upcoming_timirit').select('*').order('scheduled_date', { ascending: true })
   if (error) throw error
-  return (data ?? []).map((r) => ({ id: r.id, scheduledDate: r.scheduled_date, topicPreview: pickLocalized(r.topic_preview_en, r.topic_preview_am, r.topic_preview) ?? '', note: pickLocalized(r.note_en, r.note_am, r.note) ?? '', isActive: r.is_active ?? false, status: r.status === 'published' ? 'published' : 'draft' }))
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    scheduledDate: r.scheduled_date,
+    topicPreview: pickLocalized(r.topic_preview_en, r.topic_preview_am, r.topic_preview) ?? '',
+    topicPreviewEn: trim(r.topic_preview_en) ?? trim(r.topic_preview),
+    topicPreviewAm: trim(r.topic_preview_am),
+    note: pickLocalized(r.note_en, r.note_am, r.note) ?? '',
+    noteEn: trim(r.note_en) ?? trim(r.note),
+    noteAm: trim(r.note_am),
+    isActive: r.is_active ?? false,
+    status: r.status === 'published' ? 'published' : 'draft',
+  }))
 }
 
 export const listActiveUpcomingTimirit = async () => (await listUpcomingTimiritForAdmin()).filter((x) => x.isActive)
@@ -658,17 +770,39 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   const { data: mez } = await supabase.from('upcoming_mezmurs').select('*').eq('upcoming_timirit_id', row.id).order('order_index', { ascending: true })
   return {
     id: row.id, scheduledDate: row.scheduled_date,
-    topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '', topicPreviewEn: trim(row.topic_preview_en), topicPreviewAm: trim(row.topic_preview_am),
-    note: pickLocalized(row.note_en, row.note_am, row.note) ?? '', noteEn: trim(row.note_en), noteAm: trim(row.note_am),
-    classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary), classSummaryEn: trim(row.class_summary_en), classSummaryAm: trim(row.class_summary_am),
+    topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '',
+    topicPreviewEn: trim(row.topic_preview_en) ?? trim(row.topic_preview),
+    topicPreviewAm: trim(row.topic_preview_am),
+    note: pickLocalized(row.note_en, row.note_am, row.note) ?? '',
+    noteEn: trim(row.note_en) ?? trim(row.note),
+    noteAm: trim(row.note_am),
+    classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
+    classSummaryEn: trim(row.class_summary_en) ?? trim(row.class_summary),
+    classSummaryAm: trim(row.class_summary_am),
     mainPoints: parseMainPoints(row.main_points),
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
     isActive: row.is_active ?? true, status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
-      { title: pickLocalized(mez?.[0]?.title_en, mez?.[0]?.title_am, mez?.[0]?.title) ?? '', titleEn: trim(mez?.[0]?.title_en), titleAm: trim(mez?.[0]?.title_am), transliteration: trim(mez?.[0]?.transliteration), lyrics: trim(mez?.[0]?.lyrics), youtubeUrl: trim(mez?.[0]?.youtube_url), audioUrl: trim(mez?.[0]?.audio_url) },
-      { title: pickLocalized(mez?.[1]?.title_en, mez?.[1]?.title_am, mez?.[1]?.title) ?? '', titleEn: trim(mez?.[1]?.title_en), titleAm: trim(mez?.[1]?.title_am), transliteration: trim(mez?.[1]?.transliteration), lyrics: trim(mez?.[1]?.lyrics), youtubeUrl: trim(mez?.[1]?.youtube_url), audioUrl: trim(mez?.[1]?.audio_url) },
+      {
+        title: pickLocalized(mez?.[0]?.title_en, mez?.[0]?.title_am, mez?.[0]?.title) ?? '',
+        titleEn: trim(mez?.[0]?.title_en) ?? trim(mez?.[0]?.title),
+        titleAm: trim(mez?.[0]?.title_am),
+        transliteration: trim(mez?.[0]?.transliteration),
+        lyrics: trim(mez?.[0]?.lyrics),
+        youtubeUrl: trim(mez?.[0]?.youtube_url),
+        audioUrl: trim(mez?.[0]?.audio_url),
+      },
+      {
+        title: pickLocalized(mez?.[1]?.title_en, mez?.[1]?.title_am, mez?.[1]?.title) ?? '',
+        titleEn: trim(mez?.[1]?.title_en) ?? trim(mez?.[1]?.title),
+        titleAm: trim(mez?.[1]?.title_am),
+        transliteration: trim(mez?.[1]?.transliteration),
+        lyrics: trim(mez?.[1]?.lyrics),
+        youtubeUrl: trim(mez?.[1]?.youtube_url),
+        audioUrl: trim(mez?.[1]?.audio_url),
+      },
     ],
   }
 }
@@ -677,9 +811,15 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
   if (!supabase) throw new Error('Supabase is not configured.')
   const row: Database['public']['Tables']['upcoming_timirit']['Insert'] = {
     id: data.id, scheduled_date: data.scheduledDate,
-    topic_preview: trim(data.topicPreview) ?? null, topic_preview_en: trim(data.topicPreviewEn) ?? null, topic_preview_am: trim(data.topicPreviewAm) ?? null,
-    note: trim(data.note) ?? null, note_en: trim(data.noteEn) ?? null, note_am: trim(data.noteAm) ?? null,
-    class_summary: trim(data.classSummary) ?? null, class_summary_en: trim(data.classSummaryEn) ?? null, class_summary_am: trim(data.classSummaryAm) ?? null,
+    topic_preview: pickLocalized(data.topicPreviewEn, data.topicPreviewAm, data.topicPreview) ?? null,
+    topic_preview_en: trim(data.topicPreviewEn) ?? null,
+    topic_preview_am: trim(data.topicPreviewAm) ?? null,
+    note: pickLocalized(data.noteEn, data.noteAm, data.note) ?? null,
+    note_en: trim(data.noteEn) ?? null,
+    note_am: trim(data.noteAm) ?? null,
+    class_summary: pickLocalized(data.classSummaryEn, data.classSummaryAm, data.classSummary) ?? null,
+    class_summary_en: trim(data.classSummaryEn) ?? null,
+    class_summary_am: trim(data.classSummaryAm) ?? null,
     main_points: toMainPointsJson(data.mainPoints),
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null, audio_title: trim(data.audioTitle) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
