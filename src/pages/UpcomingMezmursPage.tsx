@@ -95,7 +95,7 @@ export function UpcomingMezmursPage() {
 
   /** Touch phones/tablets: dedicated dark presentation chrome without requiring native fullscreen or landscape. */
   const immersiveTouchPresentation = isPresentationMode && isCoarsePointer
-  const lockBodyScroll = immersiveTouchPresentation && !isFullscreen
+  const lockBodyScroll = false
 
   useLayoutEffect(() => {
     if (!isPresentationMode) {
@@ -283,14 +283,14 @@ export function UpcomingMezmursPage() {
     <div
       ref={presentationContainerRef}
       className={`min-h-dvh bg-brand-50 text-brand-900 print:bg-white ${
-        immersiveTouchPresentation ? 'bg-brand-950 text-white' : ''
-      } ${isPresentationMode ? 'fullscreen:bg-brand-950 fullscreen:text-white' : ''}`}
+        immersiveTouchPresentation ? 'bg-slate-950 text-slate-50' : ''
+      } ${isPresentationMode ? 'fullscreen:bg-slate-950 fullscreen:text-slate-50' : ''}`}
     >
       <main
         className={`mx-auto w-full ${
           isPresentationMode
             ? immersiveTouchPresentation
-              ? 'fixed inset-0 z-[100] flex h-[100dvh] max-h-[100dvh] min-h-0 w-screen flex-col overflow-hidden bg-brand-950 pt-[max(0.5rem,env(safe-area-inset-top))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] text-white'
+              ? 'fixed inset-0 z-100 flex h-dvh max-h-dvh min-h-0 w-screen flex-col overflow-y-auto bg-slate-950 pt-[max(0.5rem,env(safe-area-inset-top))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] text-slate-50'
               : 'max-w-none px-3 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6 fullscreen:h-dvh fullscreen:px-6 fullscreen:py-4'
             : 'max-w-480 px-4 py-4 sm:px-8 sm:py-8'
         }`}
@@ -304,23 +304,33 @@ export function UpcomingMezmursPage() {
               : 'rounded-3xl border border-brand-200/90 bg-white/90 p-5 shadow-sm sm:p-8 lg:p-10'
           }`}
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
+              {immersiveTouchPresentation ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveSlide((current) => Math.min(current + 1, mezmurs.length - 1))}
+                  disabled={activeSlide === mezmurs.length - 1}
+                  className="mb-2 inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-500/60 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-50 enabled:hover:bg-slate-700 enabled:active:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isAm ? 'ቀጣይ መዝሙር' : 'Next Mezmur'}
+                </button>
+              ) : null}
               <p
                 className={`text-xs font-semibold uppercase tracking-[0.2em] ${
-                  immersiveTouchPresentation ? 'text-brand-200' : 'text-brand-700'
+                  immersiveTouchPresentation ? 'text-slate-300' : 'text-brand-700'
                 }`}
               >
                 {CHURCH_SHORT_NAME}
               </p>
               <h1
                 className={`mt-2 font-bold ${
-                  immersiveTouchPresentation ? 'text-2xl text-white sm:text-3xl' : 'text-3xl text-brand-900 sm:text-5xl'
+                  immersiveTouchPresentation ? 'text-2xl text-slate-50 sm:text-3xl' : 'text-3xl text-brand-900 sm:text-5xl'
                 }`}
               >
                 Upcoming Mezmurs
               </h1>
-              <p className={`mt-1 text-sm sm:text-base ${immersiveTouchPresentation ? 'text-brand-100' : 'text-brand-700 sm:text-xl'}`}>
+              <p className={`mt-1 text-sm sm:text-base ${immersiveTouchPresentation ? 'text-slate-200' : 'text-brand-700 sm:text-xl'}`}>
                 {preview
                   ? displayBilingualLine(language, preview.topicPreviewEn, preview.topicPreviewAm, preview.topicPreview).trim() ||
                     dateLabel
@@ -333,7 +343,7 @@ export function UpcomingMezmursPage() {
                 type="button"
                 onClick={togglePresentationMode}
                 className={`inline-flex items-center justify-center rounded-2xl bg-accent-600 font-bold text-white shadow-md shadow-accent-700/30 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 ${
-                  immersiveTouchPresentation ? 'min-h-12 px-4 py-3 text-base' : 'min-h-14 px-6 py-3 text-base'
+                  immersiveTouchPresentation ? 'min-h-10 px-3.5 py-2 text-sm' : 'min-h-14 px-6 py-3 text-base'
                 }`}
               >
                 {isPresentationMode ? (isAm ? 'ፕሬዘንቴሽን ዝጋ' : 'Exit presentation') : isAm ? 'የፕሮጀክተር ሁኔታ ጀምር' : 'Launch Projector Mode'}
@@ -342,9 +352,9 @@ export function UpcomingMezmursPage() {
                 <button
                   type="button"
                   onClick={toggleFullscreen}
-                  className={`inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-semibold ${
+                className={`inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-semibold ${
                     immersiveTouchPresentation
-                      ? 'min-h-12 border-brand-200/50 bg-brand-900/70 text-white hover:bg-brand-800'
+                      ? 'min-h-10 border-slate-400/50 bg-slate-800 text-slate-50 hover:bg-slate-700'
                       : 'min-h-12 border-brand-200 bg-white text-brand-900 hover:bg-brand-50'
                   }`}
                 >
@@ -368,19 +378,19 @@ export function UpcomingMezmursPage() {
             </div>
           </div>
           {immersiveTouchPresentation && !isLandscape ? (
-            <p className="mt-2 text-xs leading-relaxed text-brand-300">
+            <p className="mt-2 text-xs leading-relaxed text-slate-300">
               {isAm
                 ? 'ጠቋሚ፦ ለሰፊ የግጥም እይታ ስልክዎን ወደ አግድማዊ አቀማመጥ ማዞር ይችላሉ። በግጥም ላይ ወደ ግራ ወይም ወደ ቀኝ ይጎትቱ — ቀዳሚ / ቀጣይ መዝሙር።'
                 : 'Tip: rotate your phone for a wider lyrics view. Swipe left or right on the lyrics to go to the next or previous mezmur.'}
             </p>
           ) : null}
           {immersiveTouchPresentation && isLandscape ? (
-            <p className="mt-2 text-xs text-brand-300">
+            <p className="mt-2 text-xs text-slate-300">
               {isAm ? 'በግጥም ላይ ወደ ግራ ወይም ወደ ቀኝ ይጎትቱ — ቀዳሚ / ቀጣይ መዝሙር።' : 'Swipe left or right on the lyrics for previous / next mezmur.'}
             </p>
           ) : null}
           {isPresentationMode && fullscreenError ? (
-            <p className={`mt-3 text-sm font-medium ${immersiveTouchPresentation ? 'text-rose-300' : 'text-rose-700'}`}>
+            <p className={`mt-3 text-sm font-medium ${immersiveTouchPresentation ? 'text-rose-200' : 'text-rose-700'}`}>
               {fullscreenError}
             </p>
           ) : null}
@@ -404,14 +414,14 @@ export function UpcomingMezmursPage() {
                 : 'rounded-3xl border border-brand-200 bg-white p-5 shadow-sm sm:p-8 lg:p-10'
             }`}
           >
-            <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${immersiveTouchPresentation ? 'text-brand-300' : 'text-brand-700'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${immersiveTouchPresentation ? 'text-slate-300' : 'text-brand-700'}`}>
               Mezmur {activeSlide + 1} of 2
             </p>
             <h2
               className={`mt-3 font-bold leading-tight ${
                 isPresentationMode
                   ? immersiveTouchPresentation
-                    ? 'text-3xl text-white sm:text-5xl'
+                    ? 'text-3xl text-slate-50 sm:text-5xl'
                     : 'text-brand-900 text-4xl sm:text-6xl lg:text-7xl fullscreen:text-white'
                   : 'text-brand-900 text-3xl sm:text-5xl lg:text-6xl'
               }`}
@@ -425,7 +435,7 @@ export function UpcomingMezmursPage() {
                 className={`mt-4 italic ${
                   isPresentationMode
                     ? immersiveTouchPresentation
-                      ? 'text-lg text-brand-100 sm:text-2xl'
+                      ? 'text-lg text-slate-200 sm:text-2xl'
                       : 'text-2xl text-brand-700 sm:text-3xl fullscreen:text-brand-100'
                     : 'text-xl text-brand-700 sm:text-3xl'
                 }`}
@@ -441,16 +451,16 @@ export function UpcomingMezmursPage() {
               className={`mt-6 ${
                 isPresentationMode
                   ? immersiveTouchPresentation
-                    ? 'mt-4 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain rounded-none border-0 bg-transparent p-0'
+                    ? 'mt-4 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain rounded-2xl border border-slate-700 bg-slate-900/80 px-3 py-4'
                     : 'rounded-2xl border border-brand-100 bg-brand-50/80 p-5 sm:p-8 fullscreen:flex-1 fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-transparent fullscreen:p-0'
                   : 'rounded-2xl border border-brand-100 bg-brand-50/70 p-5 sm:p-8'
               }`}
             >
               <p
-                className={`whitespace-pre-wrap ${
+                className={`whitespace-pre-wrap font-medium ${
                   isPresentationMode
                     ? immersiveTouchPresentation
-                      ? 'text-3xl leading-snug text-white sm:text-4xl sm:leading-snug'
+                      ? 'text-pretty text-[1.95rem] leading-[1.62] text-slate-50 sm:text-4xl sm:leading-snug'
                       : 'text-2xl leading-relaxed text-brand-900 sm:text-4xl sm:leading-snug lg:text-5xl fullscreen:text-white'
                     : 'text-lg leading-relaxed text-brand-900 sm:text-2xl sm:leading-loose'
                 }`}
@@ -461,7 +471,7 @@ export function UpcomingMezmursPage() {
 
             <div
               className={`mt-4 flex flex-wrap gap-2 print:hidden ${
-                immersiveTouchPresentation ? 'border-t border-brand-700/70 pt-3' : 'fullscreen:mt-6'
+                immersiveTouchPresentation ? 'border-t border-slate-700/80 pt-3' : 'fullscreen:mt-6'
               }`}
             >
               {activeMezmur.audioUrl ? (
@@ -469,9 +479,9 @@ export function UpcomingMezmursPage() {
                   href={activeMezmur.audioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex min-h-10 items-center rounded-xl px-4 py-2 text-sm font-semibold ${
+                  className={`inline-flex min-h-9 items-center rounded-xl px-3 py-1.5 text-xs font-semibold ${
                     immersiveTouchPresentation
-                      ? 'border border-brand-200/40 bg-brand-900/70 text-white hover:bg-brand-800'
+                      ? 'border border-slate-500/60 bg-slate-800 text-slate-100 hover:bg-slate-700'
                       : 'border border-brand-200 bg-white text-brand-900 hover:bg-brand-50'
                   }`}
                 >
@@ -483,9 +493,9 @@ export function UpcomingMezmursPage() {
                   href={activeMezmur.youtubeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex min-h-10 items-center rounded-xl px-4 py-2 text-sm font-semibold ${
+                  className={`inline-flex min-h-9 items-center rounded-xl px-3 py-1.5 text-xs font-semibold ${
                     immersiveTouchPresentation
-                      ? 'border border-brand-200/40 bg-brand-900/70 text-white hover:bg-brand-800'
+                      ? 'border border-slate-500/60 bg-slate-800 text-slate-100 hover:bg-slate-700'
                       : 'border border-brand-200 bg-white text-brand-900 hover:bg-brand-50'
                   }`}
                 >
@@ -505,7 +515,7 @@ export function UpcomingMezmursPage() {
                 disabled={activeSlide === 0}
                 className={`inline-flex flex-1 items-center justify-center rounded-xl font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${
                   immersiveTouchPresentation
-                    ? 'min-h-14 border border-brand-200/40 bg-brand-900/70 px-4 py-3 text-base text-white enabled:active:bg-brand-800 enabled:hover:bg-brand-800'
+                    ? 'min-h-14 border border-slate-500/60 bg-slate-800 px-4 py-3 text-base text-slate-50 enabled:active:bg-slate-700 enabled:hover:bg-slate-700'
                     : 'min-h-10 border border-brand-200 bg-white px-4 py-2 text-sm text-brand-900 enabled:hover:bg-brand-50'
                 }`}
               >
