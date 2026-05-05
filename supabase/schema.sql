@@ -48,7 +48,6 @@ CREATE TABLE weekly_classes (
   teaching_notes TEXT,
   teaching_notes_en TEXT,
   teaching_notes_am TEXT,
-  advanced_practice_url TEXT,
   feedback_summary TEXT,
   attendance_summary TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,

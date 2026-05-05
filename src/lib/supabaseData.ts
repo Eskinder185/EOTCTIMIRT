@@ -1,4 +1,5 @@
 import type { Database } from './database.types'
+import { logSupabasePostgrestError } from './formatError'
 import { supabase } from './supabase'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import type {
@@ -68,7 +69,6 @@ export interface WeeklyClassEditorInput {
   audioNote?: string
   keyVerse?: string
   organizerNote?: string
-  advancedPracticeUrl?: string
   status?: 'draft' | 'published'
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
   questions: EditorQuestionInput[]
@@ -318,7 +318,6 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     mainPoints: parseMainPoints(row.main_points),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
-    advancedPracticeUrl: trim(row.advanced_practice_url),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [m[0] ?? { title: '' }, m[1] ?? { title: '' }],
     questions,
@@ -347,7 +346,6 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     'audio_title',
     'audio_note',
     'organizer_note',
-    'advanced_practice_url',
     'status',
     'created_at',
     'updated_at',
@@ -361,7 +359,10 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     .from('weekly_classes')
     .select(weeklyClassSelectShapeLegacy)
     .order('date', { ascending: false })
-  if (error) throw error
+  if (error) {
+    logSupabasePostgrestError('getWeeklyClasses', error)
+    throw error
+  }
   const rows = (classRows ?? []) as unknown as WeeklyClassRow[]
   const ids = rows.map((r) => r.id)
   if (ids.length === 0) return []
@@ -402,7 +403,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
       if (shouldRetryWithLegacySelect(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
         const legacy = await supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,advanced_practice_url,status,is_active')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
           .eq('is_active', true)
           .order('scheduled_date', { ascending: true })
           .limit(1)
@@ -586,7 +587,6 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     audio_note: trim(data.audioNote) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,
-    advanced_practice_url: trim(data.advancedPracticeUrl) ?? null,
     status: data.status ?? 'published',
   }
   if (import.meta.env.DEV) {
@@ -757,7 +757,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
       if (shouldRetryWithLegacySelect(result.error, 'upcoming_timirit', 'main_points')) {
         let legacyQuery = supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,advanced_practice_url,status,is_active')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
           .order('scheduled_date', { ascending: true })
           .limit(1)
         legacyQuery = id ? legacyQuery.eq('id', id) : legacyQuery.eq('is_active', true)

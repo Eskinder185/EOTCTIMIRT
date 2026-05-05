@@ -1,3 +1,17 @@
+/** Log PostgREST / Supabase REST errors with stable fields for browser console debugging. */
+export function logSupabasePostgrestError(context: string, error: unknown): void {
+  if (typeof error !== 'object' || error === null) {
+    console.error(`[${context}]`, error)
+    return
+  }
+  const o = error as Record<string, unknown>
+  const message = typeof o.message === 'string' ? o.message : undefined
+  const details = typeof o.details === 'string' ? o.details : undefined
+  const hint = typeof o.hint === 'string' ? o.hint : undefined
+  const code = typeof o.code === 'string' ? o.code : undefined
+  console.error(`[${context}] Supabase error`, { message, details, hint, code })
+}
+
 /**
  * Turn Supabase Postgrest errors (plain objects) and other throws into a readable string.
  */
