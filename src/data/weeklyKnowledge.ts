@@ -16,8 +16,6 @@ export interface WeeklyKnowledgeItem {
   extraNoteAm?: string
   imageUrl?: string
   buttonText?: string
-  buttonTextEn?: string
-  buttonTextAm?: string
   buttonLink?: string
   status: WeeklyKnowledgeStatus
   startDate?: string
@@ -43,8 +41,6 @@ export interface WeeklyKnowledgeEditorInput {
   extraNoteAm?: string
   imageUrl?: string
   buttonText?: string
-  buttonTextEn?: string
-  buttonTextAm?: string
   buttonLink?: string
   status: WeeklyKnowledgeStatus
   startDate?: string

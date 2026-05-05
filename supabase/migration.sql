@@ -577,8 +577,7 @@ ALTER TABLE weekly_knowledge
   ADD COLUMN IF NOT EXISTS content_en TEXT,
   ADD COLUMN IF NOT EXISTS content_am TEXT,
   ADD COLUMN IF NOT EXISTS extra_note_en TEXT,
-  ADD COLUMN IF NOT EXISTS extra_note_am TEXT,
-  ADD COLUMN IF NOT EXISTS button_text_en TEXT;
+  ADD COLUMN IF NOT EXISTS extra_note_am TEXT;
 
 UPDATE weekly_knowledge
 SET title_en = COALESCE(title_en, title)
@@ -595,10 +594,6 @@ WHERE content IS NOT NULL;
 UPDATE weekly_knowledge
 SET extra_note_en = COALESCE(extra_note_en, extra_note)
 WHERE extra_note IS NOT NULL;
-
-UPDATE weekly_knowledge
-SET button_text_en = COALESCE(button_text_en, button_text)
-WHERE button_text IS NOT NULL;
 
 ALTER TABLE weekly_knowledge
   ALTER COLUMN title DROP NOT NULL,

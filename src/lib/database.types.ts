@@ -232,76 +232,115 @@ export type Database = {
       }
       upcoming_timirit: {
         Row: {
-          created_at: string
-          created_by: string | null
-          class_summary: string | null
-          class_summary_am: string | null
-          class_summary_en: string | null
-          audio_title: string | null
-          audio_url: string | null
           id: string
-          is_active: boolean | null
-          main_points: Json | null
-          key_verse: string | null
-          note: string | null
-          note_am: string | null
-          note_en: string | null
-          organizer_note: string | null
-          status: string | null
           scheduled_date: string
           topic_preview: string | null
-          topic_preview_am: string | null
           topic_preview_en: string | null
+          topic_preview_am: string | null
+          note: string | null
+          note_en: string | null
+          note_am: string | null
+          main_points: Json
+          lesson_youtube_url: string | null
+          lesson_audio_url: string | null
+          lesson_audio_title: string | null
+          lesson_audio_title_en: string | null
+          lesson_audio_title_am: string | null
+          lesson_note: string | null
+          lesson_note_en: string | null
+          lesson_note_am: string | null
+          weekly_knowledge_content: string | null
+          weekly_knowledge_content_en: string | null
+          weekly_knowledge_content_am: string | null
+          weekly_knowledge_image_url: string | null
+          key_verse: string | null
+          key_verse_en: string | null
+          key_verse_am: string | null
+          organizer_note: string | null
+          organizer_note_en: string | null
+          organizer_note_am: string | null
+          class_summary_content: string | null
+          class_summary_content_en: string | null
+          class_summary_content_am: string | null
+          publication_status: string
+          is_active: boolean | null
+          created_at: string
           updated_at: string
-          youtube_url: string | null
+          created_by: string | null
         }
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          class_summary?: string | null
-          class_summary_am?: string | null
-          class_summary_en?: string | null
-          audio_title?: string | null
-          audio_url?: string | null
           id?: string
-          is_active?: boolean | null
-          main_points?: Json | null
-          key_verse?: string | null
-          note?: string | null
-          note_am?: string | null
-          note_en?: string | null
-          organizer_note?: string | null
-          status?: string | null
           scheduled_date: string
           topic_preview?: string | null
-          topic_preview_am?: string | null
           topic_preview_en?: string | null
+          topic_preview_am?: string | null
+          note?: string | null
+          note_en?: string | null
+          note_am?: string | null
+          main_points?: Json | null
+          lesson_youtube_url?: string | null
+          lesson_audio_url?: string | null
+          lesson_audio_title?: string | null
+          lesson_audio_title_en?: string | null
+          lesson_audio_title_am?: string | null
+          lesson_note?: string | null
+          lesson_note_en?: string | null
+          lesson_note_am?: string | null
+          weekly_knowledge_content?: string | null
+          weekly_knowledge_content_en?: string | null
+          weekly_knowledge_content_am?: string | null
+          weekly_knowledge_image_url?: string | null
+          key_verse?: string | null
+          key_verse_en?: string | null
+          key_verse_am?: string | null
+          organizer_note?: string | null
+          organizer_note_en?: string | null
+          organizer_note_am?: string | null
+          class_summary_content?: string | null
+          class_summary_content_en?: string | null
+          class_summary_content_am?: string | null
+          publication_status?: string
+          is_active?: boolean | null
+          created_at?: string
           updated_at?: string
-          youtube_url?: string | null
+          created_by?: string | null
         }
         Update: {
-          created_at?: string
-          created_by?: string | null
-          class_summary?: string | null
-          class_summary_am?: string | null
-          class_summary_en?: string | null
-          audio_title?: string | null
-          audio_url?: string | null
           id?: string
-          is_active?: boolean | null
-          main_points?: Json | null
-          key_verse?: string | null
-          note?: string | null
-          note_am?: string | null
-          note_en?: string | null
-          organizer_note?: string | null
-          status?: string | null
           scheduled_date?: string
           topic_preview?: string | null
-          topic_preview_am?: string | null
           topic_preview_en?: string | null
+          topic_preview_am?: string | null
+          note?: string | null
+          note_en?: string | null
+          note_am?: string | null
+          main_points?: Json | null
+          lesson_youtube_url?: string | null
+          lesson_audio_url?: string | null
+          lesson_audio_title?: string | null
+          lesson_audio_title_en?: string | null
+          lesson_audio_title_am?: string | null
+          lesson_note?: string | null
+          lesson_note_en?: string | null
+          lesson_note_am?: string | null
+          weekly_knowledge_content?: string | null
+          weekly_knowledge_content_en?: string | null
+          weekly_knowledge_content_am?: string | null
+          weekly_knowledge_image_url?: string | null
+          key_verse?: string | null
+          key_verse_en?: string | null
+          key_verse_am?: string | null
+          organizer_note?: string | null
+          organizer_note_en?: string | null
+          organizer_note_am?: string | null
+          class_summary_content?: string | null
+          class_summary_content_en?: string | null
+          class_summary_content_am?: string | null
+          publication_status?: string
+          is_active?: boolean | null
+          created_at?: string
           updated_at?: string
-          youtube_url?: string | null
+          created_by?: string | null
         }
         Relationships: [
           {
@@ -484,7 +523,6 @@ export type Database = {
         Row: {
           button_link: string | null
           button_text: string | null
-          button_text_en: string | null
           content: string | null
           content_am: string | null
           content_en: string | null
@@ -510,7 +548,6 @@ export type Database = {
         Insert: {
           button_link?: string | null
           button_text?: string | null
-          button_text_en?: string | null
           content?: string | null
           content_am?: string | null
           content_en?: string | null
@@ -536,7 +573,6 @@ export type Database = {
         Update: {
           button_link?: string | null
           button_text?: string | null
-          button_text_en?: string | null
           content?: string | null
           content_am?: string | null
           content_en?: string | null

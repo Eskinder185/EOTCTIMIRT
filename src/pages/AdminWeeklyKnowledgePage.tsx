@@ -40,8 +40,6 @@ function createEmptyForm(): WeeklyKnowledgeEditorInput {
     extraNoteAm: '',
     imageUrl: '',
     buttonText: '',
-    buttonTextEn: '',
-    buttonTextAm: '',
     buttonLink: '',
     status: 'draft',
     startDate: today,
@@ -146,9 +144,7 @@ export function AdminWeeklyKnowledgePage() {
         extraNoteEn: selected.extraNoteEn ?? selected.extraNote ?? '',
         extraNoteAm: selected.extraNoteAm ?? '',
         imageUrl: selected.imageUrl || '',
-        buttonText: selected.buttonText,
-        buttonTextEn: selected.buttonTextEn ?? selected.buttonText ?? '',
-        buttonTextAm: selected.buttonTextAm ?? '',
+        buttonText: selected.buttonText ?? '',
         buttonLink: selected.buttonLink || '',
         status: selected.status,
         startDate: selected.startDate || '',
@@ -431,26 +427,15 @@ export function AdminWeeklyKnowledgePage() {
           />
         </label>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-brand-900">
-            {isAm ? 'የአዝራር ጽሑት — እንግሊዝኛ (አማራጭ)' : 'Button Text — English (optional)'}
-            <input
-              type="text"
-              value={form.buttonTextEn ?? ''}
-              onChange={(event) => setForm({ ...form, buttonTextEn: event.target.value })}
-              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            />
-          </label>
-          <label className="text-sm font-medium text-brand-900">
-            {isAm ? 'የአዝራር ጽሑት — አማርኛ (አማራጭ)' : 'Button Text — Amharic (optional)'}
-            <input
-              type="text"
-              value={form.buttonTextAm ?? ''}
-              onChange={(event) => setForm({ ...form, buttonTextAm: event.target.value })}
-              className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            />
-          </label>
-        </div>
+        <label className="mt-4 block text-sm font-medium text-brand-900">
+          {isAm ? 'የአዝራር ጽሑት (አማራጭ)' : 'Button label (optional)'}
+          <input
+            type="text"
+            value={form.buttonText ?? ''}
+            onChange={(event) => setForm({ ...form, buttonText: event.target.value })}
+            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+          />
+        </label>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-brand-900">

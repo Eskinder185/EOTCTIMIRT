@@ -207,7 +207,6 @@ CREATE TABLE weekly_knowledge (
   extra_note_am TEXT,
   image_url TEXT,
   button_text TEXT,
-  button_text_en TEXT,
   button_link TEXT,
   content_type TEXT NOT NULL DEFAULT 'Knowledge',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'hidden')),

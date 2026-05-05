@@ -227,6 +227,46 @@ function shouldRetryWithLegacySelect(error: unknown, table: string, column: stri
   return maybe.code === '400' || message.includes('does not exist') || message.includes(column)
 }
 
+/** Loose row shape for reads (legacy DBs may omit or rename fields). */
+type UpcomingTimiritRecord = Record<string, unknown>
+
+const UPCOMING_TIMIRIT_LEGACY_SELECT =
+  'id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary_content,class_summary_content_en,class_summary_content_am,lesson_youtube_url,lesson_audio_url,lesson_audio_title,key_verse,organizer_note,publication_status,is_active'
+
+function readUpcomingYoutubeUrl(row: UpcomingTimiritRecord): string | undefined {
+  return trim(row.lesson_youtube_url as string | null | undefined) ?? trim(row.youtube_url as string | null | undefined)
+}
+
+function readUpcomingAudioUrl(row: UpcomingTimiritRecord): string | undefined {
+  return trim(row.lesson_audio_url as string | null | undefined) ?? trim(row.audio_url as string | null | undefined)
+}
+
+function readUpcomingAudioTitle(row: UpcomingTimiritRecord): string | undefined {
+  return trim(row.lesson_audio_title as string | null | undefined) ?? trim(row.audio_title as string | null | undefined)
+}
+
+function readUpcomingPublicationStatus(row: UpcomingTimiritRecord): 'published' | 'draft' {
+  const ps = trim(row.publication_status as string | null | undefined)
+  if (ps === 'published' || ps === 'draft') return ps
+  const st = trim(row.status as string | null | undefined)
+  if (st === 'published') return 'published'
+  return 'draft'
+}
+
+function readUpcomingClassSummaryFields(row: UpcomingTimiritRecord) {
+  const raw = row as Record<string, string | null | undefined>
+  const en =
+    trim(raw.class_summary_content_en) ??
+    trim(raw.class_summary_en) ??
+    trim(raw.class_summary_content) ??
+    trim(raw.class_summary)
+  const am = trim(raw.class_summary_content_am) ?? trim(raw.class_summary_am)
+  const fallback =
+    pickLocalized(raw.class_summary_content_en, raw.class_summary_content_am, raw.class_summary_content) ??
+    pickLocalized(raw.class_summary_en, raw.class_summary_am, raw.class_summary)
+  return { classSummary: fallback, classSummaryEn: en, classSummaryAm: am }
+}
+
 function parseOptionalUuid(value?: string | null): string | undefined {
   const trimmed = trim(value)
   if (!trimmed) return undefined
@@ -241,6 +281,7 @@ function throwSupabaseWriteError(
   payload?: unknown,
 ): never | void {
   if (!error) return
+  logSupabasePostgrestError(`${table}.${operation}`, error, payload)
   const invalidColumn = parseSupabaseInvalidColumn(error.message)
   const enriched = {
     table,
@@ -472,9 +513,6 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
 }
 
 function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
-  const btnEn = trim(row.button_text_en)
-  const btnTxt = trim(row.button_text)
-  const buttonTextAm = btnEn && btnTxt ? btnTxt : !btnEn && btnTxt ? btnTxt : undefined
   return {
     id: row.id,
     title: pickLocalized(row.title_en, row.title_am, row.title) ?? '',
@@ -490,9 +528,7 @@ function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
     extraNoteEn: trim(row.extra_note_en) ?? trim(row.extra_note),
     extraNoteAm: trim(row.extra_note_am),
     imageUrl: trim(row.image_url),
-    buttonText: pickLocalized(btnEn, btnEn ? btnTxt : btnTxt, btnTxt) ?? '',
-    buttonTextEn: btnEn ?? undefined,
-    buttonTextAm,
+    buttonText: trim(row.button_text),
     buttonLink: trim(row.button_link),
     status: (trim(row.status) as WeeklyKnowledgeStatus) ?? 'draft',
     startDate: trim(row.start_date),
@@ -507,13 +543,33 @@ export async function getActiveWeeklyKnowledge(targetDate?: string): Promise<Wee
   if (!supabase) return null
   const date = targetDate ?? new Date().toISOString().slice(0, 10)
   const { data, error } = await supabase.from('weekly_knowledge').select('*').eq('is_active', true).eq('status', 'published').order('updated_at', { ascending: false }).limit(25)
-  if (error) throw error
+  if (error) {
+    logSupabasePostgrestError('getActiveWeeklyKnowledge', error)
+    throw error
+  }
   const row = (data ?? []).find((x) => (!x.start_date || x.start_date <= date) && (!x.end_date || x.end_date >= date))
   return row ? mapKnowledge(row) : null
 }
 
-export async function listWeeklyKnowledgeForAdmin(): Promise<WeeklyKnowledgeItem[]> { if (!supabase) return []; const { data, error } = await supabase.from('weekly_knowledge').select('*').order('updated_at', { ascending: false }); if (error) throw error; return (data ?? []).map(mapKnowledge) }
-export async function getWeeklyKnowledgeForAdmin(id: string): Promise<WeeklyKnowledgeItem | null> { if (!supabase) return null; const { data, error } = await supabase.from('weekly_knowledge').select('*').eq('id', id).maybeSingle(); if (error) throw error; return data ? mapKnowledge(data) : null }
+export async function listWeeklyKnowledgeForAdmin(): Promise<WeeklyKnowledgeItem[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('weekly_knowledge').select('*').order('updated_at', { ascending: false })
+  if (error) {
+    logSupabasePostgrestError('listWeeklyKnowledgeForAdmin', error)
+    throw error
+  }
+  return (data ?? []).map(mapKnowledge)
+}
+
+export async function getWeeklyKnowledgeForAdmin(id: string): Promise<WeeklyKnowledgeItem | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase.from('weekly_knowledge').select('*').eq('id', id).maybeSingle()
+  if (error) {
+    logSupabasePostgrestError('getWeeklyKnowledgeForAdmin', error, { id })
+    throw error
+  }
+  return data ? mapKnowledge(data) : null
+}
 
 export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInput): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.')
@@ -532,11 +588,7 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
     extra_note_en: trim(input.extraNoteEn) ?? null,
     extra_note_am: trim(input.extraNoteAm) ?? null,
     image_url: trim(input.imageUrl) ?? null,
-    button_text_en: trim(input.buttonTextEn) ?? null,
-    button_text:
-      trim(input.buttonTextAm) ??
-      (trim(input.buttonTextEn) || trim(input.buttonTextAm) ? null : trim(input.buttonText)) ??
-      null,
+    button_text: trim(input.buttonText) ?? null,
     button_link: trim(input.buttonLink) ?? null,
     status: trim(input.status) ?? 'draft',
     start_date: trim(input.startDate) ?? null,

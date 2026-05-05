@@ -24,7 +24,7 @@ export function WeeklyKnowledgeCard({ item }: WeeklyKnowledgeCardProps) {
   const subtitleDisplay = displayBilingualLine(language, item.subtitleEn, item.subtitleAm, item.subtitle).trim()
   const contentDisplay = displayBilingualLine(language, item.contentEn, item.contentAm, item.content).trim()
   const extraNoteDisplay = displayBilingualLine(language, item.extraNoteEn, item.extraNoteAm, item.extraNote).trim()
-  const buttonLabelDisplay = displayBilingualLine(language, item.buttonTextEn, item.buttonTextAm, item.buttonText).trim()
+  const buttonLabelDisplay = (item.buttonText ?? '').trim()
 
   const hasUsableImage = isUsableHttpLink(item.imageUrl)
   const hasButton = Boolean(buttonLabelDisplay && isUsableHttpLink(item.buttonLink))
