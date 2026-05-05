@@ -578,8 +578,7 @@ ALTER TABLE weekly_knowledge
   ADD COLUMN IF NOT EXISTS content_am TEXT,
   ADD COLUMN IF NOT EXISTS extra_note_en TEXT,
   ADD COLUMN IF NOT EXISTS extra_note_am TEXT,
-  ADD COLUMN IF NOT EXISTS button_text_en TEXT,
-  ADD COLUMN IF NOT EXISTS button_text_am TEXT;
+  ADD COLUMN IF NOT EXISTS button_text_en TEXT;
 
 UPDATE weekly_knowledge
 SET title_en = COALESCE(title_en, title)
@@ -605,6 +604,9 @@ ALTER TABLE weekly_knowledge
   ALTER COLUMN title DROP NOT NULL,
   ALTER COLUMN content DROP NOT NULL;
 
--- Optional: advanced practice URL on upcoming preview only (weekly_classes has no matching column in production)
-ALTER TABLE upcoming_timirit
+-- Advanced practice (e.g. Tewahedo Daily deep link), one URL per mezmur slot
+ALTER TABLE upcoming_mezmurs
+  ADD COLUMN IF NOT EXISTS advanced_practice_url TEXT;
+
+ALTER TABLE mezmurs
   ADD COLUMN IF NOT EXISTS advanced_practice_url TEXT;

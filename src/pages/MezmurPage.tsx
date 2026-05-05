@@ -133,9 +133,14 @@ export function MezmurPage() {
             slot={1}
             mezmur={upcomingMezmurs[0]}
             context="upcoming"
-            advancedPracticeUrl={upcoming?.advancedPracticeUrl}
+            advancedPracticeUrl={upcomingMezmurs[0]?.advancedPracticeUrl}
           />
-          <MezmurActionCard slot={2} mezmur={upcomingMezmurs[1]} context="upcoming" hideAdvancedPractice />
+          <MezmurActionCard
+            slot={2}
+            mezmur={upcomingMezmurs[1]}
+            context="upcoming"
+            advancedPracticeUrl={upcomingMezmurs[1]?.advancedPracticeUrl}
+          />
         </div>
       </Card>
 
@@ -155,8 +160,18 @@ export function MezmurPage() {
               <span className="text-brand-500"> · </span>
               {lastWeek.topic}
             </p>
-            <MezmurActionCard slot={1} mezmur={lastWeek.mezmurs[0]} context="last-week" hideAdvancedPractice />
-            <MezmurActionCard slot={2} mezmur={lastWeek.mezmurs[1]} context="last-week" hideAdvancedPractice />
+            <MezmurActionCard
+              slot={1}
+              mezmur={lastWeek.mezmurs[0]}
+              context="last-week"
+              advancedPracticeUrl={lastWeek.mezmurs[0]?.advancedPracticeUrl}
+            />
+            <MezmurActionCard
+              slot={2}
+              mezmur={lastWeek.mezmurs[1]}
+              context="last-week"
+              advancedPracticeUrl={lastWeek.mezmurs[1]?.advancedPracticeUrl}
+            />
           </div>
         ) : (
           <p className="mt-2 text-sm text-brand-700">

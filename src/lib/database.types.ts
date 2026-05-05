@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       mezmurs: {
         Row: {
+          advanced_practice_url: string | null
           audio_url: string | null
           created_at: string
           id: string
@@ -25,6 +26,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          advanced_practice_url?: string | null
           audio_url?: string | null
           created_at?: string
           id?: string
@@ -39,6 +41,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          advanced_practice_url?: string | null
           audio_url?: string | null
           created_at?: string
           id?: string
@@ -176,6 +179,7 @@ export type Database = {
       }
       upcoming_mezmurs: {
         Row: {
+          advanced_practice_url: string | null
           audio_url: string | null
           created_at: string
           id: string
@@ -189,6 +193,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          advanced_practice_url?: string | null
           audio_url?: string | null
           created_at?: string
           id?: string
@@ -202,6 +207,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          advanced_practice_url?: string | null
           audio_url?: string | null
           created_at?: string
           id?: string
@@ -233,7 +239,6 @@ export type Database = {
           class_summary_en: string | null
           audio_title: string | null
           audio_url: string | null
-          advanced_practice_url: string | null
           id: string
           is_active: boolean | null
           main_points: Json | null
@@ -258,7 +263,6 @@ export type Database = {
           class_summary_en?: string | null
           audio_title?: string | null
           audio_url?: string | null
-          advanced_practice_url?: string | null
           id?: string
           is_active?: boolean | null
           main_points?: Json | null
@@ -283,7 +287,6 @@ export type Database = {
           class_summary_en?: string | null
           audio_title?: string | null
           audio_url?: string | null
-          advanced_practice_url?: string | null
           id?: string
           is_active?: boolean | null
           main_points?: Json | null
@@ -481,7 +484,6 @@ export type Database = {
         Row: {
           button_link: string | null
           button_text: string | null
-          button_text_am: string | null
           button_text_en: string | null
           content: string | null
           content_am: string | null
@@ -508,7 +510,6 @@ export type Database = {
         Insert: {
           button_link?: string | null
           button_text?: string | null
-          button_text_am?: string | null
           button_text_en?: string | null
           content?: string | null
           content_am?: string | null
@@ -535,7 +536,6 @@ export type Database = {
         Update: {
           button_link?: string | null
           button_text?: string | null
-          button_text_am?: string | null
           button_text_en?: string | null
           content?: string | null
           content_am?: string | null

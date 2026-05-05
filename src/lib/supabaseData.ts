@@ -1,5 +1,5 @@
 import type { Database } from './database.types'
-import { logSupabasePostgrestError } from './formatError'
+import { logSupabasePostgrestError, parseSupabaseInvalidColumn } from './formatError'
 import { supabase } from './supabase'
 import type { UpcomingTimirtPreview } from '../data/mockUpcoming'
 import type {
@@ -31,6 +31,7 @@ export interface EditorMezmurInput {
   noteAm?: string
   youtubeUrl?: string
   audioUrl?: string
+  advancedPracticeUrl?: string
 }
 
 export interface EditorQuestionInput {
@@ -92,7 +93,6 @@ export interface UpcomingTimirtEditorInput {
   audioTitle?: string
   keyVerse?: string
   organizerNote?: string
-  advancedPracticeUrl?: string
   isActive: boolean
   status: 'draft' | 'published'
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
@@ -241,6 +241,7 @@ function throwSupabaseWriteError(
   payload?: unknown,
 ): never | void {
   if (!error) return
+  const invalidColumn = parseSupabaseInvalidColumn(error.message)
   const enriched = {
     table,
     operation,
@@ -248,7 +249,12 @@ function throwSupabaseWriteError(
     details: error.details ?? null,
     hint: error.hint ?? null,
     code: error.code ?? null,
+    invalidColumn,
     payload: payload ?? null,
+    payloadKeys:
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? Object.keys(payload as Record<string, unknown>)
+        : null,
     fullError: error,
   }
   console.error('[supabaseData] organizer write failed', enriched)
@@ -302,6 +308,7 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     titleEn: trim(x.title_en), titleAm: trim(x.title_am), transliteration: trim(x.transliteration),
     lyrics: trim(x.lyrics), lyricsEn: undefined, lyricsAm: undefined,
     noteEn: undefined, noteAm: undefined, youtubeUrl: trim(x.youtube_url), audioUrl: trim(x.audio_url),
+    advancedPracticeUrl: trim(x.advanced_practice_url),
   }))
   return {
     id: row.id, date: row.date,
@@ -438,7 +445,6 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     lessonNote: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
-    advancedPracticeUrl: trim(row.advanced_practice_url),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
       {
@@ -449,6 +455,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
         lyrics: trim(mezmurs?.[0]?.lyrics),
         youtubeUrl: trim(mezmurs?.[0]?.youtube_url),
         audioUrl: trim(mezmurs?.[0]?.audio_url),
+        advancedPracticeUrl: trim(mezmurs?.[0]?.advanced_practice_url),
       },
       {
         title: pickLocalized(mezmurs?.[1]?.title_en, mezmurs?.[1]?.title_am, mezmurs?.[1]?.title) ?? '',
@@ -458,12 +465,16 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
         lyrics: trim(mezmurs?.[1]?.lyrics),
         youtubeUrl: trim(mezmurs?.[1]?.youtube_url),
         audioUrl: trim(mezmurs?.[1]?.audio_url),
+        advancedPracticeUrl: trim(mezmurs?.[1]?.advanced_practice_url),
       },
     ],
   }
 }
 
 function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
+  const btnEn = trim(row.button_text_en)
+  const btnTxt = trim(row.button_text)
+  const buttonTextAm = btnEn && btnTxt ? btnTxt : !btnEn && btnTxt ? btnTxt : undefined
   return {
     id: row.id,
     title: pickLocalized(row.title_en, row.title_am, row.title) ?? '',
@@ -479,9 +490,9 @@ function mapKnowledge(row: WeeklyKnowledgeRow): WeeklyKnowledgeItem {
     extraNoteEn: trim(row.extra_note_en) ?? trim(row.extra_note),
     extraNoteAm: trim(row.extra_note_am),
     imageUrl: trim(row.image_url),
-    buttonText: pickLocalized(row.button_text_en, row.button_text_am, row.button_text),
-    buttonTextEn: trim(row.button_text_en) ?? trim(row.button_text),
-    buttonTextAm: trim(row.button_text_am),
+    buttonText: pickLocalized(btnEn, btnEn ? btnTxt : btnTxt, btnTxt) ?? '',
+    buttonTextEn: btnEn ?? undefined,
+    buttonTextAm,
     buttonLink: trim(row.button_link),
     status: (trim(row.status) as WeeklyKnowledgeStatus) ?? 'draft',
     startDate: trim(row.start_date),
@@ -521,9 +532,11 @@ export async function saveWeeklyKnowledgeEditor(input: WeeklyKnowledgeEditorInpu
     extra_note_en: trim(input.extraNoteEn) ?? null,
     extra_note_am: trim(input.extraNoteAm) ?? null,
     image_url: trim(input.imageUrl) ?? null,
-    button_text: pickLocalized(input.buttonTextEn, input.buttonTextAm, input.buttonText) ?? null,
     button_text_en: trim(input.buttonTextEn) ?? null,
-    button_text_am: trim(input.buttonTextAm) ?? null,
+    button_text:
+      trim(input.buttonTextAm) ??
+      (trim(input.buttonTextEn) || trim(input.buttonTextAm) ? null : trim(input.buttonText)) ??
+      null,
     button_link: trim(input.buttonLink) ?? null,
     status: trim(input.status) ?? 'draft',
     start_date: trim(input.startDate) ?? null,
@@ -638,6 +651,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
       lyrics: trim(m.lyrics) ?? null,
       youtube_url: trim(m.youtubeUrl) ?? null,
       audio_url: trim(m.audioUrl) ?? null,
+      advanced_practice_url: trim(m.advancedPracticeUrl) ?? null,
     }))
     .filter((m) =>
       Boolean(
@@ -647,7 +661,8 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
           m.transliteration?.trim() ||
           m.lyrics?.trim() ||
           m.youtube_url?.trim() ||
-          m.audio_url?.trim(),
+          m.audio_url?.trim() ||
+          m.advanced_practice_url?.trim(),
       ),
     )
   if (mezRows.length > 0) {
@@ -789,7 +804,6 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
-    advancedPracticeUrl: trim(row.advanced_practice_url),
     isActive: row.is_active ?? true, status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
       {
@@ -800,6 +814,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
         lyrics: trim(mez?.[0]?.lyrics),
         youtubeUrl: trim(mez?.[0]?.youtube_url),
         audioUrl: trim(mez?.[0]?.audio_url),
+        advancedPracticeUrl: trim(mez?.[0]?.advanced_practice_url),
       },
       {
         title: pickLocalized(mez?.[1]?.title_en, mez?.[1]?.title_am, mez?.[1]?.title) ?? '',
@@ -809,6 +824,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
         lyrics: trim(mez?.[1]?.lyrics),
         youtubeUrl: trim(mez?.[1]?.youtube_url),
         audioUrl: trim(mez?.[1]?.audio_url),
+        advancedPracticeUrl: trim(mez?.[1]?.advanced_practice_url),
       },
     ],
   }
@@ -831,7 +847,6 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null, audio_title: trim(data.audioTitle) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,
-    advanced_practice_url: trim(data.advancedPracticeUrl) ?? null,
     is_active: data.isActive, status: data.status,
   }
   let saved: { id: string } | null = null
@@ -853,7 +868,18 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
   if (!saved?.id) throw new Error('Supabase did not return upcoming_timirit id after upsert.')
   const { error: deleteUpcomingMezmursError } = await supabase.from('upcoming_mezmurs').delete().eq('upcoming_timirit_id', saved.id)
   throwSupabaseWriteError('delete by upcoming_timirit_id', 'upcoming_mezmurs', deleteUpcomingMezmursError, { upcoming_timirit_id: saved.id })
-  const upcomingMezmurRows = data.mezmurs.map((m, i) => ({ upcoming_timirit_id: saved.id, order_index: i, title: pickLocalized(m.titleEn, m.titleAm, m.title) ?? '', title_en: trim(m.titleEn) ?? null, title_am: trim(m.titleAm) ?? null, transliteration: trim(m.transliteration) ?? null, lyrics: trim(m.lyrics) ?? null, youtube_url: trim(m.youtubeUrl) ?? null, audio_url: trim(m.audioUrl) ?? null }))
+  const upcomingMezmurRows = data.mezmurs.map((m, i) => ({
+    upcoming_timirit_id: saved.id,
+    order_index: i,
+    title: pickLocalized(m.titleEn, m.titleAm, m.title) ?? '',
+    title_en: trim(m.titleEn) ?? null,
+    title_am: trim(m.titleAm) ?? null,
+    transliteration: trim(m.transliteration) ?? null,
+    lyrics: trim(m.lyrics) ?? null,
+    youtube_url: trim(m.youtubeUrl) ?? null,
+    audio_url: trim(m.audioUrl) ?? null,
+    advanced_practice_url: trim(m.advancedPracticeUrl) ?? null,
+  }))
   const { error: insertUpcomingMezmursError } = await supabase.from('upcoming_mezmurs').insert(upcomingMezmurRows)
   throwSupabaseWriteError('insert', 'upcoming_mezmurs', insertUpcomingMezmursError, upcomingMezmurRows)
   if (row.status === 'published' && row.is_active) {

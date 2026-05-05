@@ -71,6 +71,7 @@ CREATE TABLE mezmurs (
   note_am TEXT,
   youtube_url TEXT,
   audio_url TEXT,
+  advanced_practice_url TEXT,
   order_index INTEGER NOT NULL CHECK (order_index IN (0, 1)), -- First or second mezmur
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -157,7 +158,6 @@ CREATE TABLE upcoming_timirit (
   organizer_note TEXT,
   organizer_note_en TEXT,
   organizer_note_am TEXT,
-  advanced_practice_url TEXT,
   class_summary_content TEXT,
   class_summary_content_en TEXT,
   class_summary_content_am TEXT,
@@ -183,6 +183,7 @@ CREATE TABLE upcoming_mezmurs (
   note_am TEXT,
   youtube_url TEXT,
   audio_url TEXT,
+  advanced_practice_url TEXT,
   order_index INTEGER NOT NULL CHECK (order_index IN (0, 1)),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   
@@ -207,7 +208,6 @@ CREATE TABLE weekly_knowledge (
   image_url TEXT,
   button_text TEXT,
   button_text_en TEXT,
-  button_text_am TEXT,
   button_link TEXT,
   content_type TEXT NOT NULL DEFAULT 'Knowledge',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'hidden')),

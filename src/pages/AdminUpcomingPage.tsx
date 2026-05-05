@@ -50,12 +50,11 @@ function createEmptyForm(): FormState {
     audioTitle: '',
     keyVerse: '',
     organizerNote: '',
-    advancedPracticeUrl: '',
     isActive: true,
     status: 'draft',
     mezmurs: [
-      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
-      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '', advancedPracticeUrl: '' },
+      { title: '', titleEn: '', titleAm: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '', advancedPracticeUrl: '' },
     ],
   }
 }
@@ -751,6 +750,20 @@ export function AdminUpcomingPage() {
                   className="min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30 sm:col-span-2"
                   placeholder="Audio link (optional)"
                 />
+                <label className="block text-sm font-medium text-brand-900 sm:col-span-2">
+                  {isAm ? `የላቀ ልምምድ አገናኝ (${index + 1})` : `Advanced practice link (${index + 1}, optional)`}
+                  <input
+                    type="url"
+                    value={mezmur.advancedPracticeUrl || ''}
+                    onChange={(event) => {
+                      const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                      mezmurs[index] = { ...mezmur, advancedPracticeUrl: event.target.value }
+                      setForm({ ...form, mezmurs })
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                    placeholder="https://..."
+                  />
+                </label>
               </div>
               <textarea
                 value={mezmur.lyrics || ''}
@@ -766,23 +779,6 @@ export function AdminUpcomingPage() {
             </div>
           ))}
         </div>
-        <label className="mt-6 block text-sm font-medium text-brand-900">
-          {isAm
-            ? 'የላቀ ልምምድ አገናኝ (አማራጭ) — ለምሳሌ የተወሰነ የተዋሕዶ ዴይሊ ገጽ'
-            : 'Advanced practice link (optional) — e.g. a specific Tewahedo Daily page'}
-          <input
-            type="url"
-            value={form.advancedPracticeUrl || ''}
-            onChange={(event) => setForm({ ...form, advancedPracticeUrl: event.target.value })}
-            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
-            placeholder="https://tewahedodaily.pages.dev/..."
-          />
-          <p className="mt-1 text-xs text-brand-600">
-            {isAm
-              ? 'ይህ አገናኝ በመዝሙር ገጹ ላይ «የላቀ ልምምድ» ቁልፍ ላይ ይታያል።'
-              : 'This URL appears on the public Mezmurs page as the “Advanced practice” button for this week.'}
-          </p>
-        </label>
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">

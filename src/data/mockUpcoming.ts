@@ -31,8 +31,6 @@ export interface UpcomingTimirtPreview {
   organizerNoteEn?: string
   organizerNoteAm?: string
   status?: 'draft' | 'published'
-  /** Optional deep link (e.g. Tewahedo Daily) for weekly mezmur practice; set by organizers. */
-  advancedPracticeUrl?: string
   mezmurs: [Mezmur, Mezmur]
 }
 

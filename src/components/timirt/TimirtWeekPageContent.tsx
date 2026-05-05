@@ -138,8 +138,8 @@ export function TimirtWeekPageContent({ week }: { week: WeeklyClass }) {
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <MezmurCard mezmur={week.mezmurs[0]} index={1} />
-          <MezmurCard mezmur={week.mezmurs[1]} index={2} />
+          <MezmurCard mezmur={week.mezmurs[0]} index={1} advancedPracticeUrl={week.mezmurs[0]?.advancedPracticeUrl} />
+          <MezmurCard mezmur={week.mezmurs[1]} index={2} advancedPracticeUrl={week.mezmurs[1]?.advancedPracticeUrl} />
         </div>
       </section>
 

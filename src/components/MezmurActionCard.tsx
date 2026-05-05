@@ -17,14 +17,11 @@ export function MezmurActionCard({
   mezmur,
   context,
   advancedPracticeUrl,
-  hideAdvancedPractice,
 }: {
   slot: 1 | 2
   mezmur: Pick<Mezmur, 'title' | 'titleEn' | 'titleAm' | 'transliteration' | 'youtubeUrl'>
   context?: MezmurActionCardContext
   advancedPracticeUrl?: string | null
-  /** When true, omit the advanced-practice row (e.g. second mezmur shares the week’s single link on mezmur 1). */
-  hideAdvancedPractice?: boolean
 }) {
   const t = useUiText()
   const { language } = useUiLanguage()
@@ -69,7 +66,7 @@ export function MezmurActionCard({
             {t('youtubeComingSoon')}
           </p>
         )}
-        {hideAdvancedPractice ? null : practiceHref ? (
+        {practiceHref ? (
           <a
             href={practiceHref}
             {...externalLinkProps(practiceHref)}

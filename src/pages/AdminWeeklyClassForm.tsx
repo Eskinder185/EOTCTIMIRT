@@ -214,8 +214,8 @@ function createEmptyForm(): FormState {
     organizerNote: '',
     status: 'draft',
     mezmurs: [
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
-      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '', advancedPracticeUrl: '' },
+      { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '', advancedPracticeUrl: '' },
     ],
     questions: [],
   }
@@ -350,6 +350,7 @@ export function AdminWeeklyClassForm() {
               lyrics: weeklyClass.mezmurs[0]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[0]?.youtubeUrl || '',
               audioUrl: weeklyClass.mezmurs[0]?.audioUrl || '',
+              advancedPracticeUrl: weeklyClass.mezmurs[0]?.advancedPracticeUrl || '',
             },
             {
               title: weeklyClass.mezmurs[1]?.title || '',
@@ -359,6 +360,7 @@ export function AdminWeeklyClassForm() {
               lyrics: weeklyClass.mezmurs[1]?.lyrics || '',
               youtubeUrl: weeklyClass.mezmurs[1]?.youtubeUrl || '',
               audioUrl: weeklyClass.mezmurs[1]?.audioUrl || '',
+              advancedPracticeUrl: weeklyClass.mezmurs[1]?.advancedPracticeUrl || '',
             },
           ],
           questions: weeklyClass.questions.map(questionFromDomain),
@@ -830,6 +832,20 @@ export function AdminWeeklyClassForm() {
                   onChange={(event) => {
                     const mezmurs = [...form.mezmurs] as FormState['mezmurs']
                     mezmurs[index] = { ...mezmur, audioUrl: event.target.value }
+                    setForm({ ...form, mezmurs })
+                  }}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="mt-4 block text-sm font-medium text-brand-900">
+                {isAm ? `የላቀ ልምምድ አገናኝ (${index + 1})` : `Advanced practice link (${index + 1}, optional)`}
+                <input
+                  type="url"
+                  value={mezmur.advancedPracticeUrl || ''}
+                  onChange={(event) => {
+                    const mezmurs = [...form.mezmurs] as FormState['mezmurs']
+                    mezmurs[index] = { ...mezmur, advancedPracticeUrl: event.target.value }
                     setForm({ ...form, mezmurs })
                   }}
                   className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"

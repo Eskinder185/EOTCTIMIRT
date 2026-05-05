@@ -1,3 +1,12 @@
+/** Best-effort parse of PostgREST / Postgres "column does not exist" messages. */
+export function parseSupabaseInvalidColumn(message: string | undefined | null): string | null {
+  if (!message) return null
+  const col =
+    message.match(/column\s+(\S+)\s+does not exist/i)?.[1] ??
+    message.match(/Could not find the ['"]([^'"]+)['"] column/i)?.[1]
+  return col ? col.replace(/^["']|["']$/g, '') : null
+}
+
 /** Log PostgREST / Supabase REST errors with stable fields for browser console debugging. */
 export function logSupabasePostgrestError(context: string, error: unknown): void {
   if (typeof error !== 'object' || error === null) {
@@ -9,7 +18,8 @@ export function logSupabasePostgrestError(context: string, error: unknown): void
   const details = typeof o.details === 'string' ? o.details : undefined
   const hint = typeof o.hint === 'string' ? o.hint : undefined
   const code = typeof o.code === 'string' ? o.code : undefined
-  console.error(`[${context}] Supabase error`, { message, details, hint, code })
+  const invalidColumn = parseSupabaseInvalidColumn(message)
+  console.error(`[${context}] Supabase error`, { message, details, hint, code, invalidColumn })
 }
 
 /**

@@ -33,6 +33,8 @@ export interface Mezmur {
   noteAm?: string
   youtubeUrl?: string
   audioUrl?: string
+  /** Optional deep link for practice (e.g. Tewahedo Daily); per mezmur slot. */
+  advancedPracticeUrl?: string
 }
 
 export interface QuestionBase {
