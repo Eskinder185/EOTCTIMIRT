@@ -126,6 +126,8 @@ export interface WeeklyClass {
   keyVerse?: string
   organizerNote?: string
   status?: 'draft' | 'published'
+  /** Optional weekly advanced practice link (e.g. specific Tewahedo Daily page). */
+  advancedPracticeUrl?: string
   mezmurs: [Mezmur, Mezmur]
   questions: Question[]
 }

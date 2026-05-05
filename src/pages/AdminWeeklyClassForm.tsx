@@ -212,6 +212,7 @@ function createEmptyForm(): FormState {
     audioNote: '',
     keyVerse: '',
     organizerNote: '',
+    advancedPracticeUrl: '',
     status: 'draft',
     mezmurs: [
       { title: '', transliteration: '', lyrics: '', youtubeUrl: '', audioUrl: '' },
@@ -340,6 +341,7 @@ export function AdminWeeklyClassForm() {
           audioNote: weeklyClass.audioNote || '',
           keyVerse: weeklyClass.keyVerse || '',
           organizerNote: weeklyClass.organizerNote || '',
+          advancedPracticeUrl: weeklyClass.advancedPracticeUrl || '',
           status: weeklyClass.status || 'draft',
           mezmurs: [
             {
@@ -853,6 +855,23 @@ export function AdminWeeklyClassForm() {
             </div>
           ))}
         </div>
+        <label className="mt-6 block text-sm font-medium text-brand-900">
+          {isAm
+            ? 'የላቀ ልምምድ አገናኝ (አማራጭ) — ለዚህ ሳምንት መዝሙር ገጽ'
+            : 'Advanced practice link (optional) — for this week’s mezmur page'}
+          <input
+            type="url"
+            value={form.advancedPracticeUrl || ''}
+            onChange={(event) => setForm({ ...form, advancedPracticeUrl: event.target.value })}
+            className="mt-2 min-h-12 w-full rounded-xl border border-brand-200 px-3 text-base text-brand-900 outline-none focus:ring-2 focus:ring-accent-600/30"
+            placeholder="https://tewahedodaily.pages.dev/..."
+          />
+          <p className="mt-1 text-xs text-brand-600">
+            {isAm
+              ? 'ለ«ያለፈው ሳምንት» መዝሙሮች በመዝሙር ገጹ ላይ ይጠቀማል።'
+              : 'Used on the public Mezmurs page for “Last week’s mezmurs” when that week is shown.'}
+          </p>
+        </label>
       </section>
 
       <section className="rounded-2xl border border-brand-200 bg-white p-4 shadow-sm sm:p-6">

@@ -1,8 +1,8 @@
 import { useUiLanguage } from '../contexts/LanguageContext'
 import type { Mezmur } from '../data/types'
 import { pickLocalized } from '../lib/bilingualText'
+import { normalizePracticeUrl } from '../lib/practiceLink'
 import { useUiText } from '../lib/uiText'
-import { TEWAHEDO_DAILY_PRACTICE_URL } from '../site/tewahedoDaily'
 
 export type MezmurActionCardContext = 'upcoming' | 'last-week'
 
@@ -16,10 +16,15 @@ export function MezmurActionCard({
   slot,
   mezmur,
   context,
+  advancedPracticeUrl,
+  hideAdvancedPractice,
 }: {
   slot: 1 | 2
   mezmur: Pick<Mezmur, 'title' | 'titleEn' | 'titleAm' | 'transliteration' | 'youtubeUrl'>
   context?: MezmurActionCardContext
+  advancedPracticeUrl?: string | null
+  /** When true, omit the advanced-practice row (e.g. second mezmur shares the week’s single link on mezmur 1). */
+  hideAdvancedPractice?: boolean
 }) {
   const t = useUiText()
   const { language } = useUiLanguage()
@@ -27,6 +32,7 @@ export function MezmurActionCard({
   const titleDisplay = pickLocalized(language, mezmur.titleEn, mezmur.titleAm, mezmur.title)
   const youtube = mezmur.youtubeUrl?.trim()
   const hasYoutube = Boolean(youtube)
+  const practiceHref = normalizePracticeUrl(advancedPracticeUrl)
 
   return (
     <article className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 sm:p-4">
@@ -63,13 +69,19 @@ export function MezmurActionCard({
             {t('youtubeComingSoon')}
           </p>
         )}
-        <a
-          href={TEWAHEDO_DAILY_PRACTICE_URL}
-          {...externalLinkProps(TEWAHEDO_DAILY_PRACTICE_URL)}
-          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-center text-sm font-semibold text-brand-900 shadow-sm hover:bg-brand-50 sm:min-w-40 sm:flex-none"
-        >
-          {t('practiceOnTewahedoDaily')}
-        </a>
+        {hideAdvancedPractice ? null : practiceHref ? (
+          <a
+            href={practiceHref}
+            {...externalLinkProps(practiceHref)}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-brand-200 bg-white px-4 py-2 text-center text-sm font-semibold text-brand-900 shadow-sm hover:bg-brand-50 sm:min-w-40 sm:flex-none"
+          >
+            {t('advancedPractice')}
+          </a>
+        ) : (
+          <p className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-dashed border-brand-200 bg-white/60 px-3 text-center text-xs text-brand-600 sm:min-w-40 sm:flex-none">
+            {isAm ? 'የላቀ ልምምድ አገናኝ በቅርቡ' : 'Advanced practice link not set yet'}
+          </p>
+        )}
       </div>
     </article>
   )

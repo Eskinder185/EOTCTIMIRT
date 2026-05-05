@@ -4,7 +4,7 @@
  */
 
 export const CHURCH_FULL_NAME =
-  'EOTC Timirt — Mekane Selam St. Michael Ethiopian Orthodox Tewahedo Church'
+  'ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'
 
 /** Hero / home church line (Amharic). */
 export const CHURCH_FULL_NAME_AM =
@@ -12,12 +12,12 @@ export const CHURCH_FULL_NAME_AM =
 
 /** Footer church name without the Timirt prefix (bilingual). */
 export const CHURCH_FOOTER_LINE_EN =
-  'Mekane Selam St. Michael Ethiopian Orthodox Tewahedo Church'
+  'ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'
 
 export const CHURCH_FOOTER_LINE_AM =
   'መካነ ሰላም ቅዱስ ሚካኤል የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ ቤተ ክርስቲያን'
 
-export const CHURCH_SHORT_NAME = 'Mekane Selam St. Michael Church'
+export const CHURCH_SHORT_NAME = 'ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'
 
 export const CHURCH_ADDRESS = '260 N Clarendon Ave, Scottdale, GA 30079'
 
@@ -58,7 +58,7 @@ export const TIMIRT_SCHEDULE_LABEL = 'Tuesday · 7:30 PM – 9:00 PM'
 export const TIMIRT_SCHEDULE_LABEL_AM = 'ማክሰኞ · 7:30 PM – 9:00 PM'
 
 export const TELEGRAM_GROUP_NAME =
-  'EOTC Timirt by Mekane Selam St. Michael Church'
+  'EOTC Timirt by ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'
 
 /** Public organizer contacts for Timirit logistics (Telegram-capable numbers). */
 export const ORGANIZER_SUPPORT = {

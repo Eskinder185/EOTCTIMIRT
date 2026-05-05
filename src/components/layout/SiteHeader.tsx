@@ -42,7 +42,7 @@ export function SiteHeader() {
           className="min-w-0 shrink-0 rounded-xl px-2 py-1.5 ring-brand-200 transition hover:bg-brand-100/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
         >
           <p className="truncate text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-brand-700">
-            Mekane Selam St. Michael
+            Atlanta Mekane Selam Kidus Michael & Kidane Mehiret
           </p>
           <p className="truncate text-base font-bold text-brand-900 sm:text-lg">EOTC Timirt</p>
         </Link>

@@ -25,6 +25,10 @@ const uiText = {
     en: 'Practice on Tewahedo Daily',
     am: 'በተዋሕዶ ዴይሊ ይለማመዱ',
   },
+  advancedPractice: {
+    en: 'Advanced practice',
+    am: 'የላቀ ልምምድ',
+  },
   youtubeComingSoon: { en: 'YouTube link coming soon', am: 'የዩቲዩብ አገናኝ በቅርቡ ይመጣል' },
   contextUpcoming: { en: 'Upcoming', am: 'የሚቀጥለው' },
   contextLastWeek: { en: 'Last week', am: 'ያለፈው ሳምንት' },

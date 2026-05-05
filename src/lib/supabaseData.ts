@@ -68,6 +68,7 @@ export interface WeeklyClassEditorInput {
   audioNote?: string
   keyVerse?: string
   organizerNote?: string
+  advancedPracticeUrl?: string
   status?: 'draft' | 'published'
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
   questions: EditorQuestionInput[]
@@ -91,6 +92,7 @@ export interface UpcomingTimirtEditorInput {
   audioTitle?: string
   keyVerse?: string
   organizerNote?: string
+  advancedPracticeUrl?: string
   isActive: boolean
   status: 'draft' | 'published'
   mezmurs: [EditorMezmurInput, EditorMezmurInput]
@@ -316,6 +318,7 @@ function mapClass(row: WeeklyClassRow, mezmurs: MezmurRow[], questions: Question
     mainPoints: parseMainPoints(row.main_points),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
+    advancedPracticeUrl: trim(row.advanced_practice_url),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [m[0] ?? { title: '' }, m[1] ?? { title: '' }],
     questions,
@@ -344,6 +347,7 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     'audio_title',
     'audio_note',
     'organizer_note',
+    'advanced_practice_url',
     'status',
     'created_at',
     'updated_at',
@@ -398,7 +402,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
       if (shouldRetryWithLegacySelect(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
         const legacy = await supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,advanced_practice_url,status,is_active')
           .eq('is_active', true)
           .order('scheduled_date', { ascending: true })
           .limit(1)
@@ -433,6 +437,7 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     lessonNote: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
+    advancedPracticeUrl: trim(row.advanced_practice_url),
     status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
       {
@@ -581,6 +586,7 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
     audio_note: trim(data.audioNote) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,
+    advanced_practice_url: trim(data.advancedPracticeUrl) ?? null,
     status: data.status ?? 'published',
   }
   if (import.meta.env.DEV) {
@@ -751,7 +757,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
       if (shouldRetryWithLegacySelect(result.error, 'upcoming_timirit', 'main_points')) {
         let legacyQuery = supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,advanced_practice_url,status,is_active')
           .order('scheduled_date', { ascending: true })
           .limit(1)
         legacyQuery = id ? legacyQuery.eq('id', id) : legacyQuery.eq('is_active', true)
@@ -783,6 +789,7 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
+    advancedPracticeUrl: trim(row.advanced_practice_url),
     isActive: row.is_active ?? true, status: row.status === 'published' ? 'published' : 'draft',
     mezmurs: [
       {
@@ -824,6 +831,7 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null, audio_title: trim(data.audioTitle) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,
+    advanced_practice_url: trim(data.advancedPracticeUrl) ?? null,
     is_active: data.isActive, status: data.status,
   }
   let saved: { id: string } | null = null

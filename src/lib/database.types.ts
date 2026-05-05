@@ -233,6 +233,7 @@ export type Database = {
           class_summary_en: string | null
           audio_title: string | null
           audio_url: string | null
+          advanced_practice_url: string | null
           id: string
           is_active: boolean | null
           main_points: Json | null
@@ -257,6 +258,7 @@ export type Database = {
           class_summary_en?: string | null
           audio_title?: string | null
           audio_url?: string | null
+          advanced_practice_url?: string | null
           id?: string
           is_active?: boolean | null
           main_points?: Json | null
@@ -281,6 +283,7 @@ export type Database = {
           class_summary_en?: string | null
           audio_title?: string | null
           audio_url?: string | null
+          advanced_practice_url?: string | null
           id?: string
           is_active?: boolean | null
           main_points?: Json | null
@@ -396,6 +399,7 @@ export type Database = {
           audio_note: string | null
           audio_title: string | null
           audio_url: string | null
+          advanced_practice_url: string | null
           created_at: string
           created_by: string | null
           date: string
@@ -418,6 +422,7 @@ export type Database = {
           audio_note?: string | null
           audio_title?: string | null
           audio_url?: string | null
+          advanced_practice_url?: string | null
           created_at?: string
           created_by?: string | null
           date: string
@@ -440,6 +445,7 @@ export type Database = {
           audio_note?: string | null
           audio_title?: string | null
           audio_url?: string | null
+          advanced_practice_url?: string | null
           created_at?: string
           created_by?: string | null
           date?: string

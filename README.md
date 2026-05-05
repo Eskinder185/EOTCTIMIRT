@@ -1,10 +1,10 @@
-# EOTC Timirt — Mekane Selam St. Michael (EOTC)
+# EOTC Timirt — ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC
 
 Mobile-first **Ethiopian Orthodox Tewahedo** parish site for weekly **Timirit**: lesson recap, mezmurs, follow-up, and organizer tools. Tone, wording, and structure stay within the Holy Orthodox Church of Ethiopia — this hub is not a substitute for the Mysteries, spiritual fatherhood, or the Divine Liturgy.
 
 ## Related Orthodox site
 
-[Tewahedo Daily](https://tewahedodaily.pages.dev/) is linked as a **supporting** resource (prayers, calendar, hymns). This project focuses on **Tuesday Timirit** at Mekane Selam St. Michael.
+[Tewahedo Daily](https://tewahedodaily.pages.dev/) is linked as a **supporting** resource (prayers, calendar, hymns). This project focuses on **Tuesday Timirit** at ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC.
 
 ## Tech stack
 

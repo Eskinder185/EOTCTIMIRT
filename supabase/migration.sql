@@ -604,3 +604,10 @@ WHERE button_text IS NOT NULL;
 ALTER TABLE weekly_knowledge
   ALTER COLUMN title DROP NOT NULL,
   ALTER COLUMN content DROP NOT NULL;
+
+-- Weekly advanced practice link (e.g. specific Tewahedo Daily page), set by organizers
+ALTER TABLE upcoming_timirit
+  ADD COLUMN IF NOT EXISTS advanced_practice_url TEXT;
+
+ALTER TABLE weekly_classes
+  ADD COLUMN IF NOT EXISTS advanced_practice_url TEXT;

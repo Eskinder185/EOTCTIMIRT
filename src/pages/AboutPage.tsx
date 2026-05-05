@@ -30,7 +30,7 @@ export function AboutPage() {
           <p className="font-semibold text-brand-900">
             {isAm
               ? 'መካነ ሰላም ቅዱስ ሚካኤል እና ኪዳነ ምሕረት የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ ቤተ ክርስቲያን'
-              : 'Mekane Selam St. Michael Ethiopian Orthodox Tewahedo Church'}
+              : 'ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'}
           </p>
           <p className="mt-1">260 N Clarendon Ave, Scottdale, GA 30079</p>
           <p className="mt-1 text-brand-700">{isAm ? 'በየሳምንቱ ማክሰኞ · 7:30 ፒኤም – 9:00 ፒኤም' : 'Every Tuesday · 7:30 PM - 9:00 PM'}</p>
@@ -125,7 +125,11 @@ export function AboutPage() {
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{isAm ? 'ቴሌግራም' : 'Telegram'}</p>
           <h2 className="mt-1 text-lg font-semibold text-brand-900">{isAm ? 'ሳምንታዊ የትምህርት ዝማኔዎችን ይቀላቀሉ' : 'Join Weekly Timirt Updates'}</h2>
-          <p className="mt-2 text-sm font-medium text-brand-900">{isAm ? 'EOTC ትምህርት — መካነ ሰላም ቅዱስ ሚካኤል ቤተ ክርስቲያን' : 'EOTC Timirt — Mekane Selam St. Michael Church'}</p>
+          <p className="mt-2 text-sm font-medium text-brand-900">
+            {isAm
+              ? 'EOTC ትምህርት — መካነ ሰላም ቅዱስ ሚካኤል ቤተ ክርስቲያን'
+              : 'EOTC Timirt — ATLANTA MEKANE SELAM KIDUS MICHAEL & KIDANE MEHIRET EOTC'}
+          </p>
           <p className="mt-2 text-sm leading-relaxed text-brand-700">
             {isAm
               ? 'ሳምንታዊ የትምህርት ማሳሰቢያዎችን፣ ዝማኔዎችን እና አስፈላጊ የክፍል መረጃዎችን ለመቀበል ከአደራጆቹ አንዱን እንዲያክልዎት ይጠይቁ።'

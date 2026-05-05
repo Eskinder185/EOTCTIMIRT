@@ -90,8 +90,8 @@ export function MezmurPage() {
         </p>
         <p className="mt-2 text-sm leading-relaxed text-brand-700">
           {isAm
-            ? 'ለሚቀጥለው ክፍል እና ለባለፈው ሳምንት የተመረጡ መዝሙሮችን ይመልከቱ፤ ሲገኝ በዩቲዩብ ይመልከቱ፣ እንዲሁም ለጥልቅ ትምህርትና ልምምድ ተዋሕዶ ዴይሊን ይጠቀሙ።'
-            : 'View the mezmurs for the upcoming class and the previous week, open YouTube when available, and use Tewahedo Daily for deeper learning and practice.'}
+            ? 'ለሚቀጥለው ክፍል እና ለባለፈው ሳምንት የተመረጡ መዝሙሮችን ይመልከቱ፤ ሲገኝ በዩቲዩብ ይመልከቱ፣ እንዲሁም አስተባባሪዎች ከሰጡት አገናኝ የላቀ ልምምድ ይጠቀሙ።'
+            : 'View the mezmurs for the upcoming class and the previous week, open YouTube when available, and use Advanced practice when organizers share this week’s link.'}
         </p>
         <div className="mt-4">
           <Link
@@ -129,8 +129,13 @@ export function MezmurPage() {
           </p>
         ) : null}
         <div className="mt-4 space-y-3">
-          <MezmurActionCard slot={1} mezmur={upcomingMezmurs[0]} context="upcoming" />
-          <MezmurActionCard slot={2} mezmur={upcomingMezmurs[1]} context="upcoming" />
+          <MezmurActionCard
+            slot={1}
+            mezmur={upcomingMezmurs[0]}
+            context="upcoming"
+            advancedPracticeUrl={upcoming?.advancedPracticeUrl}
+          />
+          <MezmurActionCard slot={2} mezmur={upcomingMezmurs[1]} context="upcoming" hideAdvancedPractice />
         </div>
       </Card>
 
@@ -150,8 +155,13 @@ export function MezmurPage() {
               <span className="text-brand-500"> · </span>
               {lastWeek.topic}
             </p>
-            <MezmurActionCard slot={1} mezmur={lastWeek.mezmurs[0]} context="last-week" />
-            <MezmurActionCard slot={2} mezmur={lastWeek.mezmurs[1]} context="last-week" />
+            <MezmurActionCard
+              slot={1}
+              mezmur={lastWeek.mezmurs[0]}
+              context="last-week"
+              advancedPracticeUrl={lastWeek.advancedPracticeUrl}
+            />
+            <MezmurActionCard slot={2} mezmur={lastWeek.mezmurs[1]} context="last-week" hideAdvancedPractice />
           </div>
         ) : (
           <p className="mt-2 text-sm text-brand-700">
