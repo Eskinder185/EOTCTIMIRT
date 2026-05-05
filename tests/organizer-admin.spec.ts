@@ -20,7 +20,15 @@ async function installSupabaseMock(page: Page) {
     multiple_choice_options: [] as Row[],
     attendance_options: [] as Row[],
     upcoming_timirit: [
-      { id: 'upcoming-1', scheduled_date: '2026-05-05', topic_preview: '', note: '', is_active: false, status: 'draft' },
+      {
+        id: 'upcoming-1',
+        scheduled_date: '2026-05-05',
+        topic_preview: '',
+        note: '',
+        is_active: false,
+        publication_status: 'draft',
+        main_points: [],
+      },
     ] as Row[],
     upcoming_mezmurs: [] as Row[],
     weekly_knowledge: [] as Row[],
@@ -151,6 +159,9 @@ async function loginOrganizer(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('eotc-ui-language', 'en')
+  })
   await installSupabaseMock(page)
   await loginOrganizer(page)
 })
@@ -161,7 +172,7 @@ test('organizer dashboard links open real tools', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/weekly-classes/)
 
   await page.goto('/organizer')
-  await page.getByRole('link', { name: 'Upcoming Timirit' }).click()
+  await page.getByRole('link', { name: 'Upcoming Timirt' }).click()
   await expect(page).toHaveURL(/\/admin\/upcoming/)
 
   await page.goto('/organizer')
@@ -202,7 +213,7 @@ test('weekly class form supports draft, publish, update, optional fields, biling
 test('upcoming timirit supports draft, publish, edit, deactivate, delete, optional and bilingual', async ({ page }) => {
   await page.goto('/admin/upcoming')
 
-  await page.getByLabel('Next topic').fill('Orthodox family prayer')
+  await page.getByRole('textbox', { name: 'Next Topic — English' }).fill('Orthodox family prayer')
   await page.getByRole('button', { name: 'Save as draft' }).click()
   await expect(page.getByText('Draft saved. It is private until you publish.')).toBeVisible()
 
@@ -210,12 +221,12 @@ test('upcoming timirit supports draft, publish, edit, deactivate, delete, option
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   await expect(page.getByText('deleted permanently')).toBeVisible()
 
-  await page.getByLabel('Next topic').fill('')
-  await page.getByLabel('Preview note').fill('')
+  await page.getByRole('textbox', { name: 'Next Topic — English' }).fill('')
+  await page.getByRole('textbox', { name: 'Preview Note — English' }).fill('')
   await page.getByRole('button', { name: 'Publish update' }).click()
   await expect(page.getByText('Upcoming Timirit published')).toBeVisible()
 
-  await page.getByLabel('Next topic').fill('Orthodox family prayer')
+  await page.getByRole('textbox', { name: 'Next Topic — English' }).fill('Orthodox family prayer')
   await page.getByRole('button', { name: 'Publish update' }).click()
   await expect(page.getByText('Upcoming Timirit published')).toBeVisible()
 
@@ -229,9 +240,9 @@ test('upcoming timirit supports draft, publish, edit, deactivate, delete, option
 
 test('weekly knowledge supports create draft publish unpublish archive with optional blanks', async ({ page }) => {
   await page.goto('/admin/weekly-knowledge')
-  await page.getByRole('button', { name: 'Create new entry' }).click()
+  await page.getByRole('button', { name: 'Create New Entry' }).click()
 
-  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Week of mercy')
+  await page.getByRole('textbox', { name: 'Title — English', exact: true }).fill('Week of mercy')
   await page.getByRole('button', { name: 'Save Draft' }).click()
   await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
 
@@ -239,7 +250,7 @@ test('weekly knowledge supports create draft publish unpublish archive with opti
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   await expect(page.getByText('Weekly knowledge entry deleted permanently.')).toBeVisible()
 
-  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Week of mercy')
+  await page.getByRole('textbox', { name: 'Title — English', exact: true }).fill('Week of mercy')
   await page.getByRole('button', { name: 'Save Draft' }).click()
   await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
@@ -249,7 +260,7 @@ test('weekly knowledge supports create draft publish unpublish archive with opti
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   await expect(page.getByText('Weekly knowledge entry deleted permanently.')).toBeVisible()
 
-  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Week of mercy')
+  await page.getByRole('textbox', { name: 'Title — English', exact: true }).fill('Week of mercy')
   await page.getByRole('button', { name: 'Save Draft' }).click()
   await expect(page.getByText('Weekly knowledge draft saved.')).toBeVisible()
   await page.getByRole('button', { name: 'Publish', exact: true }).click()

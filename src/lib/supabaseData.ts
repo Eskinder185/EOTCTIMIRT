@@ -116,6 +116,16 @@ type QuestionRow = Database['public']['Tables']['questions']['Row']
 type McOptionRow = Database['public']['Tables']['multiple_choice_options']['Row']
 type MezmurRow = Database['public']['Tables']['mezmurs']['Row']
 type WeeklyKnowledgeRow = Database['public']['Tables']['weekly_knowledge']['Row']
+type UpcomingTimiritRow = Database['public']['Tables']['upcoming_timirit']['Row']
+type UpcomingMezmurRow = Database['public']['Tables']['upcoming_mezmurs']['Row']
+
+/** Narrow JSON/unknown row values for `pickLocalized` / `trim` (expects strings only). */
+function asOptionalString(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value === 'string') return value
+  return undefined
+}
 
 let weeklyClassesCache: WeeklyClass[] | null = null
 let weeklyClassesCacheTimestamp = 0
@@ -227,44 +237,89 @@ function shouldRetryWithLegacySelect(error: unknown, table: string, column: stri
   return maybe.code === '400' || message.includes('does not exist') || message.includes(column)
 }
 
-/** Loose row shape for reads (legacy DBs may omit or rename fields). */
-type UpcomingTimiritRecord = Record<string, unknown>
+/** Row subset when `main_points` is omitted (PostgREST legacy fallback). */
+type UpcomingTimiritLegacyRow = Pick<
+  UpcomingTimiritRow,
+  | 'id'
+  | 'scheduled_date'
+  | 'topic_preview'
+  | 'topic_preview_en'
+  | 'topic_preview_am'
+  | 'note'
+  | 'note_en'
+  | 'note_am'
+  | 'class_summary_content'
+  | 'class_summary_content_en'
+  | 'class_summary_content_am'
+  | 'lesson_youtube_url'
+  | 'lesson_audio_url'
+  | 'lesson_audio_title'
+  | 'key_verse'
+  | 'organizer_note'
+  | 'publication_status'
+  | 'is_active'
+>
 
 const UPCOMING_TIMIRIT_LEGACY_SELECT =
   'id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary_content,class_summary_content_en,class_summary_content_am,lesson_youtube_url,lesson_audio_url,lesson_audio_title,key_verse,organizer_note,publication_status,is_active'
 
-function readUpcomingYoutubeUrl(row: UpcomingTimiritRecord): string | undefined {
-  return trim(row.lesson_youtube_url as string | null | undefined) ?? trim(row.youtube_url as string | null | undefined)
+function readUpcomingYoutubeUrl(row: UpcomingTimiritLegacyRow): string | undefined {
+  return trim(row.lesson_youtube_url)
 }
 
-function readUpcomingAudioUrl(row: UpcomingTimiritRecord): string | undefined {
-  return trim(row.lesson_audio_url as string | null | undefined) ?? trim(row.audio_url as string | null | undefined)
+function readUpcomingAudioUrl(row: UpcomingTimiritLegacyRow): string | undefined {
+  return trim(row.lesson_audio_url)
 }
 
-function readUpcomingAudioTitle(row: UpcomingTimiritRecord): string | undefined {
-  return trim(row.lesson_audio_title as string | null | undefined) ?? trim(row.audio_title as string | null | undefined)
+function readUpcomingAudioTitle(row: UpcomingTimiritLegacyRow): string | undefined {
+  return trim(row.lesson_audio_title)
 }
 
-function readUpcomingPublicationStatus(row: UpcomingTimiritRecord): 'published' | 'draft' {
-  const ps = trim(row.publication_status as string | null | undefined)
+/** Map DB `publication_status` + `is_active` to editor `status` (no `status` column on `upcoming_timirit`). */
+function readUpcomingPublicationStatus(row: UpcomingTimiritLegacyRow): 'published' | 'draft' {
+  const ps = trim(row.publication_status)
   if (ps === 'published' || ps === 'draft') return ps
-  const st = trim(row.status as string | null | undefined)
-  if (st === 'published') return 'published'
-  return 'draft'
+  return row.is_active === true ? 'published' : 'draft'
 }
 
-function readUpcomingClassSummaryFields(row: UpcomingTimiritRecord) {
-  const raw = row as Record<string, string | null | undefined>
-  const en =
-    trim(raw.class_summary_content_en) ??
-    trim(raw.class_summary_en) ??
-    trim(raw.class_summary_content) ??
-    trim(raw.class_summary)
-  const am = trim(raw.class_summary_content_am) ?? trim(raw.class_summary_am)
-  const fallback =
-    pickLocalized(raw.class_summary_content_en, raw.class_summary_content_am, raw.class_summary_content) ??
-    pickLocalized(raw.class_summary_en, raw.class_summary_am, raw.class_summary)
+function readUpcomingClassSummaryFields(row: UpcomingTimiritLegacyRow) {
+  const en = trim(row.class_summary_content_en) ?? trim(row.class_summary_content)
+  const am = trim(row.class_summary_content_am)
+  const fallback = pickLocalized(row.class_summary_content_en, row.class_summary_content_am, row.class_summary_content)
   return { classSummary: fallback, classSummaryEn: en, classSummaryAm: am }
+}
+
+function narrowUpcomingTimiritLegacyRow(raw: unknown): UpcomingTimiritLegacyRow | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const o = raw as Record<string, unknown>
+  const id = asOptionalString(o.id)
+  const scheduled_date = asOptionalString(o.scheduled_date)
+  if (!id || !scheduled_date) return null
+  return {
+    id,
+    scheduled_date,
+    topic_preview: asOptionalString(o.topic_preview) ?? null,
+    topic_preview_en: asOptionalString(o.topic_preview_en) ?? null,
+    topic_preview_am: asOptionalString(o.topic_preview_am) ?? null,
+    note: asOptionalString(o.note) ?? null,
+    note_en: asOptionalString(o.note_en) ?? null,
+    note_am: asOptionalString(o.note_am) ?? null,
+    class_summary_content: asOptionalString(o.class_summary_content) ?? null,
+    class_summary_content_en: asOptionalString(o.class_summary_content_en) ?? null,
+    class_summary_content_am: asOptionalString(o.class_summary_content_am) ?? null,
+    lesson_youtube_url: asOptionalString(o.lesson_youtube_url) ?? null,
+    lesson_audio_url: asOptionalString(o.lesson_audio_url) ?? null,
+    lesson_audio_title: asOptionalString(o.lesson_audio_title) ?? null,
+    key_verse: asOptionalString(o.key_verse) ?? null,
+    organizer_note: asOptionalString(o.organizer_note) ?? null,
+    publication_status: asOptionalString(o.publication_status) ?? 'draft',
+    is_active: o.is_active === true ? true : o.is_active === false ? false : null,
+  }
+}
+
+function upcomingRawMainPoints(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  return (raw as Record<string, unknown>).main_points
 }
 
 function parseOptionalUuid(value?: string | null): string | undefined {
@@ -281,7 +336,7 @@ function throwSupabaseWriteError(
   payload?: unknown,
 ): never | void {
   if (!error) return
-  logSupabasePostgrestError(`${table}.${operation}`, error, payload)
+  logSupabasePostgrestError(`${table}.${operation}`, error, payload, table, operation)
   const invalidColumn = parseSupabaseInvalidColumn(error.message)
   const enriched = {
     table,
@@ -408,7 +463,7 @@ export async function getWeeklyClasses(): Promise<WeeklyClass[]> {
     .select(weeklyClassSelectShapeLegacy)
     .order('date', { ascending: false })
   if (error) {
-    logSupabasePostgrestError('getWeeklyClasses', error)
+    logSupabasePostgrestError('getWeeklyClasses', error, undefined, 'weekly_classes', 'select')
     throw error
   }
   const rows = (classRows ?? []) as unknown as WeeklyClassRow[]
@@ -439,7 +494,7 @@ export async function getWeeklyClass(id: string): Promise<WeeklyClass | null> {
 
 export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null> {
   if (!supabase) return null
-  let data: Array<Record<string, unknown>> | null = null
+  let firstRowRaw: unknown = null
   {
     const withMainPoints = await supabase
       .from('upcoming_timirit')
@@ -451,22 +506,32 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
       if (shouldRetryWithLegacySelect(withMainPoints.error, 'upcoming_timirit', 'main_points')) {
         const legacy = await supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .select(UPCOMING_TIMIRIT_LEGACY_SELECT)
           .eq('is_active', true)
           .order('scheduled_date', { ascending: true })
           .limit(1)
-        if (legacy.error) throw legacy.error
-        data = legacy.data as Array<Record<string, unknown>> | null
+        if (legacy.error) {
+          logSupabasePostgrestError('getUpcomingTimirt legacy select', legacy.error, undefined, 'upcoming_timirit', 'select')
+          throw legacy.error
+        }
+        firstRowRaw = legacy.data?.[0] ?? null
       } else {
+        logSupabasePostgrestError('getUpcomingTimirt select', withMainPoints.error, undefined, 'upcoming_timirit', 'select')
         throw withMainPoints.error
       }
     } else {
-      data = withMainPoints.data as Array<Record<string, unknown>> | null
+      firstRowRaw = withMainPoints.data?.[0] ?? null
     }
   }
-  const row = data?.[0] as Database['public']['Tables']['upcoming_timirit']['Row'] | undefined
+  const row = narrowUpcomingTimiritLegacyRow(firstRowRaw)
   if (!row) return null
   const { data: mezmurs } = await supabase.from('upcoming_mezmurs').select('*').eq('upcoming_timirit_id', row.id).order('order_index', { ascending: true })
+  const m0 = mezmurs?.[0] as UpcomingMezmurRow | undefined
+  const m1 = mezmurs?.[1] as UpcomingMezmurRow | undefined
+  const classSummaryFields = readUpcomingClassSummaryFields(row)
+  const yt = readUpcomingYoutubeUrl(row)
+  const au = readUpcomingAudioUrl(row)
+  const at = readUpcomingAudioTitle(row)
   return {
     scheduledDate: row.scheduled_date,
     topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '',
@@ -475,38 +540,38 @@ export async function getUpcomingTimirt(): Promise<UpcomingTimirtPreview | null>
     note: pickLocalized(row.note_en, row.note_am, row.note) ?? '',
     noteEn: trim(row.note_en) ?? trim(row.note),
     noteAm: trim(row.note_am),
-    classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
-    classSummaryEn: trim(row.class_summary_en) ?? trim(row.class_summary),
-    classSummaryAm: trim(row.class_summary_am),
-    mainPoints: parseMainPoints(row.main_points),
-    youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
-    lessonYoutubeUrl: trim(row.youtube_url),
-    lessonAudioUrl: trim(row.audio_url),
-    lessonAudioTitle: trim(row.audio_title),
-    lessonNote: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
+    classSummary: classSummaryFields.classSummary,
+    classSummaryEn: classSummaryFields.classSummaryEn,
+    classSummaryAm: classSummaryFields.classSummaryAm,
+    mainPoints: parseMainPoints(upcomingRawMainPoints(firstRowRaw)),
+    youtubeUrl: yt, audioUrl: au, audioTitle: at,
+    lessonYoutubeUrl: yt,
+    lessonAudioUrl: au,
+    lessonAudioTitle: at,
+    lessonNote: classSummaryFields.classSummary,
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
-    status: row.status === 'published' ? 'published' : 'draft',
+    status: readUpcomingPublicationStatus(row),
     mezmurs: [
       {
-        title: pickLocalized(mezmurs?.[0]?.title_en, mezmurs?.[0]?.title_am, mezmurs?.[0]?.title) ?? '',
-        titleEn: trim(mezmurs?.[0]?.title_en) ?? trim(mezmurs?.[0]?.title),
-        titleAm: trim(mezmurs?.[0]?.title_am),
-        transliteration: trim(mezmurs?.[0]?.transliteration),
-        lyrics: trim(mezmurs?.[0]?.lyrics),
-        youtubeUrl: trim(mezmurs?.[0]?.youtube_url),
-        audioUrl: trim(mezmurs?.[0]?.audio_url),
-        advancedPracticeUrl: trim(mezmurs?.[0]?.advanced_practice_url),
+        title: pickLocalized(m0?.title_en, m0?.title_am, m0?.title) ?? '',
+        titleEn: trim(m0?.title_en) ?? trim(m0?.title),
+        titleAm: trim(m0?.title_am),
+        transliteration: trim(m0?.transliteration),
+        lyrics: trim(m0?.lyrics),
+        youtubeUrl: trim(m0?.youtube_url),
+        audioUrl: trim(m0?.audio_url),
+        advancedPracticeUrl: trim(m0?.advanced_practice_url),
       },
       {
-        title: pickLocalized(mezmurs?.[1]?.title_en, mezmurs?.[1]?.title_am, mezmurs?.[1]?.title) ?? '',
-        titleEn: trim(mezmurs?.[1]?.title_en) ?? trim(mezmurs?.[1]?.title),
-        titleAm: trim(mezmurs?.[1]?.title_am),
-        transliteration: trim(mezmurs?.[1]?.transliteration),
-        lyrics: trim(mezmurs?.[1]?.lyrics),
-        youtubeUrl: trim(mezmurs?.[1]?.youtube_url),
-        audioUrl: trim(mezmurs?.[1]?.audio_url),
-        advancedPracticeUrl: trim(mezmurs?.[1]?.advanced_practice_url),
+        title: pickLocalized(m1?.title_en, m1?.title_am, m1?.title) ?? '',
+        titleEn: trim(m1?.title_en) ?? trim(m1?.title),
+        titleAm: trim(m1?.title_am),
+        transliteration: trim(m1?.transliteration),
+        lyrics: trim(m1?.lyrics),
+        youtubeUrl: trim(m1?.youtube_url),
+        audioUrl: trim(m1?.audio_url),
+        advancedPracticeUrl: trim(m1?.advanced_practice_url),
       },
     ],
   }
@@ -544,7 +609,7 @@ export async function getActiveWeeklyKnowledge(targetDate?: string): Promise<Wee
   const date = targetDate ?? new Date().toISOString().slice(0, 10)
   const { data, error } = await supabase.from('weekly_knowledge').select('*').eq('is_active', true).eq('status', 'published').order('updated_at', { ascending: false }).limit(25)
   if (error) {
-    logSupabasePostgrestError('getActiveWeeklyKnowledge', error)
+    logSupabasePostgrestError('getActiveWeeklyKnowledge', error, undefined, 'weekly_knowledge', 'select')
     throw error
   }
   const row = (data ?? []).find((x) => (!x.start_date || x.start_date <= date) && (!x.end_date || x.end_date >= date))
@@ -555,7 +620,7 @@ export async function listWeeklyKnowledgeForAdmin(): Promise<WeeklyKnowledgeItem
   if (!supabase) return []
   const { data, error } = await supabase.from('weekly_knowledge').select('*').order('updated_at', { ascending: false })
   if (error) {
-    logSupabasePostgrestError('listWeeklyKnowledgeForAdmin', error)
+    logSupabasePostgrestError('listWeeklyKnowledgeForAdmin', error, undefined, 'weekly_knowledge', 'select')
     throw error
   }
   return (data ?? []).map(mapKnowledge)
@@ -565,7 +630,7 @@ export async function getWeeklyKnowledgeForAdmin(id: string): Promise<WeeklyKnow
   if (!supabase) return null
   const { data, error } = await supabase.from('weekly_knowledge').select('*').eq('id', id).maybeSingle()
   if (error) {
-    logSupabasePostgrestError('getWeeklyKnowledgeForAdmin', error, { id })
+    logSupabasePostgrestError('getWeeklyKnowledgeForAdmin', error, { id }, 'weekly_knowledge', 'select')
     throw error
   }
   return data ? mapKnowledge(data) : null
@@ -796,7 +861,10 @@ export async function saveWeeklyClassEditor(data: WeeklyClassEditorInput): Promi
 export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListItem[]> {
   if (!supabase) return []
   const { data, error } = await supabase.from('upcoming_timirit').select('*').order('scheduled_date', { ascending: true })
-  if (error) throw error
+  if (error) {
+    logSupabasePostgrestError('listUpcomingTimiritForAdmin', error, undefined, 'upcoming_timirit', 'select')
+    throw error
+  }
   return (data ?? []).map((r) => ({
     id: r.id,
     scheduledDate: r.scheduled_date,
@@ -807,7 +875,7 @@ export async function listUpcomingTimiritForAdmin(): Promise<UpcomingTimirtListI
     noteEn: trim(r.note_en) ?? trim(r.note),
     noteAm: trim(r.note_am),
     isActive: r.is_active ?? false,
-    status: r.status === 'published' ? 'published' : 'draft',
+    status: readUpcomingPublicationStatus(r),
   }))
 }
 
@@ -817,30 +885,40 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
   if (!supabase) return null
   let query = supabase.from('upcoming_timirit').select('*').order('scheduled_date', { ascending: true }).limit(1)
   query = id ? query.eq('id', id) : query.eq('is_active', true)
-  let data: Array<Record<string, unknown>> | null = null
+  let firstRowRaw: unknown = null
   {
     const result = await query
     if (result.error) {
       if (shouldRetryWithLegacySelect(result.error, 'upcoming_timirit', 'main_points')) {
         let legacyQuery = supabase
           .from('upcoming_timirit')
-          .select('id,scheduled_date,topic_preview,topic_preview_en,topic_preview_am,note,note_en,note_am,class_summary,class_summary_en,class_summary_am,youtube_url,audio_url,audio_title,key_verse,organizer_note,status,is_active')
+          .select(UPCOMING_TIMIRIT_LEGACY_SELECT)
           .order('scheduled_date', { ascending: true })
           .limit(1)
         legacyQuery = id ? legacyQuery.eq('id', id) : legacyQuery.eq('is_active', true)
         const legacy = await legacyQuery
-        if (legacy.error) throw legacy.error
-        data = legacy.data as Array<Record<string, unknown>> | null
+        if (legacy.error) {
+          logSupabasePostgrestError('getUpcomingTimirtForAdmin legacy select', legacy.error, { id }, 'upcoming_timirit', 'select')
+          throw legacy.error
+        }
+        firstRowRaw = legacy.data?.[0] ?? null
       } else {
+        logSupabasePostgrestError('getUpcomingTimirtForAdmin select', result.error, { id }, 'upcoming_timirit', 'select')
         throw result.error
       }
     } else {
-      data = result.data as Array<Record<string, unknown>> | null
+      firstRowRaw = result.data?.[0] ?? null
     }
   }
-  const row = data?.[0] as Database['public']['Tables']['upcoming_timirit']['Row'] | undefined
+  const row = narrowUpcomingTimiritLegacyRow(firstRowRaw)
   if (!row) return null
   const { data: mez } = await supabase.from('upcoming_mezmurs').select('*').eq('upcoming_timirit_id', row.id).order('order_index', { ascending: true })
+  const m0 = mez?.[0] as UpcomingMezmurRow | undefined
+  const m1 = mez?.[1] as UpcomingMezmurRow | undefined
+  const classSummaryFields = readUpcomingClassSummaryFields(row)
+  const yt = readUpcomingYoutubeUrl(row)
+  const au = readUpcomingAudioUrl(row)
+  const at = readUpcomingAudioTitle(row)
   return {
     id: row.id, scheduledDate: row.scheduled_date,
     topicPreview: pickLocalized(row.topic_preview_en, row.topic_preview_am, row.topic_preview) ?? '',
@@ -849,37 +927,49 @@ export async function getUpcomingTimirtForAdmin(id?: string): Promise<UpcomingTi
     note: pickLocalized(row.note_en, row.note_am, row.note) ?? '',
     noteEn: trim(row.note_en) ?? trim(row.note),
     noteAm: trim(row.note_am),
-    classSummary: pickLocalized(row.class_summary_en, row.class_summary_am, row.class_summary),
-    classSummaryEn: trim(row.class_summary_en) ?? trim(row.class_summary),
-    classSummaryAm: trim(row.class_summary_am),
-    mainPoints: parseMainPoints(row.main_points),
-    youtubeUrl: trim(row.youtube_url), audioUrl: trim(row.audio_url), audioTitle: trim(row.audio_title),
+    classSummary: classSummaryFields.classSummary,
+    classSummaryEn: classSummaryFields.classSummaryEn,
+    classSummaryAm: classSummaryFields.classSummaryAm,
+    mainPoints: parseMainPoints(upcomingRawMainPoints(firstRowRaw)),
+    youtubeUrl: yt, audioUrl: au, audioTitle: at,
     keyVerse: trim(row.key_verse),
     organizerNote: trim(row.organizer_note),
-    isActive: row.is_active ?? true, status: row.status === 'published' ? 'published' : 'draft',
+    isActive: row.is_active ?? true, status: readUpcomingPublicationStatus(row),
     mezmurs: [
       {
-        title: pickLocalized(mez?.[0]?.title_en, mez?.[0]?.title_am, mez?.[0]?.title) ?? '',
-        titleEn: trim(mez?.[0]?.title_en) ?? trim(mez?.[0]?.title),
-        titleAm: trim(mez?.[0]?.title_am),
-        transliteration: trim(mez?.[0]?.transliteration),
-        lyrics: trim(mez?.[0]?.lyrics),
-        youtubeUrl: trim(mez?.[0]?.youtube_url),
-        audioUrl: trim(mez?.[0]?.audio_url),
-        advancedPracticeUrl: trim(mez?.[0]?.advanced_practice_url),
+        title: pickLocalized(m0?.title_en, m0?.title_am, m0?.title) ?? '',
+        titleEn: trim(m0?.title_en) ?? trim(m0?.title),
+        titleAm: trim(m0?.title_am),
+        transliteration: trim(m0?.transliteration),
+        lyrics: trim(m0?.lyrics),
+        youtubeUrl: trim(m0?.youtube_url),
+        audioUrl: trim(m0?.audio_url),
+        advancedPracticeUrl: trim(m0?.advanced_practice_url),
       },
       {
-        title: pickLocalized(mez?.[1]?.title_en, mez?.[1]?.title_am, mez?.[1]?.title) ?? '',
-        titleEn: trim(mez?.[1]?.title_en) ?? trim(mez?.[1]?.title),
-        titleAm: trim(mez?.[1]?.title_am),
-        transliteration: trim(mez?.[1]?.transliteration),
-        lyrics: trim(mez?.[1]?.lyrics),
-        youtubeUrl: trim(mez?.[1]?.youtube_url),
-        audioUrl: trim(mez?.[1]?.audio_url),
-        advancedPracticeUrl: trim(mez?.[1]?.advanced_practice_url),
+        title: pickLocalized(m1?.title_en, m1?.title_am, m1?.title) ?? '',
+        titleEn: trim(m1?.title_en) ?? trim(m1?.title),
+        titleAm: trim(m1?.title_am),
+        transliteration: trim(m1?.transliteration),
+        lyrics: trim(m1?.lyrics),
+        youtubeUrl: trim(m1?.youtube_url),
+        audioUrl: trim(m1?.audio_url),
+        advancedPracticeUrl: trim(m1?.advanced_practice_url),
       },
     ],
   }
+}
+
+async function insertUpcomingMezmurRowsSafe(rows: Database['public']['Tables']['upcoming_mezmurs']['Insert'][]): Promise<void> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  let payload: Database['public']['Tables']['upcoming_mezmurs']['Insert'][] = rows
+  let { error } = await supabase.from('upcoming_mezmurs').insert(payload)
+  if (error && parseSupabaseInvalidColumn(error.message) === 'advanced_practice_url') {
+    logSupabasePostgrestError('insert upcoming_mezmurs (retry without advanced_practice_url)', error, rows, 'upcoming_mezmurs', 'insert')
+    payload = rows.map(({ advanced_practice_url: _omit, ...rest }) => rest)
+    ;({ error } = await supabase.from('upcoming_mezmurs').insert(payload))
+  }
+  throwSupabaseWriteError('insert', 'upcoming_mezmurs', error, payload)
 }
 
 export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput): Promise<string> {
@@ -892,14 +982,17 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     note: pickLocalized(data.noteEn, data.noteAm, data.note) ?? null,
     note_en: trim(data.noteEn) ?? null,
     note_am: trim(data.noteAm) ?? null,
-    class_summary: pickLocalized(data.classSummaryEn, data.classSummaryAm, data.classSummary) ?? null,
-    class_summary_en: trim(data.classSummaryEn) ?? null,
-    class_summary_am: trim(data.classSummaryAm) ?? null,
+    class_summary_content: pickLocalized(data.classSummaryEn, data.classSummaryAm, data.classSummary) ?? null,
+    class_summary_content_en: trim(data.classSummaryEn) ?? null,
+    class_summary_content_am: trim(data.classSummaryAm) ?? null,
     main_points: toMainPointsJson(data.mainPoints),
-    youtube_url: trim(data.youtubeUrl) ?? null, audio_url: trim(data.audioUrl) ?? null, audio_title: trim(data.audioTitle) ?? null,
+    lesson_youtube_url: trim(data.youtubeUrl) ?? null,
+    lesson_audio_url: trim(data.audioUrl) ?? null,
+    lesson_audio_title: trim(data.audioTitle) ?? null,
     key_verse: trim(data.keyVerse) ?? null,
     organizer_note: trim(data.organizerNote) ?? null,
-    is_active: data.isActive, status: data.status,
+    is_active: data.isActive,
+    publication_status: data.status === 'published' ? 'published' : 'draft',
   }
   let saved: { id: string } | null = null
   {
@@ -932,9 +1025,8 @@ export async function saveUpcomingTimirtEditor(data: UpcomingTimirtEditorInput):
     audio_url: trim(m.audioUrl) ?? null,
     advanced_practice_url: trim(m.advancedPracticeUrl) ?? null,
   }))
-  const { error: insertUpcomingMezmursError } = await supabase.from('upcoming_mezmurs').insert(upcomingMezmurRows)
-  throwSupabaseWriteError('insert', 'upcoming_mezmurs', insertUpcomingMezmursError, upcomingMezmurRows)
-  if (row.status === 'published' && row.is_active) {
+  await insertUpcomingMezmurRowsSafe(upcomingMezmurRows)
+  if (row.publication_status === 'published' && row.is_active) {
     const { error: deactivateOthersError } = await supabase.from('upcoming_timirit').update({ is_active: false }).neq('id', saved.id).eq('is_active', true)
     throwSupabaseWriteError('update deactivate others', 'upcoming_timirit', deactivateOthersError, { id: saved.id })
   }
@@ -947,13 +1039,13 @@ export async function setUpcomingTimiritActive(id: string, isActive: boolean): P
     const { error: deactivateOthersError } = await supabase.from('upcoming_timirit').update({ is_active: false }).neq('id', id).eq('is_active', true)
     throwSupabaseWriteError('update deactivate others', 'upcoming_timirit', deactivateOthersError, { id, isActive })
   }
-  const payload = { is_active: isActive, status: isActive ? 'published' : 'draft' }
+  const payload = { is_active: isActive, publication_status: isActive ? 'published' : 'draft' }
   const { error } = await supabase.from('upcoming_timirit').update(payload).eq('id', id)
   throwSupabaseWriteError('update status/active', 'upcoming_timirit', error, { id, ...payload })
 }
 export async function deactivateUpcomingTimirt(id?: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured.')
-  let q = supabase.from('upcoming_timirit').update({ is_active: false, status: 'draft' }).eq('is_active', true)
+  let q = supabase.from('upcoming_timirit').update({ is_active: false, publication_status: 'draft' }).eq('is_active', true)
   if (id) q = q.eq('id', id)
   const { error } = await q
   throwSupabaseWriteError('deactivate', 'upcoming_timirit', error, { id })

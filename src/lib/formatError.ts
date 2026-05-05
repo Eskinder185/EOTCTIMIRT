@@ -8,9 +8,15 @@ export function parseSupabaseInvalidColumn(message: string | undefined | null): 
 }
 
 /** Log PostgREST / Supabase REST errors with stable fields for browser console debugging. */
-export function logSupabasePostgrestError(context: string, error: unknown, payload?: unknown): void {
+export function logSupabasePostgrestError(
+  context: string,
+  error: unknown,
+  payload?: unknown,
+  table?: string,
+  operation?: string,
+): void {
   if (typeof error !== 'object' || error === null) {
-    console.error(`[${context}]`, { error, payload: payload ?? undefined })
+    console.error(`[${context}]`, { table, operation, error, payload: payload ?? undefined })
     return
   }
   const o = error as Record<string, unknown>
@@ -20,6 +26,8 @@ export function logSupabasePostgrestError(context: string, error: unknown, paylo
   const code = typeof o.code === 'string' ? o.code : undefined
   const invalidColumn = parseSupabaseInvalidColumn(message)
   console.error(`[${context}] Supabase error`, {
+    table,
+    operation,
     message,
     details,
     hint,
